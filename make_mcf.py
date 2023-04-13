@@ -7,6 +7,7 @@ from pygeometa.schemas.iso19139 import ISO19139OutputSchema
 from pygeometa.schemas.iso19139_2 import ISO19139_2OutputSchema
 import pygeoprocessing
 from osgeo import gdal
+from osgeo import osr
 
 # sample_mcf = 'sample.yml'
 data_path = 'data/watershed_gura.shp'
@@ -98,15 +99,16 @@ template = {
 }
 
 mcf = template
-# mcf = pygeometa.core.read_mcf(template)
-# mcf = pygeometa.core.read_mcf(sample_mcf)
-
+with open('template_required_properties.yml', 'w') as output:
+    output.write(yaml.dump(mcf, indent=4))
 
 ## Populate required values
 mcf['metadata']['hierarchylevel'] = 'dataset'
 mcf['spatial']['datatype'] = 'vector'
 mcf['spatial']['geomtype'] = 'surface'
 mcf['content_info']['type'] = 'coverage'
+with open('template_required_values.yml', 'w') as output:
+    output.write(yaml.dump(mcf, indent=4))
 
 
 ## Non-required values:
@@ -114,12 +116,15 @@ poc = poc_template
 poc['organization'] = 'Natural Capital Project'
 mcf['contact']['pointOfContact'] = poc
 
-# vector_info = pygeoprocessing.get_vector_info(data_path)
-# spatial_info = {
-#     'bbox': vector_info['bounding_box'],
-#     'crs': vector_info['projection_wkt']
-# }
-# mcf['identification']['extents']['spatial'][0] = spatial_info
+vector_info = pygeoprocessing.get_vector_info(data_path)
+srs = osr.SpatialReference()
+srs.ImportFromWkt(vector_info['projection_wkt'])
+epsg = srs.GetAttrValue('AUTHORITY', 1)
+spatial_info = {
+    'bbox': vector_info['bounding_box'],
+    'crs': epsg  # MCF does not support WKT here
+}
+mcf['identification']['extents']['spatial'][0] = spatial_info
 
 # attributes = [
 #     {}
@@ -131,7 +136,7 @@ if pygeometa.core.validate_mcf(mcf):
     iso_os = ISO19139_2OutputSchema()
     xml_str = iso_os.write(mcf)
 
-    with open(mcf_path, 'w') as output:
+    with open('sample_autopopulated.yml', 'w') as output:
         output.write(yaml.dump(mcf, indent=4))
 
     with open(xml_path, 'w') as output:
