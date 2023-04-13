@@ -9,6 +9,9 @@ import pygeoprocessing
 from osgeo import gdal
 from osgeo import osr
 
+# https://stackoverflow.com/questions/13518819/avoid-references-in-pyyaml
+yaml.Dumper.ignore_aliases = lambda *args: True
+
 # sample_mcf = 'sample.yml'
 data_path = 'data/watershed_gura.shp'
 mcf_path = f'{os.path.splitext(data_path)[0]}.yml'
@@ -94,8 +97,8 @@ template = {
     },
     'acquisition': {
         'platforms': []
-    },
-    'attributes': [attr_template]
+    }#,
+    # 'attributes': [attr_template]
 }
 
 mcf = template
@@ -126,10 +129,31 @@ spatial_info = {
 }
 mcf['identification']['extents']['spatial'][0] = spatial_info
 
-# attributes = [
-#     {}
-# ]
-# mcf['content_info']['attributes'] = attributes
+# attribute = {
+#     'name': '',
+#     'type': '',
+#     'units': '',
+#     'title': '',
+#     'abstract': ''
+# }
+vector = gdal.OpenEx(data_path, gdal.OF_VECTOR)
+layer = vector.GetLayer()
+layer_defn = layer.GetLayerDefn()
+# print(dir(layer.schema))
+# field_names = [field.name for field in layer.schema]
+attributes = []
+for field in layer.schema:
+    attribute = attr_template.copy()
+    attribute['name'] = field.name
+    attribute['type'] = field.GetTypeName().lower()
+    attribute['units'] = ''
+    attribute['title'] = ''
+    attribute['abstract'] = ''
+    attributes.append(attribute)
+    print(attributes)
+mcf['content_info']['attributes'] = attributes
+vector = None
+layer = None
 
 if pygeometa.core.validate_mcf(mcf):
     # iso_os = ISO19139OutputSchema()
