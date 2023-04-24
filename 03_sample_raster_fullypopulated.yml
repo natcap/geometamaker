@@ -1,0 +1,84 @@
+acquisition:
+    platforms: []
+contact:
+    pointOfContact:
+        address: ''
+        administrativearea: ''
+        city: ''
+        country: ''
+        email: ''
+        fax: ''
+        individualname: Nat C. Proj
+        organization: Natural Capital Project
+        phone: ''
+        positionname: ''
+        postalcode: ''
+        url: ''
+content_info:
+    attributes:
+    -   abstract: ''
+        name: band1
+        title: ''
+        type: integer
+        units: ''
+    dimensions: []
+    type: image
+dataquality:
+    lineage:
+        statement: ''
+    scope: {}
+distribution: {}
+identification:
+    abstract: Dataset Description
+    accessconstraints: otherRestrictions
+    charset: utf8
+    dates: {}
+    extents:
+        spatial:
+        -   bbox:
+            - 248950.6562500205
+            - 9932851.999999935
+            - 278035.6562500205
+            - 9941896.999999935
+            crs: '32737'
+    fees: None
+    keywords:
+        NASA:
+            keywords:
+                en:
+                - elevation
+            keywords_type: theme
+            vocabulary:
+                name: NASA Thesaurus
+                url: https://www.sti.nasa.gov/nasa-thesaurus/
+        default:
+            keywords:
+                en:
+                - natcrap
+            keywords_type: theme
+            vocabulary:
+                name: Ecosystem Services
+                url: www.natcap.com/vocab
+    language: en
+    license:
+        name: CC BY 4.0
+    maintenancefrequency: asNeeded
+    rights: ''
+    status: completed
+    title: Dataset Title
+    topiccategory:
+    - elevation
+    - environment
+    url: ''
+mcf:
+    version: 1
+metadata:
+    charset: ''
+    dataseturi: C:\Users\dmf\projects\pygeometadata\data\DEM_gura.tif
+    datestamp: '2023-04-24T12:14:02.508627'
+    hierarchylevel: dataset
+    identifier: ''
+    language: ''
+spatial:
+    datatype: grid
+    geomtype: surface

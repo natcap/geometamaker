@@ -13,10 +13,9 @@ from osgeo import osr
 # https://stackoverflow.com/questions/13518819/avoid-references-in-pyyaml
 yaml.Dumper.ignore_aliases = lambda *args: True
 
-# sample_mcf = 'sample.yml'
-# data_path = 'data/watershed_gura.shp'
+data_path = 'data/watershed_gura.shp'
 data_path = 'data/DEM_gura.tif'
-# mcf_path = f'{os.path.splitext(data_path)[0]}.yml'
+datatype = 'vector'
 xml_path = f'{data_path}.xml'
 
 attr_template = {
@@ -190,7 +189,7 @@ def get_spatial_info(data_path, template):
 mcf = get_spatial_info(data_path, template)
 mcf['metadata']['dataseturi'] = os.path.abspath(data_path)
 mcf['metadata']['datestamp'] = datetime.now().isoformat()
-with open('02_sample_autopopulated.yml', 'w') as output:
+with open(f'02_sample_{datatype}_autopopulated.yml', 'w') as output:
     output.write(yaml.dump(mcf, indent=4))
 
 
@@ -242,7 +241,7 @@ if pygeometa.core.validate_mcf(mcf):
     iso_os = ISO19139_2OutputSchema()
     xml_str = iso_os.write(mcf)
 
-    with open('03_sample_fullypopulated.yml', 'w') as output:
+    with open(f'03_sample_{datatype}_fullypopulated.yml', 'w') as output:
         output.write(yaml.dump(mcf, indent=4))
 
     with open(xml_path, 'w') as output:

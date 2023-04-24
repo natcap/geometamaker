@@ -1,0 +1,64 @@
+acquisition:
+    platforms: []
+contact:
+    pointOfContact:
+        address: ''
+        administrativearea: ''
+        city: ''
+        country: ''
+        email: ''
+        fax: ''
+        individualname: ''
+        organization: ''
+        phone: ''
+        positionname: ''
+        postalcode: ''
+        url: ''
+content_info:
+    attributes:
+    -   abstract: ''
+        name: band1
+        title: ''
+        type: integer
+        units: ''
+    dimensions: []
+    type: image
+dataquality:
+    lineage:
+        statement: ''
+    scope: {}
+distribution: {}
+identification:
+    abstract: ''
+    accessconstraints: ''
+    charset: ''
+    dates: {}
+    extents:
+        spatial:
+        -   bbox:
+            - 248950.6562500205
+            - 9932851.999999935
+            - 278035.6562500205
+            - 9941896.999999935
+            crs: '32737'
+    fees: ''
+    keywords: {}
+    language: ''
+    maintenancefrequency: ''
+    rights: ''
+    status: ''
+    title: ''
+    topiccategory: []
+    url: ''
+mcf:
+    version: 1
+metadata:
+    charset: ''
+    dataseturi: C:\Users\dmf\projects\pygeometadata\data\DEM_gura.tif
+    datestamp: '2023-04-24T12:14:20.689308'
+    hierarchylevel: dataset
+    identifier: ''
+    language: ''
+spatial:
+    datatype: grid
+    geomtype: surface
