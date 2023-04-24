@@ -1,4 +1,4 @@
-[Sample Metadata Control Files](https://geopython.github.io/pygeometa/reference/mcf/) and a sample Python script to create them.
+Sample [Metadata Control Files](https://geopython.github.io/pygeometa/reference/mcf/) and a sample Python script to create them.
 
 01_template_required_properties.yml
 -----------------------------------
