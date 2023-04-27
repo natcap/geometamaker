@@ -17,12 +17,22 @@ contact:
 content_info:
     attributes:
     -   abstract: ''
-        name: band1
+        name: ws_id
         title: ''
         type: integer
         units: ''
+    -   abstract: ''
+        name: subws_id
+        title: ''
+        type: integer
+        units: ''
+    -   abstract: ''
+        name: ws_name
+        title: ''
+        type: string
+        units: ''
     dimensions: []
-    type: image
+    type: coverage
 dataquality:
     lineage:
         statement: ''
@@ -38,8 +48,8 @@ identification:
         -   bbox:
             - 248950.6562500205
             - 9932851.999999935
-            - 278035.6562500205
-            - 9941896.999999935
+            - 278035.65624975675
+            - 9941897.00000015
             crs: '32737'
     fees: ''
     keywords: {}
@@ -54,11 +64,11 @@ mcf:
     version: 1
 metadata:
     charset: ''
-    dataseturi: C:\Users\dmf\projects\pygeometadata\data\DEM_gura.tif
-    datestamp: '2023-04-24T12:14:20.689308'
+    dataseturi: C:\Users\dmf\projects\pygeometadata\data\watershed_gura.shp
+    datestamp: '2023-04-27T11:55:43.036996'
     hierarchylevel: dataset
     identifier: ''
     language: ''
 spatial:
-    datatype: grid
+    datatype: vector
     geomtype: surface

@@ -14,7 +14,7 @@ from osgeo import osr
 yaml.Dumper.ignore_aliases = lambda *args: True
 
 data_path = 'data/watershed_gura.shp'
-data_path = 'data/DEM_gura.tif'
+# data_path = 'data/DEM_gura.tif'
 datatype = 'vector'
 xml_path = f'{data_path}.xml'
 
