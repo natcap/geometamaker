@@ -10,8 +10,6 @@ from osgeo import gdal
 from osgeo import ogr
 from osgeo import osr
 
-# from . import sections
-
 # https://stackoverflow.com/questions/13518819/avoid-references-in-pyyaml
 yaml.Dumper.ignore_aliases = lambda *args: True
 
@@ -20,10 +18,13 @@ MCF_SCHEMA_FILE = os.path.join(
 with open(MCF_SCHEMA_FILE, 'r') as schema_file:
     MCF_SCHEMA = pygeometa.core.yaml_load(schema_file)
 
-REQUIRED_PROPERTIES = MCF_SCHEMA['required']
-REQUIRED_PROPERTIES.extend([
-    'content_info'
-])
+# modify the core MCF schema
+MCF_SCHEMA['required'].append('content_info')
+MCF_SCHEMA['properties']['content_info']['required'].append('attributes')
+MCF_SCHEMA['properties']['identification']['properties'][
+    'keywords']['patternProperties']['^.*'][
+    'required'] = ['keywords']
+
 DEFAULT_VALUES = {
     'string': '',
     'int': 0,
@@ -38,10 +39,7 @@ DEFAULT_VALUES = {
 }
 
 
-def get_default(item, key):
-    if item['type'] == 'array':
-        return
-            DEFAULT_VALUES[item['items']['properties'][key]['type']]
+def get_default(item):
     try:
         return DEFAULT_VALUES[item['type']]
     except KeyError:
@@ -51,46 +49,41 @@ def get_default(item, key):
         return None
 
 
-def get_template(schema, required_properties_list=None):
+def get_template(schema):
     """
     schema: a jsonschema dict with a 'properties' key
     """
-    print(required_properties_list)
-    mcf = {}
-    for key, value in schema['properties'].items():
-        print(key)
-        if required_properties_list:
-            if key not in required_properties_list:
-                # print(key)
-                continue
-        if 'patternProperties' in value:
-            value = value['patternProperties']['^.*']
-        print(key)
-        mcf[key] = {
-            k: get_default(value['properties'][k])
-            for k in list(value['properties'])
-            if k in value['required']
-        }
-    return mcf
+    template = {}
+    for prop, sch in schema['properties'].items():
+        print(prop)
+        if prop not in schema['required']:
+            continue
+        if 'patternProperties' in sch:
+            sch = sch['patternProperties']['^.*']
 
-
-ATTR_TEMPLATE = get_template(
-    MCF_SCHEMA['properties']['content_info'],
-    required_properties_list=['attributes'])
+        if 'type' in sch and sch['type'] == 'object':
+            if 'anyOf' in sch['properties']:
+                template[prop] = {
+                    p: get_default(s)
+                    for p, s in sch['properties']['anyOf'].items()
+                }
+            else:
+                template[prop] = get_template(sch)
+        else:
+            template[prop] = get_default(sch)
+    return template
 
 
 class MCF:
 
     def __init__(self, source_dataset_path, profile_list=None):
         self.datasource = source_dataset_path
-        self.mcf = get_template(
-            MCF_SCHEMA,
-            required_properties_list=REQUIRED_PROPERTIES)
+        self.mcf = get_template(MCF_SCHEMA)
 
         # self.attributes = {}  # arbitrary extras
 
         # fill all values that can be derived from the dataset
-        self.get_spatial_info()
+        # self.get_spatial_info()
 
     def keywords(self, keywords, schema='default', language='en',
                  type='theme', vocabulary=None, profile=None):
@@ -173,6 +166,7 @@ class MCF:
                 b = i + 1
                 band = raster.GetRasterBand(b)
                 attribute = ATTR_TEMPLATE.copy()
+                # attribute = self.mcf['content_info']['attributes']
                 attribute['name'] = f'band{b}'
                 attribute['type'] = 'integer' if band.DataType < 6 else 'number'
                 attribute['units'] = ''
