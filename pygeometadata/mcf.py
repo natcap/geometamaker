@@ -59,7 +59,14 @@ def get_template(schema):
         if prop not in schema['required']:
             continue
         if 'patternProperties' in sch:
-            sch = sch['patternProperties']['^.*']
+            example_sch = {
+                'type': 'object',
+                'required': ['default'],
+                'properties': {
+                    'default': sch['patternProperties']['^.*']
+                }
+            }
+            sch = example_sch
 
         if 'type' in sch and sch['type'] == 'object':
             if 'anyOf' in sch['properties']:
