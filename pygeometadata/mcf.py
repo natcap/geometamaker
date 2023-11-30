@@ -2,6 +2,7 @@ from datetime import datetime
 import os
 import yaml
 
+# import jsonschema
 import pygeometa.core
 from pygeometa.schemas.iso19139 import ISO19139OutputSchema
 from pygeometa.schemas.iso19139_2 import ISO19139_2OutputSchema
@@ -20,11 +21,20 @@ with open(MCF_SCHEMA_FILE, 'r') as schema_file:
 
 # modify the core MCF schema
 MCF_SCHEMA['required'].append('content_info')
-MCF_SCHEMA['properties']['content_info']['required'].append('attributes')
+MCF_SCHEMA['properties']['content_info']['required'].append(
+    'attributes')
 MCF_SCHEMA['properties']['identification']['properties'][
     'keywords']['patternProperties']['^.*'][
     'required'] = ['keywords']
+# It's not clear to me why 'spatial' is type 'array' instead of
+# 'object', since it contains 'properties'.
+MCF_SCHEMA['properties']['identification']['properties'][
+    'extents']['properties']['spatial']['type'] = 'object'
+MCF_SCHEMA['properties']['identification']['properties'][
+    'extents']['properties']['temporal']['type'] = 'object'
 
+# TODO: read types from the #/definitions found in MCF_SCHEMA
+# instead of hardcoding values here
 DEFAULT_VALUES = {
     'string': '',
     'int': 0,
@@ -36,17 +46,28 @@ DEFAULT_VALUES = {
     'dict': {},
     'object': {},
     'boolean': 'false',
+    '#/definitions/date_or_datetime_string': '',
+    '#/definitions/i18n_string': '',
+    '#/definitions/i18n_array': [],
+    '#/definitions/any_type': '',
 }
 
 
 def get_default(item):
     try:
-        return DEFAULT_VALUES[item['type']]
+        t = item['type']
     except KeyError:
-        # When 'type' is missing, a $ref to another schema is
-        # probably present. For now, we won't bother trying
-        # to resolve that.
-        return None
+        # When 'type' is missing, a $ref to another schema is present
+        try:
+            t = item['$ref']
+        except KeyError:
+            raise KeyError(
+                f'schema has no type and no reference to a type definition\n'
+                f'{item}')
+    if t == 'object':
+        return get_template(item)
+    else:
+        return DEFAULT_VALUES[t]
 
 
 def get_template(schema):
@@ -55,10 +76,12 @@ def get_template(schema):
     """
     template = {}
     for prop, sch in schema['properties'].items():
-        print(prop)
         if prop not in schema['required']:
             continue
         if 'patternProperties' in sch:
+            # this item's properties can have any name matching the pattern.
+            # assign the name 'default' and overwite the current schema
+            # with a new one that explicitly includes the 'default' property.
             example_sch = {
                 'type': 'object',
                 'required': ['default'],
@@ -76,6 +99,9 @@ def get_template(schema):
                 }
             else:
                 template[prop] = get_template(sch)
+
+        elif 'type' in sch and sch['type'] == 'array':
+            template[prop] = [get_default(sch)]
         else:
             template[prop] = get_default(sch)
     return template
@@ -86,17 +112,23 @@ class MCF:
     def __init__(self, source_dataset_path, profile_list=None):
         self.datasource = source_dataset_path
         self.mcf = get_template(MCF_SCHEMA)
+        self.mcf['mcf']['version'] = \
+            MCF_SCHEMA['properties']['mcf']['properties']['version']['const']
 
-        # self.attributes = {}  # arbitrary extras
+        self.mcf['attributes'] = {}  # arbitrary extras
 
         # fill all values that can be derived from the dataset
-        # self.get_spatial_info()
+        self.get_spatial_info()
 
-    def keywords(self, keywords, schema='default', language='en',
-                 type='theme', vocabulary=None, profile=None):
-        keywords_dict = {}
-        # construct the dict
-        self.mcf['identification']['keywords'] = keywords_dict
+    def keywords(self, keywords, group='default', language='en',
+                 keywords_type='theme', vocabulary=None):
+        keywords_dict = {
+            'keywords': {language: keywords},
+            'keywords_type': keywords_type
+        }
+        if vocabulary:
+            keywords_dict['vocabulary']: vocabulary
+        self.mcf['identification']['keywords'][group] = keywords_dict
 
     def describe_band(self, index, name, title=None, abstract=None,
                       type=None, units=None):
@@ -115,9 +147,6 @@ class MCF:
 
     def to_string(self):
         pass
-
-    # def to_dict(self):
-    #     return self.__dict__
 
     def get_spatial_info(self):
         gis_type = pygeoprocessing.get_gis_type(self.datasource)
@@ -148,7 +177,7 @@ class MCF:
 
             attributes = []
             for field in layer.schema:
-                attribute = ATTR_TEMPLATE.copy()
+                attribute = {}
                 attribute['name'] = field.name
                 attribute['type'] = field.GetTypeName().lower()
                 attribute['units'] = ''
@@ -172,8 +201,7 @@ class MCF:
             for i in range(raster.RasterCount):
                 b = i + 1
                 band = raster.GetRasterBand(b)
-                attribute = ATTR_TEMPLATE.copy()
-                # attribute = self.mcf['content_info']['attributes']
+                attribute = {}
                 attribute['name'] = f'band{b}'
                 attribute['type'] = 'integer' if band.DataType < 6 else 'number'
                 attribute['units'] = ''
