@@ -54,6 +54,14 @@ DEFAULT_VALUES = {
 
 
 def get_default(item):
+    # If there are enumerated values which must be used
+    try:
+        fixed_values = item['enum']
+        return fixed_values[0]
+    except KeyError:
+        pass
+
+    # If no enumerated values, get a default value based on type
     try:
         t = item['type']
     except KeyError:
@@ -64,10 +72,8 @@ def get_default(item):
             raise KeyError(
                 f'schema has no type and no reference to a type definition\n'
                 f'{item}')
-    if t == 'object':
-        return get_template(item)
-    else:
-        return DEFAULT_VALUES[t]
+
+    return DEFAULT_VALUES[t]
 
 
 def get_template(schema):
@@ -75,36 +81,38 @@ def get_template(schema):
     schema: a jsonschema dict with a 'properties' key
     """
     template = {}
-    for prop, sch in schema['properties'].items():
-        if prop not in schema['required']:
-            continue
-        if 'patternProperties' in sch:
-            # this item's properties can have any name matching the pattern.
-            # assign the name 'default' and overwite the current schema
-            # with a new one that explicitly includes the 'default' property.
-            example_sch = {
-                'type': 'object',
-                'required': ['default'],
-                'properties': {
-                    'default': sch['patternProperties']['^.*']
+    if 'type' in schema and schema['type'] == 'object':
+        for prop, sch in schema['properties'].items():
+            if 'required' in schema and prop not in schema['required']:
+                continue
+            if 'patternProperties' in sch:
+                # this item's properties can have any name matching the pattern.
+                # assign the name 'default' and overwite the current schema
+                # with a new one that explicitly includes the 'default' property.
+                example_sch = {
+                    'type': 'object',
+                    'required': ['default'],
+                    'properties': {
+                        'default': sch['patternProperties']['^.*']
+                    }
                 }
-            }
-            sch = example_sch
+                sch = example_sch
 
-        if 'type' in sch and sch['type'] == 'object':
-            if 'anyOf' in sch['properties']:
+            if 'properties' in sch and 'anyOf' in sch['properties']:
+                # if 'anyOf' is a property, then we effectively want to
+                # treat the children of 'anyOf' as the properties instead.
                 template[prop] = {
-                    p: get_default(s)
+                    p: get_template(s)
                     for p, s in sch['properties']['anyOf'].items()
                 }
             else:
                 template[prop] = get_template(sch)
+        return template
 
-        elif 'type' in sch and sch['type'] == 'array':
-            template[prop] = [get_default(sch)]
-        else:
-            template[prop] = get_default(sch)
-    return template
+    elif 'type' in schema and schema['type'] == 'array':
+        return [get_template(schema['items'])]
+    else:
+        return get_default(schema)
 
 
 class MCF:
@@ -115,10 +123,13 @@ class MCF:
         self.mcf['mcf']['version'] = \
             MCF_SCHEMA['properties']['mcf']['properties']['version']['const']
 
-        self.mcf['attributes'] = {}  # arbitrary extras
-
         # fill all values that can be derived from the dataset
         self.get_spatial_info()
+
+    def add_metadata_attr(self, attribute):
+        if 'attributes' not in self.mcf:
+            self.mcf['attributes'] = []
+        self.mcf['attributes'].append(attribute)
 
     def keywords(self, keywords, group='default', language='en',
                  keywords_type='theme', vocabulary=None):

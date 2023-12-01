@@ -3,8 +3,10 @@ import shutil
 import tempfile
 import unittest
 
+from jsonschema.exceptions import SchemaError
 from osgeo import ogr
 from osgeo import osr
+from pygeometa.core import MCFValidationError
 import pygeoprocessing
 import shapely
 
@@ -34,10 +36,16 @@ class MCFTests(unittest.TestCase):
         shutil.rmtree(self.workspace_dir)
 
     def test_MCF(self):
-        """MCF."""
+        """MCF: validate basic vector MCF."""
         from pygeometadata.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
         create_vector(datasource_path)
 
         mcf = MCF(datasource_path)
+        try:
+            mcf.validate()
+        except (MCFValidationError, SchemaError) as e:
+            self.fail(
+                'unexpected validation error occurred\n'
+                f'{e}')
