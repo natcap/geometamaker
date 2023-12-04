@@ -53,6 +53,14 @@ DEFAULT_VALUES = {
 }
 
 
+OGR_MCF_ATTR_TYPE_MAP = {
+    ogr.OFTInteger: 'integer',
+    ogr.OFTInteger64: 'integer',
+    ogr.OFTReal: 'number',
+    ogr.OFTString: 'string'
+}
+
+
 def get_default(item):
     # If there are enumerated values which must be used
     try:
@@ -190,7 +198,7 @@ class MCF:
             for field in layer.schema:
                 attribute = {}
                 attribute['name'] = field.name
-                attribute['type'] = field.GetTypeName().lower()
+                attribute['type'] = OGR_MCF_ATTR_TYPE_MAP[field.type]
                 attribute['units'] = ''
                 attribute['title'] = ''
                 attribute['abstract'] = ''
