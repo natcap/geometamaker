@@ -1,0 +1,4 @@
+GDAL
+numpy
+pygeometa
+pygeoprocessing
