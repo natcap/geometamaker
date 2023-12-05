@@ -125,3 +125,41 @@ class MCFTests(unittest.TestCase):
             self.fail(
                 'unexpected validation error occurred\n'
                 f'{e}')
+
+    def test_keywords_append_to_default(self):
+        """MCF: keywords append to default section."""
+
+        from pygeometadata.mcf import MCF
+
+        mcf = MCF()
+        mcf.keywords(['foo', 'bar'])
+        mcf.keywords(['baz'])
+
+        self.assertEqual(
+            mcf.mcf['identification']['keywords']['default']['keywords'],
+            ['foo', 'bar', 'baz'])
+
+    def test_keywords_append_to_section(self):
+        """MCF: keywords append to named section."""
+
+        from pygeometadata.mcf import MCF
+
+        mcf = MCF()
+        mcf.keywords(['foo', 'bar'], section='first')
+        mcf.keywords(['baz'], section='second')
+
+        self.assertEqual(
+            mcf.mcf['identification']['keywords']['first']['keywords'],
+            ['foo', 'bar'])
+        self.assertEqual(
+            mcf.mcf['identification']['keywords']['second']['keywords'],
+            ['baz'])
+
+    def test_keywords_raises_type_error(self):
+        """MCF: keywords raises TypeError."""
+
+        from pygeometadata.mcf import MCF
+
+        mcf = MCF()
+        with self.assertRaises(TypeError):
+            mcf.keywords('foo', 'bar')
