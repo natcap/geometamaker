@@ -148,6 +148,14 @@ def get_template(schema):
         return get_default(schema)
 
 
+def get_vector_attr(attribute_list, name):
+    for idx, attr in enumerate(attribute_list):
+        if attr['name'] == name:
+            return idx, attr
+    raise ValueError(
+        f'There is no attribute named {name}')
+
+
 class MCF:
     """Encapsulates the Metadata Control File and methods for populating it.
 
@@ -200,7 +208,7 @@ class MCF:
 
     def keywords(self, keywords, section='default', keywords_type='theme',
                  vocabulary=None):
-        """Add keywords to the metadata.
+        """Describe a dataset with a list of keywords.
 
         Keywords are grouped into sections for the purpose of complying with
         pre-exising keyword schema.
@@ -238,13 +246,42 @@ class MCF:
             named_section['vocabulary'] = vocabulary
         kw_section[section] = named_section
 
-    def describe_band(self, index, name, title=None, abstract=None,
+    def describe_band(self, band_number, name=None, title=None, abstract=None,
                       type=None, units=None):
         """Define metadata for a raster band."""
 
+        idx = band_number - 1
+        attribute = self.mcf['content_info']['attributes'][idx]
+        if name is not None:
+            attribute['name'] = name
+        if title is not None:
+            attribute['title'] = title
+        if abstract is not None:
+            attribute['abstract'] = abstract
+        if units is not None:
+            attribute['units'] = units
+
+        self.mcf['content_info']['attributes'].insert(idx, attribute)
+
     def describe_field(self, name, title=None, abstract=None,
-                       type=None, units=None):
+                       units=None):
         """Define metadata for a tabular field."""
+
+        try:
+            idx, attribute = get_vector_attr(
+                self.mcf['content_info']['attributes'], name)
+        except ValueError:
+            raise ValueError(
+                f'{self.datasource} has no attribute named {name}')
+
+        if title is not None:
+            attribute['title'] = title
+        if abstract is not None:
+            attribute['abstract'] = abstract
+        if units is not None:
+            attribute['units'] = units
+
+        self.mcf['content_info']['attributes'].insert(idx, attribute)
 
     def write(self):
         with open(f'{self.datasource}.yml', 'w') as file:
@@ -310,7 +347,7 @@ class MCF:
                 b = i + 1
                 band = raster.GetRasterBand(b)
                 attribute = {}
-                attribute['name'] = f'band{b}'
+                attribute['name'] = ''
                 attribute['type'] = 'integer' if band.DataType < 6 else 'number'
                 attribute['units'] = ''
                 attribute['title'] = ''

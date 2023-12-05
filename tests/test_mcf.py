@@ -28,14 +28,14 @@ _OGR_TYPES_VALUES_MAP = {
 }
 
 
-def create_vector(target_filepath):
-    fields = {
-        f'field_{k}': k
-        for k in _OGR_TYPES_VALUES_MAP
-    }
+def create_vector(target_filepath, field_map):
+    # fields = {
+    #     f'field_{k}': k
+    #     for k in field_map
+    # }
     attribute_list = [{
-        f'field_{k}': v
-        for k, v in _OGR_TYPES_VALUES_MAP.items()
+        k: _OGR_TYPES_VALUES_MAP[v]
+        for k, v in field_map.items()
     }]
     projection = osr.SpatialReference()
     projection.ImportFromEPSG(3116)
@@ -44,7 +44,7 @@ def create_vector(target_filepath):
         target_filepath,
         projection.ExportToWkt(),
         'GEOJSON',
-        fields=fields,
+        fields=field_map,
         attribute_list=attribute_list,
         ogr_geom_type=ogr.wkbPoint)
 
@@ -101,7 +101,10 @@ class MCFTests(unittest.TestCase):
         from pygeometadata.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
-        create_vector(datasource_path)
+        field_map = {
+            f'field_{k}': k
+            for k in _OGR_TYPES_VALUES_MAP}
+        create_vector(datasource_path, field_map)
 
         mcf = MCF(datasource_path)
         try:
@@ -125,6 +128,39 @@ class MCFTests(unittest.TestCase):
             self.fail(
                 'unexpected validation error occurred\n'
                 f'{e}')
+
+    def test_vector_attributes(self):
+        """MCF: validate vector with extra attribute metadata."""
+        from pygeometadata.mcf import MCF
+        from pygeometadata.mcf import get_vector_attr
+
+        datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
+        field_name = 'foo'
+        field_map = {
+            field_name: list(_OGR_TYPES_VALUES_MAP)[0]}
+        create_vector(datasource_path, field_map)
+
+        mcf = MCF(datasource_path)
+        title = 'title'
+        abstract = 'some abstract'
+        units = 'mm'
+        mcf.describe_field(
+            field_name,
+            title=title,
+            abstract=abstract,
+            units=units)
+        try:
+            mcf.validate()
+        except (MCFValidationError, SchemaError) as e:
+            self.fail(
+                'unexpected validation error occurred\n'
+                f'{e}')
+
+        idx, attr = get_vector_attr(
+            mcf.mcf['content_info']['attributes'], field_name)
+        self.assertEqual(attr['title'], title)
+        self.assertEqual(attr['abstract'], abstract)
+        self.assertEqual(attr['units'], units)
 
     def test_keywords_append_to_default(self):
         """MCF: keywords append to default section."""
