@@ -6,5 +6,5 @@ GDAL
 jsonschema
 numpy
 pygeometa
-pygeoprocessing
+pygeoprocessing>=2.4.2
 shapely
