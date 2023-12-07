@@ -1,0 +1,56 @@
+name: Test pygeometadata
+on:
+    push:
+        branches:
+            - "**"
+    pull_request:
+        branches:
+            - "**"
+jobs:
+  Test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: [3.8, 3.9, 3.10, 3.11]
+        os: [ubuntu-16.04, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # Fetch all history so that setuptool_scm can build the correct
+          # version string.
+          fetch-depth: 0
+
+      - name: setup-micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          # Grab requirements from pip-compatible requirements.txt
+          environment-file: requirements.txt
+          condarc: |
+              channels:
+                - conda-forge
+          create-args: >-
+              python=${{ matrix.python-version }}
+              setuptools
+              python-build
+              flake8
+              pytest
+          environment-name: pyenv
+
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127
+          # chars wide
+          flake8 . --count --exit-zero --max-complexity=10 \
+            --max-line-length=127 --statistics
+
+      - name: Build and Install
+        run: |
+            python -m build --wheel
+            python -m pip install $(find dist -name "*.whl")
+
+      - name: Test with pytest
+        run: python -m pytest tests
