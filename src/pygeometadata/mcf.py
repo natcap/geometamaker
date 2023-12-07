@@ -1,8 +1,9 @@
-from collections import defaultdict
-from datetime import datetime
+import logging
 import os
 import yaml
 
+import jsonschema
+from jsonschema.exceptions import ValidationError
 import pygeometa.core
 from pygeometa.schemas.iso19139 import ISO19139OutputSchema
 from pygeometa.schemas.iso19139_2 import ISO19139_2OutputSchema
@@ -15,44 +16,29 @@ from osgeo import osr
 # https://stackoverflow.com/questions/13518819/avoid-references-in-pyyaml
 yaml.Dumper.ignore_aliases = lambda *args: True
 
+LOGGER = logging.getLogger(__name__)
+
 MCF_SCHEMA_FILE = os.path.join(
     pygeometa.core.SCHEMAS, 'mcf', 'core.yaml')
 with open(MCF_SCHEMA_FILE, 'r') as schema_file:
     MCF_SCHEMA = pygeometa.core.yaml_load(schema_file)
 
-# modify the core MCF schema
+# modify the core MCF schema so that our default
+# template MCFs have all the properties we expect
+# users to use.
 MCF_SCHEMA['required'].append('content_info')
 MCF_SCHEMA['properties']['content_info']['required'].append(
     'attributes')
 MCF_SCHEMA['properties']['identification']['properties'][
     'keywords']['patternProperties']['^.*'][
     'required'] = ['keywords', 'keywords_type']
+
 # It's not clear to me why 'spatial' is type 'array' instead of
 # 'object', since it contains 'properties'.
 MCF_SCHEMA['properties']['identification']['properties'][
     'extents']['properties']['spatial']['type'] = 'object'
 MCF_SCHEMA['properties']['identification']['properties'][
     'extents']['properties']['temporal']['type'] = 'object'
-
-# TODO: read types from the #/definitions found in MCF_SCHEMA
-# instead of hardcoding values here
-DEFAULT_VALUES = {
-    'string': '',
-    'int': 0,
-    'integer': 0,
-    'number': 0,
-    'array': [],
-    'list': [],
-    'tuple': [],
-    'dict': {},
-    'object': {},
-    'boolean': 'false',
-    '#/definitions/date_or_datetime_string': '',
-    '#/definitions/i18n_string': '',
-    '#/definitions/i18n_array': [],
-    '#/definitions/any_type': '',
-}
-
 
 OGR_MCF_ATTR_TYPE_MAP = {
     ogr.OFTInteger: 'integer',
@@ -76,6 +62,22 @@ def get_default(item):
         'enum', 'type', or '$ref' property.
 
     """
+    # TODO: read types from the #/definitions found in MCF_SCHEMA
+    # instead of hardcoding values here
+    # TODO: support i18n properly by using objects
+    # keyed by country codes to contain the array of strings
+    default_values = {
+        'string': str(),
+        'int': int(),
+        'integer': int(),
+        'number': float(),
+        'boolean': False,
+        '#/definitions/date_or_datetime_string': str(),
+        '#/definitions/i18n_string': str(),
+        '#/definitions/i18n_array': list(),
+        '#/definitions/any_type': str(),
+    }
+
     # If there are enumerated values which must be used
     try:
         fixed_values = item['enum']
@@ -96,11 +98,13 @@ def get_default(item):
                 f'schema has no type and no reference to a type definition\n'
                 f'{item}')
 
-    return DEFAULT_VALUES[t]
+    return default_values[t]
 
 
 def get_template(schema):
     """Create a minimal dictionary that is valid against ``schema``.
+
+    The dict will ontain only the 'required' properties.
 
     Args:
         schema (dict): a jsonschema definition.
@@ -148,14 +152,6 @@ def get_template(schema):
         return get_default(schema)
 
 
-def get_vector_attr(attribute_list, name):
-    for idx, attr in enumerate(attribute_list):
-        if attr['name'] == name:
-            return idx, attr
-    raise ValueError(
-        f'There is no attribute named {name}')
-
-
 class MCF:
     """Encapsulates the Metadata Control File and methods for populating it.
 
@@ -169,12 +165,12 @@ class MCF:
 
     """
 
-    def __init__(self, source_dataset_path=None):
+    def __init__(self, source_dataset_path):
         """Create an MCF instance, populated with inherent values.
 
         The MCF will be valid according to the pygeometa schema. It has
-        have all required properties. Instrinsic properties of the dataset
-        are used to populate as many properties as possible. And
+        all required properties. Instrinsic properties of the dataset
+        are used to populate as many MCF properties as possible. And
         default/placeholder values are used for properties that require
         user input.
 
@@ -184,12 +180,24 @@ class MCF:
 
         """
         self.datasource = source_dataset_path
-        self.mcf = get_template(MCF_SCHEMA)
-        self.mcf['mcf']['version'] = \
-            MCF_SCHEMA['properties']['mcf']['properties']['version']['const']
+        self.mcf_path = f'{self.datasource}.yml'
+        self.mcf = None
 
-        # fill all values that can be derived from the dataset
-        if source_dataset_path:
+        if os.path.exists(self.mcf_path):
+            try:
+                # pygeometa.core.read_mcf can parse nested MCF documents,
+                # where one MCF refers to another
+                self.mcf = pygeometa.core.read_mcf(self.mcf_path)
+                self.validate()
+            except (pygeometa.core.MCFReadError, ValidationError) as err:
+                LOGGER.warning(err)
+                self.mcf = None
+
+        if self.mcf is None:
+            self.mcf = get_template(MCF_SCHEMA)
+            self.mcf['mcf']['version'] = \
+                MCF_SCHEMA['properties']['mcf']['properties']['version']['const']
+            # fill all values that can be derived from the dataset
             self.get_spatial_info()
 
     def add_metadata_attr(self, attribute):
@@ -205,6 +213,24 @@ class MCF:
         if 'attributes' not in self.mcf:
             self.mcf['attributes'] = []
         self.mcf['attributes'].append(attribute)
+
+    def title(self, title):
+        """Add a title for the dataset.
+
+        Args:
+            title (str)
+
+        """
+        self.mcf['identification']['title'] = title
+
+    def abstract(self, abstract):
+        """Add an abstract for the dataset.
+
+        Args:
+            abstract (str)
+
+        """
+        self.mcf['identification']['abstract'] = abstract
 
     def keywords(self, keywords, section='default', keywords_type='theme',
                  vocabulary=None):
@@ -231,25 +257,26 @@ class MCF:
                 'The first argument of keywords must be a list.'
                 f'received {type(keywords)} instead')
 
-        default_section_dict = {
-            'keywords': [],
-            'keywords_type': ''
+        section_dict = {
+            'keywords': keywords,
+            'keywords_type': keywords_type
         }
 
-        kw_section = self.mcf['identification']['keywords']
-        keywords_list = keywords
-
-        named_section = kw_section.get(section, default_section_dict)
-        named_section['keywords'].extend(keywords_list)
-        named_section['keywords_type'] = keywords_type
         if vocabulary:
-            named_section['vocabulary'] = vocabulary
-        kw_section[section] = named_section
+            section_dict['vocabulary'] = vocabulary
+        self.mcf['identification']['keywords'][section] = section_dict
 
     def describe_band(self, band_number, name=None, title=None, abstract=None,
-                      type=None, units=None):
-        """Define metadata for a raster band."""
+                      units=None):
+        """Define metadata for a raster band.
 
+        Args:
+            band_number (int): a raster band index, starting at 1
+            name (str): name for the raster band
+            title (str): title for the raster band
+            abstract (str): description of the raster band
+            units (str): unit of measurement for the band's pixel values
+        """
         idx = band_number - 1
         attribute = self.mcf['content_info']['attributes'][idx]
         if name is not None:
@@ -265,14 +292,21 @@ class MCF:
 
     def describe_field(self, name, title=None, abstract=None,
                        units=None):
-        """Define metadata for a tabular field."""
-
-        try:
-            idx, attribute = get_vector_attr(
-                self.mcf['content_info']['attributes'], name)
-        except ValueError:
+        """Define metadata for a tabular field.
+        Args:
+            name (str): name and unique identifier of the field
+            title (str): title for the field
+            abstract (str): description of the field
+            units (str): unit of measurement for the field's values
+        """
+        def get_attr(attribute_list):
+            for idx, attr in enumerate(attribute_list):
+                if attr['name'] == name:
+                    return idx, attr
             raise ValueError(
                 f'{self.datasource} has no attribute named {name}')
+
+        idx, attribute = get_attr(self.mcf['content_info']['attributes'])
 
         if title is not None:
             attribute['title'] = title
@@ -284,16 +318,24 @@ class MCF:
         self.mcf['content_info']['attributes'].insert(idx, attribute)
 
     def write(self):
-        with open(f'{self.datasource}.yml', 'w') as file:
+        """Write MCF to disk."""
+        with open(self.mcf_path, 'w') as file:
             file.write(yaml.dump(self.mcf))
+        # TODO: always also write an ISO-191* XML doc?
 
     def validate(self):
-        pygeometa.core.validate_mcf(self.mcf)
+        """Validate MCF against a jsonschema object."""
+        # validate against our own schema, which could
+        # be a superset of the core MCF schema.
+        # If we wanted to validate against core MCF,
+        # we could use pygeometa.core.validate_mcf
+        jsonschema.validate(self.mcf, MCF_SCHEMA)
 
     def to_string(self):
         pass
 
     def get_spatial_info(self):
+        """Populate the MCF using properties of the dataset."""
         gis_type = pygeoprocessing.get_gis_type(self.datasource)
         if gis_type == pygeoprocessing.UNKNOWN_TYPE:
             self.mcf['metadata']['hierarchylevel'] = 'nonGeographicDataset'
@@ -364,8 +406,8 @@ class MCF:
         # for human-readable values after yaml dump, use python types
         # instead of numpy types
         bbox = [float(x) for x in gis_info['bounding_box']]
-        spatial_info = [
-            {'bbox': bbox},
-            {'crs': epsg}  # MCF does not support WKT here
-        ]
+        spatial_info = {
+            'bbox': bbox,
+            'crs': epsg  # MCF does not support WKT here
+        }
         self.mcf['identification']['extents']['spatial'] = spatial_info

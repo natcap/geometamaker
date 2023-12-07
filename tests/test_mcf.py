@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from jsonschema.exceptions import SchemaError
+from jsonschema.exceptions import ValidationError
 import numpy
 from osgeo import gdal
 from osgeo import gdal_array
@@ -86,7 +87,7 @@ def create_raster(
 
 
 class MCFTests(unittest.TestCase):
-    """Tests for the Carbon Model."""
+    """Tests for pygeometadata.mcf."""
 
     def setUp(self):
         """Override setUp function to create temp workspace directory."""
@@ -132,7 +133,6 @@ class MCFTests(unittest.TestCase):
     def test_vector_attributes(self):
         """MCF: validate vector with extra attribute metadata."""
         from pygeometadata.mcf import MCF
-        from pygeometadata.mcf import get_vector_attr
 
         datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
         field_name = 'foo'
@@ -156,31 +156,68 @@ class MCFTests(unittest.TestCase):
                 'unexpected validation error occurred\n'
                 f'{e}')
 
-        idx, attr = get_vector_attr(
-            mcf.mcf['content_info']['attributes'], field_name)
+        attr = [attr for attr in mcf.mcf['content_info']['attributes']
+                if attr['name'] == field_name][0]
         self.assertEqual(attr['title'], title)
         self.assertEqual(attr['abstract'], abstract)
         self.assertEqual(attr['units'], units)
 
-    def test_keywords_append_to_default(self):
-        """MCF: keywords append to default section."""
+    def test_raster_attributes(self):
+        """MCF: validate raster with extra attribute metadata."""
+        from pygeometadata.mcf import MCF
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        band_number = 1
+
+        mcf = MCF(datasource_path)
+        name = 'name'
+        title = 'title'
+        abstract = 'some abstract'
+        units = 'mm'
+        mcf.describe_band(
+            band_number,
+            name=name,
+            title=title,
+            abstract=abstract,
+            units=units)
+        try:
+            mcf.validate()
+        except (MCFValidationError, SchemaError) as e:
+            self.fail(
+                'unexpected validation error occurred\n'
+                f'{e}')
+
+        attr = mcf.mcf['content_info']['attributes'][band_number - 1]
+        self.assertEqual(attr['name'], name)
+        self.assertEqual(attr['title'], title)
+        self.assertEqual(attr['abstract'], abstract)
+        self.assertEqual(attr['units'], units)
+
+    def test_add_keywords(self):
+        """MCF: add keywords to default section."""
 
         from pygeometadata.mcf import MCF
 
-        mcf = MCF()
+        print('keywords test')
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
         mcf.keywords(['foo', 'bar'])
-        mcf.keywords(['baz'])
+        # mcf.keywords(['baz'])
 
         self.assertEqual(
             mcf.mcf['identification']['keywords']['default']['keywords'],
-            ['foo', 'bar', 'baz'])
+            ['foo', 'bar'])
 
-    def test_keywords_append_to_section(self):
-        """MCF: keywords append to named section."""
+    def test_add_keywords_to_section(self):
+        """MCF: add keywords to named section."""
 
         from pygeometadata.mcf import MCF
 
-        mcf = MCF()
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
         mcf.keywords(['foo', 'bar'], section='first')
         mcf.keywords(['baz'], section='second')
 
@@ -191,11 +228,82 @@ class MCFTests(unittest.TestCase):
             mcf.mcf['identification']['keywords']['second']['keywords'],
             ['baz'])
 
+    def test_overwrite_keywords(self):
+        """MCF: overwrite keywords in existing section."""
+
+        from pygeometadata.mcf import MCF
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        mcf.keywords(['foo', 'bar'])
+        mcf.keywords(['baz'])
+
+        self.assertEqual(
+            mcf.mcf['identification']['keywords']['default']['keywords'],
+            ['baz'])
+
     def test_keywords_raises_type_error(self):
         """MCF: keywords raises TypeError."""
 
         from pygeometadata.mcf import MCF
 
-        mcf = MCF()
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
         with self.assertRaises(TypeError):
             mcf.keywords('foo', 'bar')
+
+    def test_preexisting_mcf(self):
+        """MCF: test reading and ammending an existing MCF."""
+        from pygeometadata.mcf import MCF
+        title = 'Title'
+        keyword = 'foo'
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        mcf.title(title)
+        mcf.write()
+
+        new_mcf = MCF(datasource_path)
+        new_mcf.keywords([keyword])
+
+        self.assertEqual(
+            new_mcf.mcf['identification']['title'], title)
+        self.assertEqual(
+            new_mcf.mcf['identification']['keywords']['default']['keywords'],
+            [keyword])
+
+    def test_invalid_preexisting_mcf(self):
+        """MCF: test overwriting an existing invalid MCF."""
+        from pygeometadata.mcf import MCF
+        title = 'Title'
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        mcf.title(title)
+
+        # delete a required property and ensure invalid MCF
+        del mcf.mcf['mcf']
+        with self.assertRaises(ValidationError):
+            mcf.validate()
+        mcf.write()  # intentionally writing an invalid MCF
+
+        new_mcf = MCF(datasource_path)
+
+        # The new MCF should not have values from the invalid MCF
+        self.assertEqual(
+            new_mcf.mcf['identification']['title'], '')
+
+        try:
+            new_mcf.validate()
+        except (MCFValidationError, SchemaError) as e:
+            self.fail(
+                'unexpected validation error occurred\n'
+                f'{e}')
+        try:
+            new_mcf.write()
+        except Exception as e:
+            self.fail(
+                'unexpected write error occurred\n'
+                f'{e}')
