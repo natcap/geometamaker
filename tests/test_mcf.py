@@ -30,10 +30,6 @@ _OGR_TYPES_VALUES_MAP = {
 
 
 def create_vector(target_filepath, field_map):
-    # fields = {
-    #     f'field_{k}': k
-    #     for k in field_map
-    # }
     attribute_list = [{
         k: _OGR_TYPES_VALUES_MAP[v]
         for k, v in field_map.items()
