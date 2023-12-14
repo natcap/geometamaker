@@ -204,7 +204,7 @@ class MCF:
             self.mcf['mcf']['version'] = \
                 MCF_SCHEMA['properties']['mcf']['properties']['version']['const']
             # fill all values that can be derived from the dataset
-        self.get_spatial_info()
+        self._set_spatial_info()
 
     def add_metadata_attr(self, attribute):
         """Add an arbitrary attribute to the metadata.
@@ -345,7 +345,7 @@ class MCF:
     def to_string(self):
         pass
 
-    def get_spatial_info(self):
+    def _set_spatial_info(self):
         """Populate the MCF using properties of the dataset."""
         gis_type = pygeoprocessing.get_gis_type(self.datasource)
         if gis_type == pygeoprocessing.UNKNOWN_TYPE:
