@@ -203,12 +203,10 @@ class MCFTests(unittest.TestCase):
 
         from pygeometadata.mcf import MCF
 
-        print('keywords test')
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
         mcf = MCF(datasource_path)
-        mcf.keywords(['foo', 'bar'])
-        # mcf.keywords(['baz'])
+        mcf.set_keywords(['foo', 'bar'])
 
         self.assertEqual(
             mcf.mcf['identification']['keywords']['default']['keywords'],
@@ -222,8 +220,8 @@ class MCFTests(unittest.TestCase):
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
         mcf = MCF(datasource_path)
-        mcf.keywords(['foo', 'bar'], section='first')
-        mcf.keywords(['baz'], section='second')
+        mcf.set_keywords(['foo', 'bar'], section='first')
+        mcf.set_keywords(['baz'], section='second')
 
         self.assertEqual(
             mcf.mcf['identification']['keywords']['first']['keywords'],
@@ -240,8 +238,8 @@ class MCFTests(unittest.TestCase):
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
         mcf = MCF(datasource_path)
-        mcf.keywords(['foo', 'bar'])
-        mcf.keywords(['baz'])
+        mcf.set_keywords(['foo', 'bar'])
+        mcf.set_keywords(['baz'])
 
         self.assertEqual(
             mcf.mcf['identification']['keywords']['default']['keywords'],
@@ -256,7 +254,7 @@ class MCFTests(unittest.TestCase):
         create_raster(numpy.int16, datasource_path)
         mcf = MCF(datasource_path)
         with self.assertRaises(TypeError):
-            mcf.keywords('foo', 'bar')
+            mcf.set_keywords('foo', 'bar')
 
     def test_preexisting_mcf(self):
         """MCF: test reading and ammending an existing MCF."""
@@ -266,11 +264,11 @@ class MCFTests(unittest.TestCase):
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
         mcf = MCF(datasource_path)
-        mcf.title(title)
+        mcf.set_title(title)
         mcf.write()
 
         new_mcf = MCF(datasource_path)
-        new_mcf.keywords([keyword])
+        new_mcf.set_keywords([keyword])
 
         self.assertEqual(
             new_mcf.mcf['identification']['title'], title)
@@ -285,7 +283,7 @@ class MCFTests(unittest.TestCase):
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
         mcf = MCF(datasource_path)
-        mcf.title(title)
+        mcf.set_title(title)
 
         # delete a required property and ensure invalid MCF
         del mcf.mcf['mcf']

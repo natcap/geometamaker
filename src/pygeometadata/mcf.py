@@ -220,7 +220,7 @@ class MCF:
             self.mcf['attributes'] = []
         self.mcf['attributes'].append(attribute)
 
-    def title(self, title):
+    def set_title(self, title):
         """Add a title for the dataset.
 
         Args:
@@ -229,7 +229,7 @@ class MCF:
         """
         self.mcf['identification']['title'] = title
 
-    def abstract(self, abstract):
+    def set_abstract(self, abstract):
         """Add an abstract for the dataset.
 
         Args:
@@ -238,7 +238,7 @@ class MCF:
         """
         self.mcf['identification']['abstract'] = abstract
 
-    def keywords(self, keywords, section='default', keywords_type='theme',
+    def set_keywords(self, keywords, section='default', keywords_type='theme',
                  vocabulary=None):
         """Describe a dataset with a list of keywords.
 
