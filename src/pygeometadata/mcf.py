@@ -1,6 +1,5 @@
 import logging
 import os
-import yaml
 
 import jsonschema
 from jsonschema.exceptions import ValidationError
@@ -11,6 +10,7 @@ import pygeoprocessing
 from osgeo import gdal
 from osgeo import ogr
 from osgeo import osr
+import yaml
 
 
 # https://stackoverflow.com/questions/13518819/avoid-references-in-pyyaml

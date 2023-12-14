@@ -8,3 +8,4 @@ numpy
 pygeometa
 pygeoprocessing>=2.4.2
 shapely
+pyyaml
