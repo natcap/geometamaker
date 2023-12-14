@@ -157,6 +157,9 @@ class MCFTests(unittest.TestCase):
                 'unexpected validation error occurred\n'
                 f'{e}')
 
+        self.assertEqual(
+            len(mcf.mcf['content_info']['attributes']),
+            len(field_map))
         attr = [attr for attr in mcf.mcf['content_info']['attributes']
                 if attr['name'] == field_name][0]
         self.assertEqual(attr['title'], title)
@@ -192,6 +195,9 @@ class MCFTests(unittest.TestCase):
                 'unexpected validation error occurred\n'
                 f'{e}')
 
+        self.assertEqual(
+            len(mcf.mcf['content_info']['attributes']),
+            pygeoprocessing.get_raster_info(datasource_path)['n_bands'])
         attr = mcf.mcf['content_info']['attributes'][band_number - 1]
         self.assertEqual(attr['name'], name)
         self.assertEqual(attr['title'], title)

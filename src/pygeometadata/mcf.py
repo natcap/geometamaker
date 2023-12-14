@@ -294,7 +294,7 @@ class MCF:
         if units is not None:
             attribute['units'] = units
 
-        self.mcf['content_info']['attributes'].insert(idx, attribute)
+        self.mcf['content_info']['attributes'][idx] = attribute
 
     def describe_field(self, name, title=None, abstract=None,
                        units=None):
@@ -321,7 +321,7 @@ class MCF:
         if units is not None:
             attribute['units'] = units
 
-        self.mcf['content_info']['attributes'].insert(idx, attribute)
+        self.mcf['content_info']['attributes'][idx] = attribute
 
     def write(self):
         """Write MCF to disk."""
