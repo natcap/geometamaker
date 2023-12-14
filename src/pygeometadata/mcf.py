@@ -326,7 +326,7 @@ class MCF:
     def write(self):
         """Write MCF to disk."""
         with open(self.mcf_path, 'w') as file:
-            file.write(yaml.dump(self.mcf, Dumper=NoAliasDumper))
+            file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
         # TODO: always also write an ISO-191139_2 XML doc?
         # or allow users to choose a different schema?
         iso_schema = ISO19139_2OutputSchema()
