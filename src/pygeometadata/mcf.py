@@ -377,7 +377,13 @@ class MCF:
             for field in layer.schema:
                 attribute = {}
                 attribute['name'] = field.name
-                attribute['type'] = OGR_MCF_ATTR_TYPE_MAP[field.type]
+                try:
+                    attribute['type'] = OGR_MCF_ATTR_TYPE_MAP[field.type]
+                except KeyError:
+                    LOGGER.warning(
+                        f'{field.type} is missing in the OGR-to-MCF '
+                        f'attribute type map; attribute type for field '
+                        f'{field.name} will be "object".')
                 attribute['units'] = ''
                 attribute['title'] = ''
                 attribute['abstract'] = ''
