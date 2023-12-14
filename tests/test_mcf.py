@@ -145,7 +145,10 @@ class MCFTests(unittest.TestCase):
         mcf.describe_field(
             field_name,
             title=title,
-            abstract=abstract,
+            abstract=abstract)
+        # To demonstrate that properties can be added while preserving others
+        mcf.describe_field(
+            field_name,
             units=units)
         try:
             mcf.validate()
@@ -177,7 +180,10 @@ class MCFTests(unittest.TestCase):
             band_number,
             name=name,
             title=title,
-            abstract=abstract,
+            abstract=abstract)
+        # To demonstrate that properties can be added while preserving others
+        mcf.describe_band(
+            band_number,
             units=units)
         try:
             mcf.validate()
