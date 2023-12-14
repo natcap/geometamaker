@@ -110,6 +110,7 @@ class MCFTests(unittest.TestCase):
             self.fail(
                 'unexpected validation error occurred\n'
                 f'{e}')
+        mcf.write()
 
     def test_raster_MCF(self):
         """MCF: validate basic raster MCF."""
@@ -125,6 +126,7 @@ class MCFTests(unittest.TestCase):
             self.fail(
                 'unexpected validation error occurred\n'
                 f'{e}')
+        mcf.write()
 
     def test_vector_attributes(self):
         """MCF: validate vector with extra attribute metadata."""

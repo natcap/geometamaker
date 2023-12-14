@@ -12,9 +12,14 @@ from osgeo import gdal
 from osgeo import ogr
 from osgeo import osr
 
-# Keep the yaml human-readable by avoiding anchors and aliases
+
 # https://stackoverflow.com/questions/13518819/avoid-references-in-pyyaml
-yaml.Dumper.ignore_aliases = lambda *args: True
+class _NoAliasDumper(yaml.SafeDumper):
+    """Keep the yaml human-readable by avoiding anchors and aliases."""
+
+    def ignore_aliases(self, data):
+        return True
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,13 +37,6 @@ MCF_SCHEMA['properties']['content_info']['required'].append(
 MCF_SCHEMA['properties']['identification']['properties'][
     'keywords']['patternProperties']['^.*'][
     'required'] = ['keywords', 'keywords_type']
-
-# It's not clear to me why 'spatial' is type 'array' instead of
-# 'object', since it contains 'properties'.
-MCF_SCHEMA['properties']['identification']['properties'][
-    'extents']['properties']['spatial']['type'] = 'object'
-MCF_SCHEMA['properties']['identification']['properties'][
-    'extents']['properties']['temporal']['type'] = 'object'
 
 OGR_MCF_ATTR_TYPE_MAP = {
     ogr.OFTInteger: 'integer',
@@ -147,6 +145,14 @@ def get_template(schema):
         return template
 
     elif 'type' in schema and schema['type'] == 'array':
+        if 'properties' in schema:
+            # for the weird case where identification.extents.spatial
+            # is type: array but contains 'properties' instead of 'items'
+            return [{
+                p: get_template(s)
+                for p, s in schema['properties'].items()
+                if p in schema['required']
+            }]
         return [get_template(schema['items'])]
     else:
         return get_default(schema)
@@ -198,7 +204,7 @@ class MCF:
             self.mcf['mcf']['version'] = \
                 MCF_SCHEMA['properties']['mcf']['properties']['version']['const']
             # fill all values that can be derived from the dataset
-            self.get_spatial_info()
+        self.get_spatial_info()
 
     def add_metadata_attr(self, attribute):
         """Add an arbitrary attribute to the metadata.
@@ -320,8 +326,13 @@ class MCF:
     def write(self):
         """Write MCF to disk."""
         with open(self.mcf_path, 'w') as file:
-            file.write(yaml.dump(self.mcf))
-        # TODO: always also write an ISO-191* XML doc?
+            file.write(yaml.dump(self.mcf, Dumper=NoAliasDumper))
+        # TODO: always also write an ISO-191139_2 XML doc?
+        # or allow users to choose a different schema?
+        iso_schema = ISO19139_2OutputSchema()
+        xml_string = iso_schema.write(self.mcf)
+        with open(f'{self.datasource}.xml', 'w') as xmlfile:
+            xmlfile.write(xml_string)
 
     def validate(self):
         """Validate MCF against a jsonschema object."""
@@ -406,8 +417,8 @@ class MCF:
         # for human-readable values after yaml dump, use python types
         # instead of numpy types
         bbox = [float(x) for x in gis_info['bounding_box']]
-        spatial_info = {
+        spatial_info = [{
             'bbox': bbox,
             'crs': epsg  # MCF does not support WKT here
-        }
+        }]
         self.mcf['identification']['extents']['spatial'] = spatial_info
