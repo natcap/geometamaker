@@ -2,7 +2,7 @@
 name = "pygeometadata"
 description = "metadata creation for geospatial data"
 readme = "README.md"
-requires-python = ">=3.8,<3.12"
+requires-python = ">=3.8,<=3.12"
 license = {file = "LICENSE.txt"}
 maintainers = [
     {name = "Natural Capital Project Software Team"}
@@ -10,7 +10,7 @@ maintainers = [
 keywords = ["gis", "geospatial", "metadata"]
 classifiers = [
     "Intended Audience :: Developers",
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Science/Research",
     "Natural Language :: English",
     "Operating System :: MacOS :: MacOS X",
@@ -21,7 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Cython",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: BSD License",
     "Topic :: Scientific/Engineering :: GIS"
 ]
@@ -31,7 +31,7 @@ classifiers = [
 dynamic = ["version", "dependencies", "optional-dependencies"]
 
 [build-system]
-requires = ["setuptools >= 40.6.0", "wheel"]
+requires = ["setuptools >= 40.6.0", "wheel", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
