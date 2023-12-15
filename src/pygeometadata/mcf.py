@@ -347,8 +347,9 @@ class MCF:
 
     def _set_spatial_info(self):
         """Populate the MCF using properties of the dataset."""
-        gis_type = pygeoprocessing.get_gis_type(self.datasource)
-        if gis_type == pygeoprocessing.UNKNOWN_TYPE:
+        try:
+            gis_type = pygeoprocessing.get_gis_type(self.datasource)
+        except ValueError:
             self.mcf['metadata']['hierarchylevel'] = 'nonGeographicDataset'
             return
 
