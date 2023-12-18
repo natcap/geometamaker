@@ -239,7 +239,7 @@ class MCF:
         self.mcf['identification']['abstract'] = abstract
 
     def set_keywords(self, keywords, section='default', keywords_type='theme',
-                 vocabulary=None):
+                     vocabulary=None):
         """Describe a dataset with a list of keywords.
 
         Keywords are grouped into sections for the purpose of complying with
@@ -299,6 +299,7 @@ class MCF:
     def describe_field(self, name, title=None, abstract=None,
                        units=None):
         """Define metadata for a tabular field.
+
         Args:
             name (str): name and unique identifier of the field
             title (str): title for the field
@@ -324,7 +325,16 @@ class MCF:
         self.mcf['content_info']['attributes'][idx] = attribute
 
     def write(self):
-        """Write MCF to disk."""
+        """Write MCF and ISO-19139 XML to disk.
+
+        This creates sidecar files with '.yml' and '.xml' extensions
+        appended to the full filename of the data source. For example,
+
+        - 'myraster.tif'
+        - 'myraster.tif.yml'
+        - 'myraster.tif.xml'
+
+        """
         with open(self.mcf_path, 'w') as file:
             file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
         # TODO: allow user to override the iso schema choice
@@ -389,7 +399,8 @@ class MCF:
                 attribute['title'] = ''
                 attribute['abstract'] = ''
                 attributes.append(attribute)
-            self.mcf['content_info']['attributes'] = attributes
+            if len(attributes):
+                self.mcf['content_info']['attributes'] = attributes
             vector = None
             layer = None
 
@@ -413,7 +424,8 @@ class MCF:
                 attribute['title'] = ''
                 attribute['abstract'] = band.GetDescription()
                 attributes.append(attribute)
-            self.mcf['content_info']['attributes'] = attributes
+            if len(attributes):
+                self.mcf['content_info']['attributes'] = attributes
             raster = None
 
             gis_info = pygeoprocessing.get_raster_info(self.datasource)

@@ -29,11 +29,13 @@ _OGR_TYPES_VALUES_MAP = {
 }
 
 
-def create_vector(target_filepath, field_map):
-    attribute_list = [{
-        k: _OGR_TYPES_VALUES_MAP[v]
-        for k, v in field_map.items()
-    }]
+def create_vector(target_filepath, field_map=None):
+    attribute_list = None
+    if field_map:
+        attribute_list = [{
+            k: _OGR_TYPES_VALUES_MAP[v]
+            for k, v in field_map.items()
+        }]
     projection = osr.SpatialReference()
     projection.ImportFromEPSG(3116)
     pygeoprocessing.shapely_geometry_to_vector(
@@ -102,6 +104,22 @@ class MCFTests(unittest.TestCase):
             f'field_{k}': k
             for k in _OGR_TYPES_VALUES_MAP}
         create_vector(datasource_path, field_map)
+
+        mcf = MCF(datasource_path)
+        try:
+            mcf.validate()
+        except (MCFValidationError, SchemaError) as e:
+            self.fail(
+                'unexpected validation error occurred\n'
+                f'{e}')
+        mcf.write()
+
+    def test_vector_no_fields(self):
+        """MCF: validate MCF for basic vector with no fields."""
+        from pygeometadata.mcf import MCF
+
+        datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
+        create_vector(datasource_path, None)
 
         mcf = MCF(datasource_path)
         try:
