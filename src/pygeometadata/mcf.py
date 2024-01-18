@@ -1,5 +1,7 @@
 import logging
 import os
+import uuid
+from datetime import datetime
 
 import jsonschema
 from jsonschema.exceptions import ValidationError
@@ -195,16 +197,20 @@ class MCF:
                 # where one MCF refers to another
                 self.mcf = pygeometa.core.read_mcf(self.mcf_path)
                 self.validate()
-            except (pygeometa.core.MCFReadError, ValidationError) as err:
+            except (pygeometa.core.MCFReadError, ValidationError,
+                    AttributeError) as err:
+                # encountered AttributeError in read_mcf not caught by pygeometa
                 LOGGER.warning(err)
                 self.mcf = None
 
         if self.mcf is None:
             self.mcf = get_template(MCF_SCHEMA)
+            self.mcf['metadata']['identifier'] = str(uuid.uuid4())
             self.mcf['mcf']['version'] = \
                 MCF_SCHEMA['properties']['mcf']['properties']['version']['const']
-            # fill all values that can be derived from the dataset
+        # fill all values that can be derived from the dataset
         self._set_spatial_info()
+        self.mcf['metadata']['datestamp'] = datetime.utcnow().strftime('%Y-%m-%d')
 
     def add_metadata_attr(self, attribute):
         """Add an arbitrary attribute to the metadata.
