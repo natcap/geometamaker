@@ -272,8 +272,8 @@ class MCF:
             section_dict['vocabulary'] = vocabulary
         self.mcf['identification']['keywords'][section] = section_dict
 
-    def describe_band(self, band_number, name=None, title=None, abstract=None,
-                      units=None):
+    def set_band_description(self, band_number, name=None, title=None, abstract=None,
+                             units=None):
         """Define metadata for a raster band.
 
         Args:
@@ -296,8 +296,8 @@ class MCF:
 
         self.mcf['content_info']['attributes'][idx] = attribute
 
-    def describe_field(self, name, title=None, abstract=None,
-                       units=None):
+    def set_field_description(self, name, title=None, abstract=None,
+                              units=None):
         """Define metadata for a tabular field.
 
         Args:
