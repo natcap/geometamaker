@@ -222,6 +222,61 @@ class MCFTests(unittest.TestCase):
         self.assertEqual(attr['abstract'], abstract)
         self.assertEqual(attr['units'], units)
 
+    def test_set_contact(self):
+        """MCF: set and get a contact section."""
+
+        from pygeometadata.mcf import MCF
+
+        org = 'natcap'
+        name = 'nat'
+        position = 'boss'
+        email = 'abc@def'
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        mcf.set_contact(
+            organization=org, individualname=name,
+            positionname=position, email=email)
+        contact_dict = mcf.get_contact()
+        self.assertEqual(contact_dict['organization'], org)
+        self.assertEqual(contact_dict['individualname'], name)
+        self.assertEqual(contact_dict['positionname'], position)
+        self.assertEqual(contact_dict['email'], email)
+
+    def test_set_contact_from_dict(self):
+        """MCF: set a contact section from a dict."""
+
+        from pygeometadata.mcf import MCF
+
+        contact_dict = {
+            'organization': 'natcap',
+            'individualname': 'nat',
+            'positionname': 'boss',
+            'email': 'abc@def',
+            'fax': '555-1234',
+            'postalcode': '01234'
+        }
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        mcf.set_contact(**contact_dict)
+        actual = mcf.get_contact()
+        for k, v in contact_dict.items():
+            self.assertEqual(actual[k], v)
+
+    def test_set_contact_validates(self):
+        """MCF: invalid type raises ValidationError."""
+
+        from pygeometadata.mcf import MCF
+
+        postalcode = 55555  # should be a string
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        with self.assertRaises(ValidationError):
+            mcf.set_contact(postalcode=postalcode)
+        
     def test_add_keywords(self):
         """MCF: add keywords to default section."""
 

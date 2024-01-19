@@ -244,12 +244,54 @@ class MCF:
         """
         self.mcf['identification']['abstract'] = abstract
 
+    def set_contact(self, organization=None, individualname=None, positionname=None,
+                    email=None, section='default', **kwargs):
+        """Add a contact section.
+
+        Args:
+            organization (str): name of the responsible organization
+            individualname (str): name of the responsible person
+            positionname (str): role or position of the responsible person
+            email (str): email address of the responsible organization or individual
+            section (str): a header for the contact section under which to
+                apply the other args, since there can be more than one.
+            kwargs (dict): key-value pairs for any other properties listed in
+                the contact section of the core MCF schema.
+
+        """
+
+        if organization:
+            self.mcf['contact'][section]['organization'] = organization
+        if individualname:
+            self.mcf['contact'][section]['individualname'] = individualname
+        if positionname:
+            self.mcf['contact'][section]['positionname'] = positionname
+        if email:
+            self.mcf['contact'][section]['email'] = email
+        if kwargs:
+            for k, v in kwargs.items():
+                self.mcf['contact'][section][k] = v
+
+        # TODO: validate just the contact section instead?
+        # Not obvious how to do that using the complete schema.
+        self.validate()
+
+    def get_contact(self, section='default'):
+        """Get metadata from a contact section.
+
+        Args:
+            section (str): a header for the contact section under which to
+                    apply the other args, since there can be more than one.
+        """
+        return self.mcf['contact'][section]
+
     def set_keywords(self, keywords, section='default', keywords_type='theme',
                      vocabulary=None):
         """Describe a dataset with a list of keywords.
 
         Keywords are grouped into sections for the purpose of complying with
-        pre-exising keyword schema.
+        pre-exising keyword schema. A section will be overwritten if it
+        already exists.
 
         Args:
             keywords (list): sequence of strings
