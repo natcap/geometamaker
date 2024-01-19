@@ -276,9 +276,33 @@ class MCFTests(unittest.TestCase):
         mcf = MCF(datasource_path)
         with self.assertRaises(ValidationError):
             mcf.set_contact(postalcode=postalcode)
-        
-    def test_add_keywords(self):
-        """MCF: add keywords to default section."""
+
+    def test_set_get_edition(self):
+        """MCF: set and get dataset edition."""
+
+        from pygeometadata.mcf import MCF
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        version = '3.14'
+        mcf.set_edition(version)
+        self.assertEqual(mcf.get_edition(), version)
+
+    def test_set_edition_validates(self):
+        """MCF: test set edition raises ValidationError."""
+
+        from pygeometadata.mcf import MCF
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        version = 3.14  # should be a string
+        with self.assertRaises(ValidationError):
+            mcf.set_edition(version)
+
+    def test_set_keywords(self):
+        """MCF: set keywords to default section."""
 
         from pygeometadata.mcf import MCF
 
@@ -291,8 +315,8 @@ class MCFTests(unittest.TestCase):
             mcf.mcf['identification']['keywords']['default']['keywords'],
             ['foo', 'bar'])
 
-    def test_add_keywords_to_section(self):
-        """MCF: add keywords to named section."""
+    def test_set_keywords_to_section(self):
+        """MCF: set keywords to named section."""
 
         from pygeometadata.mcf import MCF
 

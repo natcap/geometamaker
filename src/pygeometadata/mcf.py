@@ -285,6 +285,20 @@ class MCF:
         """
         return self.mcf['contact'][section]
 
+    def set_edition(self, edition):
+        """Set the edition for the dataset.
+
+        Args:
+            edition (str): version of the cited resource
+
+        """
+        self.mcf['identification']['edition'] = edition
+        self.validate()
+
+    def get_edition(self):
+        """Get the edition of the dataset."""
+        return self.mcf['identification']['edition']
+
     def set_keywords(self, keywords, section='default', keywords_type='theme',
                      vocabulary=None):
         """Describe a dataset with a list of keywords.
@@ -306,6 +320,9 @@ class MCF:
             TypeError if ``keywords`` is not a list or tuple
 
         """
+        # TODO: contrast this type-checking with the approach in set_contact,
+        # where we call self.validate at the end instead of type-checking up-front.
+        # Which approach do we prefer?
         if not isinstance(keywords, (list, tuple)):
             raise TypeError(
                 'The first argument of keywords must be a list.'
