@@ -212,7 +212,7 @@ class MCF:
         self._set_spatial_info()
         self.mcf['metadata']['datestamp'] = datetime.utcnow().strftime('%Y-%m-%d')
 
-    def add_metadata_attr(self, attribute):
+    def set_metadata_attr(self, attribute):
         """Add an arbitrary attribute to the metadata.
 
         These should be attributes that do not appear elsewhere in the MCF
@@ -225,6 +225,25 @@ class MCF:
         if 'attributes' not in self.mcf:
             self.mcf['attributes'] = []
         self.mcf['attributes'].append(attribute)
+        self.validate()
+
+    def get_metadata_attr(self, attr_key):
+        """Get an arbitrary attribute of the metadata.
+
+        This can be used for attributes that do not appear elsewhere in the
+        MCF specification.
+
+        Args:
+            attr_key (str): key of the attribute to get.
+
+        Returns:
+            A dict value or `None` if `attr_key` does not exist.
+
+        """
+        for attr in self.mcf['attributes']:
+            if attr_key in attr:
+                return attr
+        return None
 
     def set_title(self, title):
         """Add a title for the dataset.
@@ -282,8 +301,11 @@ class MCF:
         Args:
             section (str): a header for the contact section under which to
                     apply the other args, since there can be more than one.
+        Returns:
+            A dict or `None` if `section` does not exist.
+
         """
-        return self.mcf['contact'][section]
+        return self.mcf['contact'].get(section)
 
     def set_edition(self, edition):
         """Set the edition for the dataset.
@@ -296,8 +318,13 @@ class MCF:
         self.validate()
 
     def get_edition(self):
-        """Get the edition of the dataset."""
-        return self.mcf['identification']['edition']
+        """Get the edition of the dataset.
+
+        Returns:
+            str or `None` if `edition` does not exist.
+
+        """
+        return self.mcf['identification'].get('edition')
 
     def set_keywords(self, keywords, section='default', keywords_type='theme',
                      vocabulary=None):
@@ -336,6 +363,29 @@ class MCF:
         if vocabulary:
             section_dict['vocabulary'] = vocabulary
         self.mcf['identification']['keywords'][section] = section_dict
+
+    def set_purpose(self, purpose):
+        """Add a purpose for the dataset.
+
+        Args:
+            purpose (str): description of the purpose of the source dataset
+
+        """
+        # 'Purpose' is not supported in the core MCF spec, probably because
+        # `<gmd:purpose>` was added to ISO-19115 in 2014, and MCF still only
+        # supports 2015. For now, we can add `purpose` in `identification`.
+        # Later we can move it elsewhere if it becomes formally supported.
+        self.mcf['identification']['purpose'] = purpose
+        self.validate()
+
+    def get_purpose(self):
+        """Get `purpose` for the dataset.
+
+        Returns:
+            str or `None` if `purpose` does not exist.
+
+        """
+        return self.mcf['identification'].get('purpose')
 
     def set_band_description(self, band_number, name=None, title=None, abstract=None,
                              units=None):

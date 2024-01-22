@@ -350,7 +350,6 @@ class MCFTests(unittest.TestCase):
 
     def test_keywords_raises_type_error(self):
         """MCF: keywords raises TypeError."""
-
         from pygeometadata.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
@@ -359,9 +358,21 @@ class MCFTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             mcf.set_keywords('foo', 'bar')
 
+    def test_set_and_get_purpose(self):
+        """MCF: set purpose of dataset."""
+        from pygeometadata.mcf import MCF
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        purpose = 'foo'
+        mcf.set_purpose(purpose)
+        self.assertEqual(mcf.get_purpose(), purpose)
+
     def test_preexisting_mcf(self):
         """MCF: test reading and ammending an existing MCF."""
         from pygeometadata.mcf import MCF
+
         title = 'Title'
         keyword = 'foo'
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
