@@ -331,6 +331,38 @@ class MCF:
             section_dict['vocabulary'] = vocabulary
         self.mcf['identification']['keywords'][section] = section_dict
 
+    def set_license(self, license_name=None, license_url=None):
+        """Add a license for the dataset.
+
+        Args:
+            license (str): name of the license of the source dataset
+
+        """
+        # One may wish to set these fields to empty strings
+        if license_name is None and license_url is None:
+            raise ValueError(
+                'either `license_name` or `license_url` is required.')
+
+        constraints = ''
+        if license_name or license_url:
+            constraints = 'license'
+
+        license_dict = {}
+        license_dict['name'] = license_name if license_name else ''
+        license_dict['url'] = license_url if license_url else ''
+        self.mcf['identification']['license'] = license_dict
+        self.mcf['identification']['accessconstraints'] = constraints
+        self.validate()
+
+    def get_license(self):
+        """Get `license` for the dataset.
+
+        Returns:
+            dict or `None` if `license` does not exist.
+
+        """
+        return self.mcf['identification'].get('license')
+
     def set_purpose(self, purpose):
         """Add a purpose for the dataset.
 

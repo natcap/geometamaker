@@ -358,6 +358,36 @@ class MCFTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             mcf.set_keywords('foo', 'bar')
 
+    def test_set_and_get_license(self):
+        """MCF: set purpose of dataset."""
+        from pygeometadata.mcf import MCF
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        name = 'CC-BY-4.0'
+        url = 'https://creativecommons.org/licenses/by/4.0/'
+        mcf.set_license(license_name=name)
+        self.assertEqual(mcf.get_license(), {'name': name, 'url': ''})
+        mcf.set_license(license_url=url)
+        self.assertEqual(mcf.get_license(), {'name': '', 'url': url})
+        mcf.set_license(license_name=name, license_url=url)
+        self.assertEqual(mcf.get_license(), {'name': name, 'url': url})
+
+    def test_set_license_validates(self):
+        """MCF: test set license raises ValidationError."""
+
+        from pygeometadata.mcf import MCF
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        name = 4.0  # should be a string
+        with self.assertRaises(ValidationError):
+            mcf.set_license(license_name=name)
+        with self.assertRaises(ValidationError):
+            mcf.set_license(license_url=name)
+
     def test_set_and_get_purpose(self):
         """MCF: set purpose of dataset."""
         from pygeometadata.mcf import MCF
