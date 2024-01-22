@@ -212,39 +212,6 @@ class MCF:
         self._set_spatial_info()
         self.mcf['metadata']['datestamp'] = datetime.utcnow().strftime('%Y-%m-%d')
 
-    def set_metadata_attr(self, attribute):
-        """Add an arbitrary attribute to the metadata.
-
-        These should be attributes that do not appear elsewhere in the MCF
-        specification.
-
-        Args:
-            attribute (dict)
-
-        """
-        if 'attributes' not in self.mcf:
-            self.mcf['attributes'] = []
-        self.mcf['attributes'].append(attribute)
-        self.validate()
-
-    def get_metadata_attr(self, attr_key):
-        """Get an arbitrary attribute of the metadata.
-
-        This can be used for attributes that do not appear elsewhere in the
-        MCF specification.
-
-        Args:
-            attr_key (str): key of the attribute to get.
-
-        Returns:
-            A dict value or `None` if `attr_key` does not exist.
-
-        """
-        for attr in self.mcf['attributes']:
-            if attr_key in attr:
-                return attr
-        return None
-
     def set_title(self, title):
         """Add a title for the dataset.
 
