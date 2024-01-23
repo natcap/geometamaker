@@ -52,7 +52,7 @@ sphinx.ext.apidoc.main([
     '--force',
     '-d', '1',  # max depth for TOC
     '-o', os.path.join(DOCS_SOURCE_DIR, 'api'),
-    os.path.join(DOCS_SOURCE_DIR, '..', '..', 'src', 'geometamaker'),
+    os.path.join(DOCS_SOURCE_DIR, '..', '..', 'src'),
 ])
 
 release = get_distribution('geometamaker').version

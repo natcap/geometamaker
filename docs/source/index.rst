@@ -10,7 +10,7 @@ geometamaker
    :maxdepth: 2
    :caption: Contents:
 
-   api/mcf.rst
+   api/geometamaker.rst
 
 
 Indices and tables
