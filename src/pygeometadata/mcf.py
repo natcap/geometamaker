@@ -36,6 +36,8 @@ with open(MCF_SCHEMA_FILE, 'r') as schema_file:
 MCF_SCHEMA['required'].append('content_info')
 MCF_SCHEMA['properties']['content_info']['required'].append(
     'attributes')
+MCF_SCHEMA['required'].append('dataquality')
+MCF_SCHEMA['properties']['dataquality']['required'] = ['lineage']
 MCF_SCHEMA['properties']['identification']['properties'][
     'keywords']['patternProperties']['^.*'][
     'required'] = ['keywords', 'keywords_type']
@@ -173,44 +175,52 @@ class MCF:
 
     """
 
-    def __init__(self, source_dataset_path):
-        """Create an MCF instance, populated with inherent values.
+    def __init__(self, source_dataset_path=None):
+        """Create an MCF instance, populated with properties of the dataset.
 
         The MCF will be valid according to the pygeometa schema. It has
-        all required properties. Instrinsic properties of the dataset
-        are used to populate as many MCF properties as possible. And
-        default/placeholder values are used for properties that require
-        user input.
+        all required properties. Properties of the dataset are used to
+        populate as many MCF properties as possible. Default/placeholder
+        values are used for properties that require user input.
+
+        Instantiating without a `source_dataset_path` creates an MCF template.
 
         Args:
             source_dataset_path (string): path to dataset to which the metadata
                 applies
 
         """
-        self.datasource = source_dataset_path
-        self.mcf_path = f'{self.datasource}.yml'
         self.mcf = None
+        if source_dataset_path is not None:
+            self.datasource = source_dataset_path
+            self.mcf_path = f'{self.datasource}.yml'
 
-        if os.path.exists(self.mcf_path):
-            try:
-                # pygeometa.core.read_mcf can parse nested MCF documents,
-                # where one MCF refers to another
-                self.mcf = pygeometa.core.read_mcf(self.mcf_path)
-                self.validate()
-            except (pygeometa.core.MCFReadError, ValidationError,
-                    AttributeError) as err:
-                # encountered AttributeError in read_mcf not caught by pygeometa
-                LOGGER.warning(err)
-                self.mcf = None
+            if os.path.exists(self.mcf_path):
+                try:
+                    # pygeometa.core.read_mcf can parse nested MCF documents,
+                    # where one MCF refers to another
+                    self.mcf = pygeometa.core.read_mcf(self.mcf_path)
+                    self.validate()
+                except (pygeometa.core.MCFReadError, ValidationError,
+                        AttributeError) as err:
+                    # AttributeError in read_mcf not caught by pygeometa
+                    LOGGER.warning(err)
+                    self.mcf = None
 
-        if self.mcf is None:
+            if self.mcf is None:
+                self.mcf = get_template(MCF_SCHEMA)
+                self.mcf['metadata']['identifier'] = str(uuid.uuid4())
+
+                # fill all values that can be derived from the dataset
+                self._set_spatial_info()
+                self.mcf['metadata']['datestamp'] = datetime.utcnow(
+                    ).strftime('%Y-%m-%d')
+
+        else:
             self.mcf = get_template(MCF_SCHEMA)
-            self.mcf['metadata']['identifier'] = str(uuid.uuid4())
-            self.mcf['mcf']['version'] = \
-                MCF_SCHEMA['properties']['mcf']['properties']['version']['const']
-        # fill all values that can be derived from the dataset
-        self._set_spatial_info()
-        self.mcf['metadata']['datestamp'] = datetime.utcnow().strftime('%Y-%m-%d')
+        self.mcf['mcf']['version'] = \
+            MCF_SCHEMA['properties']['mcf'][
+                'properties']['version']['const']
 
     def set_title(self, title):
         """Add a title for the dataset.
@@ -363,6 +373,26 @@ class MCF:
         """
         return self.mcf['identification'].get('license')
 
+    def set_lineage(self, statement):
+        """Set the lineage statement for the dataset.
+
+        Args:
+            statement (str): general explanation describing the lineage or provenance
+                of the dataset
+
+        """
+        self.mcf['dataquality']['lineage']['statement'] = statement
+        self.validate()
+
+    def get_lineage(self):
+        """Get the lineage statement of the dataset.
+
+        Returns:
+            str or `None` if `lineage` does not exist.
+
+        """
+        return self.mcf['dataquality']['lineage'].get('statement')
+
     def set_purpose(self, purpose):
         """Add a purpose for the dataset.
 
@@ -438,6 +468,10 @@ class MCF:
 
         self.mcf['content_info']['attributes'][idx] = attribute
 
+    def _write_mcf(self, target_path):
+        with open(target_path, 'w') as file:
+            file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
+
     def write(self):
         """Write MCF and ISO-19139 XML to disk.
 
@@ -449,8 +483,9 @@ class MCF:
         - 'myraster.tif.xml'
 
         """
-        with open(self.mcf_path, 'w') as file:
-            file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
+        # with open(self.mcf_path, 'w') as file:
+        #     file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
+        self._write_mcf(self.mcf_path)
         # TODO: allow user to override the iso schema choice
         # iso_schema = ISO19139_2OutputSchema() # additional req'd properties
         iso_schema = ISO19139OutputSchema()

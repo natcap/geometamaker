@@ -14,6 +14,10 @@ from pygeometa.core import MCFValidationError
 import pygeoprocessing
 from pygeoprocessing.geoprocessing_core import DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
 import shapely
+import yaml
+
+REGRESSION_DATA = os.path.join(
+    os.path.dirname(__file__), 'data')
 
 # This is the complete list of types, but some are
 # exceedingly rare and do not match easily to python types
@@ -94,6 +98,23 @@ class MCFTests(unittest.TestCase):
     def tearDown(self):
         """Override tearDown function to remove temporary directory."""
         shutil.rmtree(self.workspace_dir)
+
+    def test_blank_MCF(self):
+        """MCF: template has expected properties."""
+        from pygeometadata.mcf import MCF
+
+        target_filepath = os.path.join(self.workspace_dir, 'mcf.yml')
+
+        mcf = MCF()
+        mcf.validate()
+        mcf._write_mcf(target_filepath)
+
+        with open(target_filepath, 'r') as file:
+            actual = yaml.safe_load(file)
+        with open(os.path.join(REGRESSION_DATA, 'template.yml'), 'r') as file:
+            expected = yaml.safe_load(file)
+
+        self.assertEqual(actual, expected)
 
     def test_vector_MCF(self):
         """MCF: validate basic vector MCF."""
@@ -387,6 +408,30 @@ class MCFTests(unittest.TestCase):
             mcf.set_license(license_name=name)
         with self.assertRaises(ValidationError):
             mcf.set_license(license_url=name)
+
+    def test_set_and_get_lineage(self):
+        """MCF: set lineage of dataset."""
+        from pygeometadata.mcf import MCF
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        statement = 'a lineage statment'
+
+        mcf.set_lineage(statement)
+        self.assertEqual(mcf.get_lineage(), statement)
+
+    def test_set_lineage_validates(self):
+        """MCF: test set lineage raises ValidationError."""
+
+        from pygeometadata.mcf import MCF
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mcf = MCF(datasource_path)
+        lineage = ['some statement']  # should be a string
+        with self.assertRaises(ValidationError):
+            mcf.set_lineage(lineage)
 
     def test_set_and_get_purpose(self):
         """MCF: set purpose of dataset."""
