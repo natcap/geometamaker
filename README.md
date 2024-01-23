@@ -7,7 +7,7 @@ See `requirements.txt` for dependencies
 #### Creating & adding metadata to file:
 
 ```python
-from pygeometadata.mcf import MCF
+from geometamaker.mcf import MCF
 
 data_path = 'data/watershed_gura.shp'
 mcf = MCF(data_path)
@@ -38,7 +38,7 @@ mcf.write()
 ```python
 import os
 
-from pygeometadata.mcf import MCF
+from geometamaker.mcf import MCF
 
 data_dir = 'C:/Users/dmf/projects/invest/data/invest-sample-data'
 for path, dirs, files in os.walk(data_dir):
