@@ -320,17 +320,9 @@ class MCF:
                 keys. Used to describe the source (thesaurus) of keywords
 
         Raises:
-            TypeError if ``keywords`` is not a list or tuple
+            ValidationError
 
         """
-        # TODO: contrast this type-checking with the approach in set_contact,
-        # where we call self.validate at the end instead of type-checking up-front.
-        # Which approach do we prefer?
-        if not isinstance(keywords, (list, tuple)):
-            raise TypeError(
-                'The first argument of keywords must be a list.'
-                f'received {type(keywords)} instead')
-
         section_dict = {
             'keywords': keywords,
             'keywords_type': keywords_type
@@ -339,6 +331,7 @@ class MCF:
         if vocabulary:
             section_dict['vocabulary'] = vocabulary
         self.mcf['identification']['keywords'][section] = section_dict
+        self.validate()
 
     def set_license(self, license_name=None, license_url=None):
         """Add a license for the dataset.

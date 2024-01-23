@@ -369,14 +369,14 @@ class MCFTests(unittest.TestCase):
             mcf.mcf['identification']['keywords']['default']['keywords'],
             ['baz'])
 
-    def test_keywords_raises_type_error(self):
-        """MCF: keywords raises TypeError."""
+    def test_keywords_raises_validation_error(self):
+        """MCF: set keywords validates."""
         from pygeometadata.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
         mcf = MCF(datasource_path)
-        with self.assertRaises(TypeError):
+        with self.assertRaises(ValidationError):
             mcf.set_keywords('foo', 'bar')
 
     def test_set_and_get_license(self):
