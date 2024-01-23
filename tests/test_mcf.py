@@ -89,7 +89,7 @@ def create_raster(
 
 
 class MCFTests(unittest.TestCase):
-    """Tests for pygeometadata.mcf."""
+    """Tests for geometamaker.mcf."""
 
     def setUp(self):
         """Override setUp function to create temp workspace directory."""
@@ -101,7 +101,7 @@ class MCFTests(unittest.TestCase):
 
     def test_blank_MCF(self):
         """MCF: template has expected properties."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         target_filepath = os.path.join(self.workspace_dir, 'mcf.yml')
 
@@ -118,7 +118,7 @@ class MCFTests(unittest.TestCase):
 
     def test_vector_MCF(self):
         """MCF: validate basic vector MCF."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
         field_map = {
@@ -137,7 +137,7 @@ class MCFTests(unittest.TestCase):
 
     def test_vector_no_fields(self):
         """MCF: validate MCF for basic vector with no fields."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
         create_vector(datasource_path, None)
@@ -153,7 +153,7 @@ class MCFTests(unittest.TestCase):
 
     def test_raster_MCF(self):
         """MCF: validate basic raster MCF."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -169,7 +169,7 @@ class MCFTests(unittest.TestCase):
 
     def test_vector_attributes(self):
         """MCF: validate vector with extra attribute metadata."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
         field_name = 'foo'
@@ -207,7 +207,7 @@ class MCFTests(unittest.TestCase):
 
     def test_raster_attributes(self):
         """MCF: validate raster with extra attribute metadata."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -246,7 +246,7 @@ class MCFTests(unittest.TestCase):
     def test_set_contact(self):
         """MCF: set and get a contact section."""
 
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         org = 'natcap'
         name = 'nat'
@@ -267,7 +267,7 @@ class MCFTests(unittest.TestCase):
     def test_set_contact_from_dict(self):
         """MCF: set a contact section from a dict."""
 
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         contact_dict = {
             'organization': 'natcap',
@@ -289,7 +289,7 @@ class MCFTests(unittest.TestCase):
     def test_set_contact_validates(self):
         """MCF: invalid type raises ValidationError."""
 
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         postalcode = 55555  # should be a string
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
@@ -301,7 +301,7 @@ class MCFTests(unittest.TestCase):
     def test_set_get_edition(self):
         """MCF: set and get dataset edition."""
 
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -313,7 +313,7 @@ class MCFTests(unittest.TestCase):
     def test_set_edition_validates(self):
         """MCF: test set edition raises ValidationError."""
 
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -325,7 +325,7 @@ class MCFTests(unittest.TestCase):
     def test_set_keywords(self):
         """MCF: set keywords to default section."""
 
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -339,7 +339,7 @@ class MCFTests(unittest.TestCase):
     def test_set_keywords_to_section(self):
         """MCF: set keywords to named section."""
 
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -357,7 +357,7 @@ class MCFTests(unittest.TestCase):
     def test_overwrite_keywords(self):
         """MCF: overwrite keywords in existing section."""
 
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -371,7 +371,7 @@ class MCFTests(unittest.TestCase):
 
     def test_keywords_raises_validation_error(self):
         """MCF: set keywords validates."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -381,7 +381,7 @@ class MCFTests(unittest.TestCase):
 
     def test_set_and_get_license(self):
         """MCF: set purpose of dataset."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -398,7 +398,7 @@ class MCFTests(unittest.TestCase):
     def test_set_license_validates(self):
         """MCF: test set license raises ValidationError."""
 
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -411,7 +411,7 @@ class MCFTests(unittest.TestCase):
 
     def test_set_and_get_lineage(self):
         """MCF: set lineage of dataset."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -424,7 +424,7 @@ class MCFTests(unittest.TestCase):
     def test_set_lineage_validates(self):
         """MCF: test set lineage raises ValidationError."""
 
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -435,7 +435,7 @@ class MCFTests(unittest.TestCase):
 
     def test_set_and_get_purpose(self):
         """MCF: set purpose of dataset."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -446,7 +446,7 @@ class MCFTests(unittest.TestCase):
 
     def test_preexisting_mcf(self):
         """MCF: test reading and ammending an existing MCF."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
 
         title = 'Title'
         keyword = 'foo'
@@ -467,7 +467,7 @@ class MCFTests(unittest.TestCase):
 
     def test_invalid_preexisting_mcf(self):
         """MCF: test overwriting an existing invalid MCF."""
-        from pygeometadata.mcf import MCF
+        from geometamaker.mcf import MCF
         title = 'Title'
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)

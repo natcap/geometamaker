@@ -1,5 +1,5 @@
 [project]
-name = "pygeometadata"
+name = "geometamaker"
 description = "metadata creation for geospatial data"
 readme = "README.md"
 requires-python = ">=3.8,<=3.12"
