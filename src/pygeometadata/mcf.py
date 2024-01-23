@@ -37,7 +37,6 @@ MCF_SCHEMA['required'].append('content_info')
 MCF_SCHEMA['properties']['content_info']['required'].append(
     'attributes')
 MCF_SCHEMA['required'].append('dataquality')
-MCF_SCHEMA['properties']['dataquality']['required'] = ['lineage']
 MCF_SCHEMA['properties']['identification']['properties'][
     'keywords']['patternProperties']['^.*'][
     'required'] = ['keywords', 'keywords_type']

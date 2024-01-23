@@ -24,6 +24,8 @@ content_info:
 dataquality:
   lineage:
     statement: ''
+  scope:
+    level: ''
 distribution:
   default:
     description: ''
