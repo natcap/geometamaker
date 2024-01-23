@@ -49,7 +49,7 @@ OGR_MCF_ATTR_TYPE_MAP = {
 }
 
 
-def get_default(item):
+def _get_default(item):
     """Return a default value for a property.
 
     Args:
@@ -102,7 +102,7 @@ def get_default(item):
     return default_values[t]
 
 
-def get_template(schema):
+def _get_template(schema):
     """Create a minimal dictionary that is valid against ``schema``.
 
     The dict will ontain only the 'required' properties.
@@ -140,11 +140,11 @@ def get_template(schema):
                 # if 'anyOf' is a property, then we effectively want to
                 # treat the children of 'anyOf' as the properties instead.
                 template[prop] = {
-                    p: get_template(s)
+                    p: _get_template(s)
                     for p, s in sch['properties']['anyOf'].items()
                 }
             else:
-                template[prop] = get_template(sch)
+                template[prop] = _get_template(sch)
         return template
 
     elif 'type' in schema and schema['type'] == 'array':
@@ -152,16 +152,16 @@ def get_template(schema):
             # for the weird case where identification.extents.spatial
             # is type: array but contains 'properties' instead of 'items'
             return [{
-                p: get_template(s)
+                p: _get_template(s)
                 for p, s in schema['properties'].items()
                 if p in schema['required']
             }]
-        return [get_template(schema['items'])]
+        return [_get_template(schema['items'])]
     else:
-        return get_default(schema)
+        return _get_default(schema)
 
 
-class MCF:
+class MetadataControl(object):
     """Encapsulates the Metadata Control File and methods for populating it.
 
     A Metadata Control File (MCF) is a YAML file that complies with the
@@ -170,7 +170,7 @@ class MCF:
 
     Attributes:
         datasource (string): path to dataset to which the metadata applies
-        mcf (dict): dict representation of the MCF
+        mcf (dict): dict representation of the Metadata Control File
 
     """
 
@@ -207,7 +207,7 @@ class MCF:
                     self.mcf = None
 
             if self.mcf is None:
-                self.mcf = get_template(MCF_SCHEMA)
+                self.mcf = _get_template(MCF_SCHEMA)
                 self.mcf['metadata']['identifier'] = str(uuid.uuid4())
 
                 # fill all values that can be derived from the dataset
@@ -216,7 +216,7 @@ class MCF:
                     ).strftime('%Y-%m-%d')
 
         else:
-            self.mcf = get_template(MCF_SCHEMA)
+            self.mcf = _get_template(MCF_SCHEMA)
         self.mcf['mcf']['version'] = \
             MCF_SCHEMA['properties']['mcf'][
                 'properties']['version']['const']
