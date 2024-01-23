@@ -88,8 +88,8 @@ def create_raster(
     new_raster = None
 
 
-class MCFTests(unittest.TestCase):
-    """Tests for geometamaker.mcf."""
+class MetadataControlTests(unittest.TestCase):
+    """Tests for geometamaker."""
 
     def setUp(self):
         """Override setUp function to create temp workspace directory."""
@@ -99,15 +99,15 @@ class MCFTests(unittest.TestCase):
         """Override tearDown function to remove temporary directory."""
         shutil.rmtree(self.workspace_dir)
 
-    def test_blank_MCF(self):
-        """MCF: template has expected properties."""
-        from geometamaker.mcf import MCF
+    def test_blank_MetadataControl(self):
+        """MetadataControl: template has expected properties."""
+        from geometamaker import MetadataControl
 
         target_filepath = os.path.join(self.workspace_dir, 'mcf.yml')
 
-        mcf = MCF()
-        mcf.validate()
-        mcf._write_mcf(target_filepath)
+        mc = MetadataControl()
+        mc.validate()
+        mc._write_mcf(target_filepath)
 
         with open(target_filepath, 'r') as file:
             actual = yaml.safe_load(file)
@@ -116,9 +116,9 @@ class MCFTests(unittest.TestCase):
 
         self.assertEqual(actual, expected)
 
-    def test_vector_MCF(self):
-        """MCF: validate basic vector MCF."""
-        from geometamaker.mcf import MCF
+    def test_vector_MetadataControl(self):
+        """MetadataControl: validate basic vector MetadataControl."""
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
         field_map = {
@@ -126,50 +126,50 @@ class MCFTests(unittest.TestCase):
             for k in _OGR_TYPES_VALUES_MAP}
         create_vector(datasource_path, field_map)
 
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         try:
-            mcf.validate()
+            mc.validate()
         except (MCFValidationError, SchemaError) as e:
             self.fail(
                 'unexpected validation error occurred\n'
                 f'{e}')
-        mcf.write()
+        mc.write()
 
     def test_vector_no_fields(self):
-        """MCF: validate MCF for basic vector with no fields."""
-        from geometamaker.mcf import MCF
+        """MetadataControl: validate MetadataControl for basic vector with no fields."""
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
         create_vector(datasource_path, None)
 
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         try:
-            mcf.validate()
+            mc.validate()
         except (MCFValidationError, SchemaError) as e:
             self.fail(
                 'unexpected validation error occurred\n'
                 f'{e}')
-        mcf.write()
+        mc.write()
 
-    def test_raster_MCF(self):
-        """MCF: validate basic raster MCF."""
-        from geometamaker.mcf import MCF
+    def test_raster_MetadataControl(self):
+        """MetadataControl: validate basic raster MetadataControl."""
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
 
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         try:
-            mcf.validate()
+            mc.validate()
         except (MCFValidationError, SchemaError) as e:
             self.fail(
                 'unexpected validation error occurred\n'
                 f'{e}')
-        mcf.write()
+        mc.write()
 
     def test_vector_attributes(self):
-        """MCF: validate vector with extra attribute metadata."""
-        from geometamaker.mcf import MCF
+        """MetadataControl: validate vector with extra attribute metadata."""
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
         field_name = 'foo'
@@ -177,76 +177,76 @@ class MCFTests(unittest.TestCase):
             field_name: list(_OGR_TYPES_VALUES_MAP)[0]}
         create_vector(datasource_path, field_map)
 
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         title = 'title'
         abstract = 'some abstract'
         units = 'mm'
-        mcf.set_field_description(
+        mc.set_field_description(
             field_name,
             title=title,
             abstract=abstract)
         # To demonstrate that properties can be added while preserving others
-        mcf.set_field_description(
+        mc.set_field_description(
             field_name,
             units=units)
         try:
-            mcf.validate()
+            mc.validate()
         except (MCFValidationError, SchemaError) as e:
             self.fail(
                 'unexpected validation error occurred\n'
                 f'{e}')
 
         self.assertEqual(
-            len(mcf.mcf['content_info']['attributes']),
+            len(mc.mcf['content_info']['attributes']),
             len(field_map))
-        attr = [attr for attr in mcf.mcf['content_info']['attributes']
+        attr = [attr for attr in mc.mcf['content_info']['attributes']
                 if attr['name'] == field_name][0]
         self.assertEqual(attr['title'], title)
         self.assertEqual(attr['abstract'], abstract)
         self.assertEqual(attr['units'], units)
 
     def test_raster_attributes(self):
-        """MCF: validate raster with extra attribute metadata."""
-        from geometamaker.mcf import MCF
+        """MetadataControl: validate raster with extra attribute metadata."""
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
         band_number = 1
 
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         name = 'name'
         title = 'title'
         abstract = 'some abstract'
         units = 'mm'
-        mcf.set_band_description(
+        mc.set_band_description(
             band_number,
             name=name,
             title=title,
             abstract=abstract)
         # To demonstrate that properties can be added while preserving others
-        mcf.set_band_description(
+        mc.set_band_description(
             band_number,
             units=units)
         try:
-            mcf.validate()
+            mc.validate()
         except (MCFValidationError, SchemaError) as e:
             self.fail(
                 'unexpected validation error occurred\n'
                 f'{e}')
 
         self.assertEqual(
-            len(mcf.mcf['content_info']['attributes']),
+            len(mc.mcf['content_info']['attributes']),
             pygeoprocessing.get_raster_info(datasource_path)['n_bands'])
-        attr = mcf.mcf['content_info']['attributes'][band_number - 1]
+        attr = mc.mcf['content_info']['attributes'][band_number - 1]
         self.assertEqual(attr['name'], name)
         self.assertEqual(attr['title'], title)
         self.assertEqual(attr['abstract'], abstract)
         self.assertEqual(attr['units'], units)
 
     def test_set_contact(self):
-        """MCF: set and get a contact section."""
+        """MetadataControl: set and get a contact section."""
 
-        from geometamaker.mcf import MCF
+        from geometamaker import MetadataControl
 
         org = 'natcap'
         name = 'nat'
@@ -254,20 +254,20 @@ class MCFTests(unittest.TestCase):
         email = 'abc@def'
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
-        mcf.set_contact(
+        mc = MetadataControl(datasource_path)
+        mc.set_contact(
             organization=org, individualname=name,
             positionname=position, email=email)
-        contact_dict = mcf.get_contact()
+        contact_dict = mc.get_contact()
         self.assertEqual(contact_dict['organization'], org)
         self.assertEqual(contact_dict['individualname'], name)
         self.assertEqual(contact_dict['positionname'], position)
         self.assertEqual(contact_dict['email'], email)
 
     def test_set_contact_from_dict(self):
-        """MCF: set a contact section from a dict."""
+        """MetadataControl: set a contact section from a dict."""
 
-        from geometamaker.mcf import MCF
+        from geometamaker import MetadataControl
 
         contact_dict = {
             'organization': 'natcap',
@@ -280,220 +280,220 @@ class MCFTests(unittest.TestCase):
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
-        mcf.set_contact(**contact_dict)
-        actual = mcf.get_contact()
+        mc = MetadataControl(datasource_path)
+        mc.set_contact(**contact_dict)
+        actual = mc.get_contact()
         for k, v in contact_dict.items():
             self.assertEqual(actual[k], v)
 
     def test_set_contact_validates(self):
-        """MCF: invalid type raises ValidationError."""
+        """MetadataControl: invalid type raises ValidationError."""
 
-        from geometamaker.mcf import MCF
+        from geometamaker import MetadataControl
 
         postalcode = 55555  # should be a string
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         with self.assertRaises(ValidationError):
-            mcf.set_contact(postalcode=postalcode)
+            mc.set_contact(postalcode=postalcode)
 
     def test_set_get_edition(self):
-        """MCF: set and get dataset edition."""
+        """MetadataControl: set and get dataset edition."""
 
-        from geometamaker.mcf import MCF
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         version = '3.14'
-        mcf.set_edition(version)
-        self.assertEqual(mcf.get_edition(), version)
+        mc.set_edition(version)
+        self.assertEqual(mc.get_edition(), version)
 
     def test_set_edition_validates(self):
-        """MCF: test set edition raises ValidationError."""
+        """MetadataControl: test set edition raises ValidationError."""
 
-        from geometamaker.mcf import MCF
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         version = 3.14  # should be a string
         with self.assertRaises(ValidationError):
-            mcf.set_edition(version)
+            mc.set_edition(version)
 
     def test_set_keywords(self):
-        """MCF: set keywords to default section."""
+        """MetadataControl: set keywords to default section."""
 
-        from geometamaker.mcf import MCF
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
-        mcf.set_keywords(['foo', 'bar'])
+        mc = MetadataControl(datasource_path)
+        mc.set_keywords(['foo', 'bar'])
 
         self.assertEqual(
-            mcf.mcf['identification']['keywords']['default']['keywords'],
+            mc.mcf['identification']['keywords']['default']['keywords'],
             ['foo', 'bar'])
 
     def test_set_keywords_to_section(self):
-        """MCF: set keywords to named section."""
+        """MetadataControl: set keywords to named section."""
 
-        from geometamaker.mcf import MCF
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
-        mcf.set_keywords(['foo', 'bar'], section='first')
-        mcf.set_keywords(['baz'], section='second')
+        mc = MetadataControl(datasource_path)
+        mc.set_keywords(['foo', 'bar'], section='first')
+        mc.set_keywords(['baz'], section='second')
 
         self.assertEqual(
-            mcf.mcf['identification']['keywords']['first']['keywords'],
+            mc.mcf['identification']['keywords']['first']['keywords'],
             ['foo', 'bar'])
         self.assertEqual(
-            mcf.mcf['identification']['keywords']['second']['keywords'],
+            mc.mcf['identification']['keywords']['second']['keywords'],
             ['baz'])
 
     def test_overwrite_keywords(self):
-        """MCF: overwrite keywords in existing section."""
+        """MetadataControl: overwrite keywords in existing section."""
 
-        from geometamaker.mcf import MCF
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
-        mcf.set_keywords(['foo', 'bar'])
-        mcf.set_keywords(['baz'])
+        mc = MetadataControl(datasource_path)
+        mc.set_keywords(['foo', 'bar'])
+        mc.set_keywords(['baz'])
 
         self.assertEqual(
-            mcf.mcf['identification']['keywords']['default']['keywords'],
+            mc.mcf['identification']['keywords']['default']['keywords'],
             ['baz'])
 
     def test_keywords_raises_validation_error(self):
-        """MCF: set keywords validates."""
-        from geometamaker.mcf import MCF
+        """MetadataControl: set keywords validates."""
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         with self.assertRaises(ValidationError):
-            mcf.set_keywords('foo', 'bar')
+            mc.set_keywords('foo', 'bar')
 
     def test_set_and_get_license(self):
-        """MCF: set purpose of dataset."""
-        from geometamaker.mcf import MCF
+        """MetadataControl: set purpose of dataset."""
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         name = 'CC-BY-4.0'
         url = 'https://creativecommons.org/licenses/by/4.0/'
-        mcf.set_license(license_name=name)
-        self.assertEqual(mcf.get_license(), {'name': name, 'url': ''})
-        mcf.set_license(license_url=url)
-        self.assertEqual(mcf.get_license(), {'name': '', 'url': url})
-        mcf.set_license(license_name=name, license_url=url)
-        self.assertEqual(mcf.get_license(), {'name': name, 'url': url})
+        mc.set_license(license_name=name)
+        self.assertEqual(mc.get_license(), {'name': name, 'url': ''})
+        mc.set_license(license_url=url)
+        self.assertEqual(mc.get_license(), {'name': '', 'url': url})
+        mc.set_license(license_name=name, license_url=url)
+        self.assertEqual(mc.get_license(), {'name': name, 'url': url})
 
     def test_set_license_validates(self):
-        """MCF: test set license raises ValidationError."""
+        """MetadataControl: test set license raises ValidationError."""
 
-        from geometamaker.mcf import MCF
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         name = 4.0  # should be a string
         with self.assertRaises(ValidationError):
-            mcf.set_license(license_name=name)
+            mc.set_license(license_name=name)
         with self.assertRaises(ValidationError):
-            mcf.set_license(license_url=name)
+            mc.set_license(license_url=name)
 
     def test_set_and_get_lineage(self):
-        """MCF: set lineage of dataset."""
-        from geometamaker.mcf import MCF
+        """MetadataControl: set lineage of dataset."""
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         statement = 'a lineage statment'
 
-        mcf.set_lineage(statement)
-        self.assertEqual(mcf.get_lineage(), statement)
+        mc.set_lineage(statement)
+        self.assertEqual(mc.get_lineage(), statement)
 
     def test_set_lineage_validates(self):
-        """MCF: test set lineage raises ValidationError."""
+        """MetadataControl: test set lineage raises ValidationError."""
 
-        from geometamaker.mcf import MCF
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         lineage = ['some statement']  # should be a string
         with self.assertRaises(ValidationError):
-            mcf.set_lineage(lineage)
+            mc.set_lineage(lineage)
 
     def test_set_and_get_purpose(self):
-        """MCF: set purpose of dataset."""
-        from geometamaker.mcf import MCF
+        """MetadataControl: set purpose of dataset."""
+        from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
+        mc = MetadataControl(datasource_path)
         purpose = 'foo'
-        mcf.set_purpose(purpose)
-        self.assertEqual(mcf.get_purpose(), purpose)
+        mc.set_purpose(purpose)
+        self.assertEqual(mc.get_purpose(), purpose)
 
-    def test_preexisting_mcf(self):
-        """MCF: test reading and ammending an existing MCF."""
-        from geometamaker.mcf import MCF
+    def test_preexisting_mc(self):
+        """MetadataControl: test reading and ammending an existing MetadataControl."""
+        from geometamaker import MetadataControl
 
         title = 'Title'
         keyword = 'foo'
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
-        mcf.set_title(title)
-        mcf.write()
+        mc = MetadataControl(datasource_path)
+        mc.set_title(title)
+        mc.write()
 
-        new_mcf = MCF(datasource_path)
-        new_mcf.set_keywords([keyword])
+        new_mc = MetadataControl(datasource_path)
+        new_mc.set_keywords([keyword])
 
         self.assertEqual(
-            new_mcf.mcf['identification']['title'], title)
+            new_mc.mcf['identification']['title'], title)
         self.assertEqual(
-            new_mcf.mcf['identification']['keywords']['default']['keywords'],
+            new_mc.mcf['identification']['keywords']['default']['keywords'],
             [keyword])
 
     def test_invalid_preexisting_mcf(self):
-        """MCF: test overwriting an existing invalid MCF."""
-        from geometamaker.mcf import MCF
+        """MetadataControl: test overwriting an existing invalid MetadataControl."""
+        from geometamaker import MetadataControl
         title = 'Title'
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
-        mcf = MCF(datasource_path)
-        mcf.set_title(title)
+        mc = MetadataControl(datasource_path)
+        mc.set_title(title)
 
-        # delete a required property and ensure invalid MCF
-        del mcf.mcf['mcf']
+        # delete a required property and ensure invalid MetadataControl
+        del mc.mcf['mcf']
         with self.assertRaises(ValidationError):
-            mcf.validate()
-        mcf.write()  # intentionally writing an invalid MCF
+            mc.validate()
+        mc.write()  # intentionally writing an invalid MetadataControl
 
-        new_mcf = MCF(datasource_path)
+        new_mc = MetadataControl(datasource_path)
 
-        # The new MCF should not have values from the invalid MCF
+        # The new MetadataControl should not have values from the invalid MetadataControl
         self.assertEqual(
-            new_mcf.mcf['identification']['title'], '')
+            new_mc.mcf['identification']['title'], '')
 
         try:
-            new_mcf.validate()
+            new_mc.validate()
         except (MCFValidationError, SchemaError) as e:
             self.fail(
                 'unexpected validation error occurred\n'
                 f'{e}')
         try:
-            new_mcf.write()
+            new_mc.write()
         except Exception as e:
             self.fail(
                 'unexpected write error occurred\n'
