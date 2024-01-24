@@ -475,8 +475,6 @@ class MetadataControl(object):
         - 'myraster.tif.xml'
 
         """
-        # with open(self.mcf_path, 'w') as file:
-        #     file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
         self._write_mcf(self.mcf_path)
         # TODO: allow user to override the iso schema choice
         # iso_schema = ISO19139_2OutputSchema() # additional req'd properties
