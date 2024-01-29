@@ -1,4 +1,4 @@
-name: Test pygeometadata
+name: Test geometamaker
 
 on: [push, pull_request]
 

@@ -1,5 +1,7 @@
 import logging
 import os
+import uuid
+from datetime import datetime
 
 import jsonschema
 from jsonschema.exceptions import ValidationError
@@ -34,6 +36,7 @@ with open(MCF_SCHEMA_FILE, 'r') as schema_file:
 MCF_SCHEMA['required'].append('content_info')
 MCF_SCHEMA['properties']['content_info']['required'].append(
     'attributes')
+MCF_SCHEMA['required'].append('dataquality')
 MCF_SCHEMA['properties']['identification']['properties'][
     'keywords']['patternProperties']['^.*'][
     'required'] = ['keywords', 'keywords_type']
@@ -46,7 +49,7 @@ OGR_MCF_ATTR_TYPE_MAP = {
 }
 
 
-def get_default(item):
+def _get_default(item):
     """Return a default value for a property.
 
     Args:
@@ -99,7 +102,7 @@ def get_default(item):
     return default_values[t]
 
 
-def get_template(schema):
+def _get_template(schema):
     """Create a minimal dictionary that is valid against ``schema``.
 
     The dict will ontain only the 'required' properties.
@@ -137,11 +140,11 @@ def get_template(schema):
                 # if 'anyOf' is a property, then we effectively want to
                 # treat the children of 'anyOf' as the properties instead.
                 template[prop] = {
-                    p: get_template(s)
+                    p: _get_template(s)
                     for p, s in sch['properties']['anyOf'].items()
                 }
             else:
-                template[prop] = get_template(sch)
+                template[prop] = _get_template(sch)
         return template
 
     elif 'type' in schema and schema['type'] == 'array':
@@ -149,16 +152,16 @@ def get_template(schema):
             # for the weird case where identification.extents.spatial
             # is type: array but contains 'properties' instead of 'items'
             return [{
-                p: get_template(s)
+                p: _get_template(s)
                 for p, s in schema['properties'].items()
                 if p in schema['required']
             }]
-        return [get_template(schema['items'])]
+        return [_get_template(schema['items'])]
     else:
-        return get_default(schema)
+        return _get_default(schema)
 
 
-class MCF:
+class MetadataControl(object):
     """Encapsulates the Metadata Control File and methods for populating it.
 
     A Metadata Control File (MCF) is a YAML file that complies with the
@@ -167,58 +170,56 @@ class MCF:
 
     Attributes:
         datasource (string): path to dataset to which the metadata applies
-        mcf (dict): dict representation of the MCF
+        mcf (dict): dict representation of the Metadata Control File
 
     """
 
-    def __init__(self, source_dataset_path):
-        """Create an MCF instance, populated with inherent values.
+    def __init__(self, source_dataset_path=None):
+        """Create an MCF instance, populated with properties of the dataset.
 
         The MCF will be valid according to the pygeometa schema. It has
-        all required properties. Instrinsic properties of the dataset
-        are used to populate as many MCF properties as possible. And
-        default/placeholder values are used for properties that require
-        user input.
+        all required properties. Properties of the dataset are used to
+        populate as many MCF properties as possible. Default/placeholder
+        values are used for properties that require user input.
+
+        Instantiating without a ``source_dataset_path`` creates an MCF template.
 
         Args:
             source_dataset_path (string): path to dataset to which the metadata
                 applies
 
         """
-        self.datasource = source_dataset_path
-        self.mcf_path = f'{self.datasource}.yml'
         self.mcf = None
+        if source_dataset_path is not None:
+            self.datasource = source_dataset_path
+            self.mcf_path = f'{self.datasource}.yml'
 
-        if os.path.exists(self.mcf_path):
-            try:
-                # pygeometa.core.read_mcf can parse nested MCF documents,
-                # where one MCF refers to another
-                self.mcf = pygeometa.core.read_mcf(self.mcf_path)
-                self.validate()
-            except (pygeometa.core.MCFReadError, ValidationError) as err:
-                LOGGER.warning(err)
-                self.mcf = None
+            if os.path.exists(self.mcf_path):
+                try:
+                    # pygeometa.core.read_mcf can parse nested MCF documents,
+                    # where one MCF refers to another
+                    self.mcf = pygeometa.core.read_mcf(self.mcf_path)
+                    self.validate()
+                except (pygeometa.core.MCFReadError, ValidationError,
+                        AttributeError) as err:
+                    # AttributeError in read_mcf not caught by pygeometa
+                    LOGGER.warning(err)
+                    self.mcf = None
 
-        if self.mcf is None:
-            self.mcf = get_template(MCF_SCHEMA)
-            self.mcf['mcf']['version'] = \
-                MCF_SCHEMA['properties']['mcf']['properties']['version']['const']
-            # fill all values that can be derived from the dataset
-        self._set_spatial_info()
+            if self.mcf is None:
+                self.mcf = _get_template(MCF_SCHEMA)
+                self.mcf['metadata']['identifier'] = str(uuid.uuid4())
 
-    def add_metadata_attr(self, attribute):
-        """Add an arbitrary attribute to the metadata.
+                # fill all values that can be derived from the dataset
+                self._set_spatial_info()
+                self.mcf['metadata']['datestamp'] = datetime.utcnow(
+                    ).strftime('%Y-%m-%d')
 
-        These should be attributes that do not appear elsewhere in the MCF
-        specification.
-
-        Args:
-            attribute (dict)
-
-        """
-        if 'attributes' not in self.mcf:
-            self.mcf['attributes'] = []
-        self.mcf['attributes'].append(attribute)
+        else:
+            self.mcf = _get_template(MCF_SCHEMA)
+        self.mcf['mcf']['version'] = \
+            MCF_SCHEMA['properties']['mcf'][
+                'properties']['version']['const']
 
     def set_title(self, title):
         """Add a title for the dataset.
@@ -238,12 +239,76 @@ class MCF:
         """
         self.mcf['identification']['abstract'] = abstract
 
+    def set_contact(self, organization=None, individualname=None, positionname=None,
+                    email=None, section='default', **kwargs):
+        """Add a contact section.
+
+        Args:
+            organization (str): name of the responsible organization
+            individualname (str): name of the responsible person
+            positionname (str): role or position of the responsible person
+            email (str): email address of the responsible organization or individual
+            section (str): a header for the contact section under which to
+                apply the other args, since there can be more than one.
+            kwargs (dict): key-value pairs for any other properties listed in
+                the contact section of the core MCF schema.
+
+        """
+
+        if organization:
+            self.mcf['contact'][section]['organization'] = organization
+        if individualname:
+            self.mcf['contact'][section]['individualname'] = individualname
+        if positionname:
+            self.mcf['contact'][section]['positionname'] = positionname
+        if email:
+            self.mcf['contact'][section]['email'] = email
+        if kwargs:
+            for k, v in kwargs.items():
+                self.mcf['contact'][section][k] = v
+
+        # TODO: validate just the contact section instead?
+        # Not obvious how to do that using the complete schema.
+        self.validate()
+
+    def get_contact(self, section='default'):
+        """Get metadata from a contact section.
+
+        Args:
+            section (str): a header for the contact section under which to
+                    apply the other args, since there can be more than one.
+        Returns:
+            A dict or ``None`` if ``section`` does not exist.
+
+        """
+        return self.mcf['contact'].get(section)
+
+    def set_edition(self, edition):
+        """Set the edition for the dataset.
+
+        Args:
+            edition (str): version of the cited resource
+
+        """
+        self.mcf['identification']['edition'] = edition
+        self.validate()
+
+    def get_edition(self):
+        """Get the edition of the dataset.
+
+        Returns:
+            str or ``None`` if ``edition`` does not exist.
+
+        """
+        return self.mcf['identification'].get('edition')
+
     def set_keywords(self, keywords, section='default', keywords_type='theme',
                      vocabulary=None):
         """Describe a dataset with a list of keywords.
 
         Keywords are grouped into sections for the purpose of complying with
-        pre-exising keyword schema.
+        pre-exising keyword schema. A section will be overwritten if it
+        already exists.
 
         Args:
             keywords (list): sequence of strings
@@ -255,14 +320,9 @@ class MCF:
                 keys. Used to describe the source (thesaurus) of keywords
 
         Raises:
-            TypeError if ``keywords`` is not a list or tuple
+            ValidationError
 
         """
-        if not isinstance(keywords, (list, tuple)):
-            raise TypeError(
-                'The first argument of keywords must be a list.'
-                f'received {type(keywords)} instead')
-
         section_dict = {
             'keywords': keywords,
             'keywords_type': keywords_type
@@ -271,9 +331,85 @@ class MCF:
         if vocabulary:
             section_dict['vocabulary'] = vocabulary
         self.mcf['identification']['keywords'][section] = section_dict
+        self.validate()
 
-    def describe_band(self, band_number, name=None, title=None, abstract=None,
-                      units=None):
+    def set_license(self, license_name=None, license_url=None):
+        """Add a license for the dataset.
+
+        Args:
+            license (str): name of the license of the source dataset
+
+        """
+        # One may wish to set these fields to empty strings
+        if license_name is None and license_url is None:
+            raise ValueError(
+                'either `license_name` or `license_url` is required.')
+
+        constraints = ''
+        if license_name or license_url:
+            constraints = 'license'
+
+        license_dict = {}
+        license_dict['name'] = license_name if license_name else ''
+        license_dict['url'] = license_url if license_url else ''
+        self.mcf['identification']['license'] = license_dict
+        self.mcf['identification']['accessconstraints'] = constraints
+        self.validate()
+
+    def get_license(self):
+        """Get ``license`` for the dataset.
+
+        Returns:
+            dict or ``None`` if ``license`` does not exist.
+
+        """
+        return self.mcf['identification'].get('license')
+
+    def set_lineage(self, statement):
+        """Set the lineage statement for the dataset.
+
+        Args:
+            statement (str): general explanation describing the lineage or provenance
+                of the dataset
+
+        """
+        self.mcf['dataquality']['lineage']['statement'] = statement
+        self.validate()
+
+    def get_lineage(self):
+        """Get the lineage statement of the dataset.
+
+        Returns:
+            str or ``None`` if ``lineage`` does not exist.
+
+        """
+        return self.mcf['dataquality']['lineage'].get('statement')
+
+    def set_purpose(self, purpose):
+        """Add a purpose for the dataset.
+
+        Args:
+            purpose (str): description of the purpose of the source dataset
+
+        """
+        # 'Purpose' is not supported in the core MCF spec, probably because
+        # `<gmd:purpose>` was added to ISO-19115 in 2014, and MCF still only
+        # supports 2015. For now, we can add `purpose` in `identification`.
+        # Later we can move it elsewhere if it becomes formally supported.
+        self.mcf['identification']['purpose'] = purpose
+        self.validate()
+
+    def get_purpose(self):
+        """Get ``purpose`` for the dataset.
+
+        Returns:
+            str or ``None`` if ``purpose`` does not exist.
+
+        """
+        return self.mcf['identification'].get('purpose')
+
+    def set_band_description(self, band_number, name=None, title=None, abstract=None,
+                             units=None):
         """Define metadata for a raster band.
 
         Args:
@@ -296,8 +432,8 @@ class MCF:
 
         self.mcf['content_info']['attributes'][idx] = attribute
 
-    def describe_field(self, name, title=None, abstract=None,
-                       units=None):
+    def set_field_description(self, name, title=None, abstract=None,
+                              units=None):
         """Define metadata for a tabular field.
 
         Args:
@@ -324,6 +460,10 @@ class MCF:
 
         self.mcf['content_info']['attributes'][idx] = attribute
 
+    def _write_mcf(self, target_path):
+        with open(target_path, 'w') as file:
+            file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
+
     def write(self):
         """Write MCF and ISO-19139 XML to disk.
 
@@ -335,8 +475,7 @@ class MCF:
         - 'myraster.tif.xml'
 
         """
-        with open(self.mcf_path, 'w') as file:
-            file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
+        self._write_mcf(self.mcf_path)
         # TODO: allow user to override the iso schema choice
         # iso_schema = ISO19139_2OutputSchema() # additional req'd properties
         iso_schema = ISO19139OutputSchema()

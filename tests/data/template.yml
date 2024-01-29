@@ -1,0 +1,69 @@
+contact:
+  default:
+    address: ''
+    administrativearea: ''
+    city: ''
+    country: ''
+    email: ''
+    fax: ''
+    individualname: ''
+    organization: ''
+    phone: ''
+    positionname: ''
+    postalcode: ''
+    url: ''
+content_info:
+  attributes:
+  - name: ''
+  dimensions:
+  - max: 0.0
+    min: 0.0
+    name: ''
+    units: ''
+  type: coverage
+dataquality:
+  lineage:
+    statement: ''
+  scope:
+    level: ''
+distribution:
+  default:
+    description: ''
+    function: download
+    name: ''
+    type: ''
+    url: ''
+identification:
+  abstract: ''
+  accessconstraints: ''
+  dates:
+    creation: ''
+    publication: ''
+    revision: ''
+  extents:
+    spatial:
+    - bbox:
+      - 0.0
+  fees: ''
+  keywords:
+    default:
+      keywords: []
+      keywords_type: discipline
+  maintenancefrequency: ''
+  rights: ''
+  status: ''
+  title: ''
+  topiccategory:
+  - geoscientificInformation
+  url: ''
+mcf:
+  version: 1.0
+metadata:
+  charset: ''
+  datestamp: ''
+  hierarchylevel: series
+  identifier: ''
+  language: ''
+spatial:
+  datatype: vector
+  geomtype: complex
