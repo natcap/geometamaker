@@ -182,7 +182,7 @@ class MetadataControl(object):
         populate as many MCF properties as possible. Default/placeholder
         values are used for properties that require user input.
 
-        Instantiating without a `source_dataset_path` creates an MCF template.
+        Instantiating without a ``source_dataset_path`` creates an MCF template.
 
         Args:
             source_dataset_path (string): path to dataset to which the metadata
@@ -278,7 +278,7 @@ class MetadataControl(object):
             section (str): a header for the contact section under which to
                     apply the other args, since there can be more than one.
         Returns:
-            A dict or `None` if `section` does not exist.
+            A dict or ``None`` if ``section`` does not exist.
 
         """
         return self.mcf['contact'].get(section)
@@ -297,7 +297,7 @@ class MetadataControl(object):
         """Get the edition of the dataset.
 
         Returns:
-            str or `None` if `edition` does not exist.
+            str or ``None`` if ``edition`` does not exist.
 
         """
         return self.mcf['identification'].get('edition')
@@ -357,10 +357,10 @@ class MetadataControl(object):
         self.validate()
 
     def get_license(self):
-        """Get `license` for the dataset.
+        """Get ``license`` for the dataset.
 
         Returns:
-            dict or `None` if `license` does not exist.
+            dict or ``None`` if ``license`` does not exist.
 
         """
         return self.mcf['identification'].get('license')
@@ -380,7 +380,7 @@ class MetadataControl(object):
         """Get the lineage statement of the dataset.
 
         Returns:
-            str or `None` if `lineage` does not exist.
+            str or ``None`` if ``lineage`` does not exist.
 
         """
         return self.mcf['dataquality']['lineage'].get('statement')
@@ -400,10 +400,10 @@ class MetadataControl(object):
         self.validate()
 
     def get_purpose(self):
-        """Get `purpose` for the dataset.
+        """Get ``purpose`` for the dataset.
 
         Returns:
-            str or `None` if `purpose` does not exist.
+            str or ``None`` if ``purpose`` does not exist.
 
         """
         return self.mcf['identification'].get('purpose')
