@@ -40,6 +40,13 @@ MCF_SCHEMA['required'].append('dataquality')
 MCF_SCHEMA['properties']['identification']['properties'][
     'keywords']['patternProperties']['^.*'][
     'required'] = ['keywords', 'keywords_type']
+# to accomodate tables that do not represent spatial content:
+NO_GEOM_TYPE = 'none'
+MCF_SCHEMA['properties']['spatial']['properties'][
+    'geomtype']['enum'].append(NO_GEOM_TYPE)
+TABLE_CONTENT_TYPE = 'table'
+MCF_SCHEMA['properties']['content_info']['properties'][
+    'type']['enum'].append(TABLE_CONTENT_TYPE)
 
 OGR_MCF_ATTR_TYPE_MAP = {
     ogr.OFTInteger: 'integer',
@@ -502,8 +509,8 @@ class MetadataControl(object):
             self.mcf['metadata']['hierarchylevel'] = 'nonGeographicDataset'
             return
 
+        self.mcf['metadata']['hierarchylevel'] = 'dataset'
         if gis_type == pygeoprocessing.VECTOR_TYPE:
-            self.mcf['metadata']['hierarchylevel'] = 'dataset'
             self.mcf['spatial']['datatype'] = 'vector'
             self.mcf['content_info']['type'] = 'coverage'
 
@@ -546,7 +553,6 @@ class MetadataControl(object):
             gis_info = pygeoprocessing.get_vector_info(self.datasource)
 
         if gis_type == pygeoprocessing.RASTER_TYPE:
-            self.mcf['metadata']['hierarchylevel'] = 'dataset'
             self.mcf['spatial']['datatype'] = 'grid'
             self.mcf['spatial']['geomtype'] = 'surface'
             self.mcf['content_info']['type'] = 'image'
@@ -569,9 +575,22 @@ class MetadataControl(object):
 
             gis_info = pygeoprocessing.get_raster_info(self.datasource)
 
-        srs = osr.SpatialReference()
-        srs.ImportFromWkt(gis_info['projection_wkt'])
-        epsg = srs.GetAttrValue('AUTHORITY', 1)
+        if os.path.splitext(self.datasource)[1] == '.csv':
+            # These properties are required by MCF, even if the CSV
+            # in question is not spatial at all.
+            self.mcf['spatial']['geomtype'] = NO_GEOM_TYPE
+            self.mcf['spatial']['datatype'] = 'textTable'
+            return
+
+        try:
+            srs = osr.SpatialReference()
+            srs.ImportFromWkt(gis_info['projection_wkt'])
+            epsg = srs.GetAttrValue('AUTHORITY', 1)
+        except TypeError:
+            LOGGER.warning(
+                f'could not import a spatial reference system from '
+                f'"projection_wkt" in {gis_info}')
+            epsg = ''
         # for human-readable values after yaml dump, use python types
         # instead of numpy types
         bbox = [float(x) for x in gis_info['bounding_box']]
