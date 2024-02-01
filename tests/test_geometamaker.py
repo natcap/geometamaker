@@ -498,20 +498,23 @@ class MetadataControlTests(unittest.TestCase):
 
         title = 'Title'
         keyword = 'foo'
+        band_name = 'The Band'
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
         mc = MetadataControl(datasource_path)
         mc.set_title(title)
+        mc.set_band_description(1, name=band_name)
         mc.write()
 
         new_mc = MetadataControl(datasource_path)
         new_mc.set_keywords([keyword])
 
         self.assertEqual(
-            new_mc.mcf['identification']['title'], title)
+            new_mc.get_title(), title)
         self.assertEqual(
-            new_mc.mcf['identification']['keywords']['default']['keywords'],
-            [keyword])
+            new_mc.get_band_description(1)['name'], band_name)
+        self.assertEqual(
+            new_mc.get_keywords()['keywords'], [keyword])
 
     def test_invalid_preexisting_mcf(self):
         """MetadataControl: test overwriting an existing invalid MetadataControl."""

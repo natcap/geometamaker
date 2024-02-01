@@ -6,8 +6,7 @@ from datetime import datetime
 import jsonschema
 from jsonschema.exceptions import ValidationError
 import pygeometa.core
-from pygeometa.schemas.iso19139 import ISO19139OutputSchema
-from pygeometa.schemas.iso19139_2 import ISO19139_2OutputSchema
+from pygeometa.schemas import load_schema
 import pygeoprocessing
 from osgeo import gdal
 from osgeo import ogr
@@ -224,6 +223,7 @@ class MetadataControl(object):
 
         else:
             self.mcf = _get_template(MCF_SCHEMA)
+
         self.mcf['mcf']['version'] = \
             MCF_SCHEMA['properties']['mcf'][
                 'properties']['version']['const']
@@ -237,6 +237,10 @@ class MetadataControl(object):
         """
         self.mcf['identification']['title'] = title
 
+    def get_title(self):
+        """Get the title for the dataset."""
+        return self.mcf['identification']['title']
+
     def set_abstract(self, abstract):
         """Add an abstract for the dataset.
 
@@ -245,6 +249,10 @@ class MetadataControl(object):
 
         """
         self.mcf['identification']['abstract'] = abstract
+
+    def get_abstract(self):
+        """Get the abstract for the dataset."""
+        return self.mcf['identification']['abstract']
 
     def set_contact(self, organization=None, individualname=None, positionname=None,
                     email=None, section='default', **kwargs):
@@ -339,6 +347,9 @@ class MetadataControl(object):
             section_dict['vocabulary'] = vocabulary
         self.mcf['identification']['keywords'][section] = section_dict
         self.validate()
+
+    def get_keywords(self, section='default'):
+        return self.mcf['identification']['keywords'][section]
 
     def set_license(self, license_name=None, license_url=None):
         """Add a license for the dataset.
@@ -439,6 +450,24 @@ class MetadataControl(object):
 
         self.mcf['content_info']['attributes'][idx] = attribute
 
+    def get_band_description(self, band_number):
+        """Get the attribute metadata for a band.
+
+        Args:
+            band_number (int): a raster band index, starting at 1
+
+        Returns:
+            dict
+        """
+        return self.mcf['content_info']['attributes'][band_number - 1]
+
+    def _get_attr(self, name):
+        for idx, attr in enumerate(self.mcf['content_info']['attributes']):
+            if attr['name'] == name:
+                return idx, attr
+        raise ValueError(
+            f'{self.datasource} has no attribute named {name}')
+
     def set_field_description(self, name, title=None, abstract=None,
                               units=None):
         """Define metadata for a tabular field.
@@ -449,14 +478,7 @@ class MetadataControl(object):
             abstract (str): description of the field
             units (str): unit of measurement for the field's values
         """
-        def get_attr(attribute_list):
-            for idx, attr in enumerate(attribute_list):
-                if attr['name'] == name:
-                    return idx, attr
-            raise ValueError(
-                f'{self.datasource} has no attribute named {name}')
-
-        idx, attribute = get_attr(self.mcf['content_info']['attributes'])
+        idx, attribute = self._get_attr(name)
 
         if title is not None:
             attribute['title'] = title
@@ -467,12 +489,24 @@ class MetadataControl(object):
 
         self.mcf['content_info']['attributes'][idx] = attribute
 
+    def get_field_description(self, name):
+        """Get the attribute metadata for a field.
+
+        Args:
+            name (str): name and unique identifier of the field
+
+        Returns:
+            dict
+        """
+        idx, attribute = self._get_attr(name)
+        return attribute
+
     def _write_mcf(self, target_path):
         with open(target_path, 'w') as file:
             file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
 
-    def write(self):
-        """Write MCF and ISO-19139 XML to disk.
+    def write(self, schema='iso19139'):
+        """Write MCF and XML to disk.
 
         This creates sidecar files with '.yml' and '.xml' extensions
         appended to the full filename of the data source. For example,
@@ -481,12 +515,16 @@ class MetadataControl(object):
         - 'myraster.tif.yml'
         - 'myraster.tif.xml'
 
+        Args:
+            schema (str): name of a metadata schema supported by pygeometa.
+
+        Returns:
+            None
+
         """
         self._write_mcf(self.mcf_path)
-        # TODO: allow user to override the iso schema choice
-        # iso_schema = ISO19139_2OutputSchema() # additional req'd properties
-        iso_schema = ISO19139OutputSchema()
-        xml_string = iso_schema.write(self.mcf)
+        schema_obj = load_schema(schema)
+        xml_string = schema_obj.write(self.mcf)
         with open(f'{self.datasource}.xml', 'w') as xmlfile:
             xmlfile.write(xml_string)
 
