@@ -1,3 +1,4 @@
+import csv
 import os
 import shutil
 import tempfile
@@ -115,6 +116,53 @@ class MetadataControlTests(unittest.TestCase):
             expected = yaml.safe_load(file)
 
         self.assertEqual(actual, expected)
+
+    def test_csv_MetadataControl(self):
+        """MetadataControl: validate basic csv MetadataControl."""
+        from geometamaker import MetadataControl
+
+        datasource_path = os.path.join(self.workspace_dir, 'data.csv')
+        field_names = ['Strings', 'Numbers', 'Booleans']
+        field_values = ['foo', 1, True]
+        with open(datasource_path, 'w') as file:
+            writer = csv.writer(file)
+            writer.writerow(field_names)
+            writer.writerow(field_values)
+
+        mc = MetadataControl(datasource_path)
+        try:
+            mc.validate()
+        except (MCFValidationError, SchemaError) as e:
+            self.fail(
+                'unexpected validation error occurred\n'
+                f'{e}')
+        self.assertEqual(
+            len(mc.mcf['content_info']['attributes']),
+            len(field_names))
+
+        title = 'title'
+        abstract = 'some abstract'
+        units = 'mm'
+        mc.set_field_description(
+            field_names[1],
+            title=title,
+            abstract=abstract)
+        # To demonstrate that properties can be added while preserving others
+        mc.set_field_description(
+            field_names[1],
+            units=units)
+        try:
+            mc.validate()
+        except (MCFValidationError, SchemaError) as e:
+            self.fail(
+                'unexpected validation error occurred\n'
+                f'{e}')
+
+        attr = [attr for attr in mc.mcf['content_info']['attributes']
+                if attr['name'] == field_names[1]][0]
+        self.assertEqual(attr['title'], title)
+        self.assertEqual(attr['abstract'], abstract)
+        self.assertEqual(attr['units'], units)
 
     def test_vector_MetadataControl(self):
         """MetadataControl: validate basic vector MetadataControl."""
