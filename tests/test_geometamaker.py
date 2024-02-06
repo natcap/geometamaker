@@ -492,8 +492,8 @@ class MetadataControlTests(unittest.TestCase):
         mc.set_purpose(purpose)
         self.assertEqual(mc.get_purpose(), purpose)
 
-    def test_preexisting_mc(self):
-        """MetadataControl: test reading and ammending an existing MetadataControl."""
+    def test_preexisting_mc_raster(self):
+        """MetadataControl: test reading and ammending an existing MCF raster."""
         from geometamaker import MetadataControl
 
         title = 'Title'
@@ -509,12 +509,37 @@ class MetadataControlTests(unittest.TestCase):
         new_mc = MetadataControl(datasource_path)
         new_mc.set_keywords([keyword])
 
+        self.assertEqual(new_mc.mcf['metadata']['hierarchylevel'], 'dataset')
         self.assertEqual(
             new_mc.get_title(), title)
         self.assertEqual(
             new_mc.get_band_description(1)['name'], band_name)
         self.assertEqual(
             new_mc.get_keywords()['keywords'], [keyword])
+
+    def test_preexisting_mc_vector(self):
+        """MetadataControl: test reading and ammending an existing MCF vector."""
+        from geometamaker import MetadataControl
+
+        title = 'Title'
+        datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
+        field_name = 'foo'
+        description = 'description'
+        field_map = {
+            field_name: list(_OGR_TYPES_VALUES_MAP)[0]}
+        create_vector(datasource_path, field_map)
+        mc = MetadataControl(datasource_path)
+        mc.set_title(title)
+        mc.set_field_description(field_name, abstract=description)
+        mc.write()
+
+        new_mc = MetadataControl(datasource_path)
+
+        self.assertEqual(new_mc.mcf['metadata']['hierarchylevel'], 'dataset')
+        self.assertEqual(
+            new_mc.get_title(), title)
+        self.assertEqual(
+            new_mc.get_field_description(field_name)['abstract'], description)
 
     def test_invalid_preexisting_mcf(self):
         """MetadataControl: test overwriting an existing invalid MetadataControl."""
