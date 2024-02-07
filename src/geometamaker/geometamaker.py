@@ -423,7 +423,7 @@ class MetadataControl(object):
         return self.mcf['identification'].get('purpose')
 
     def set_band_description(self, band_number, name=None, title=None, abstract=None,
-                             units=None, datatype=None, insert=False):
+                             units=None, type=None, insert=False):
         """Define metadata for a raster band.
 
         Args:
@@ -432,7 +432,7 @@ class MetadataControl(object):
             title (str): title for the raster band
             abstract (str): description of the raster band
             units (str): unit of measurement for the band's pixel values
-            datatype (str): of the band's values, either 'integer' or 'number'
+            type (str): of the band's values, either 'integer' or 'number'
         """
         idx = band_number - 1
         try:
@@ -460,10 +460,20 @@ class MetadataControl(object):
             attribute['abstract'] = abstract
         if units is not None:
             attribute['units'] = units
-        if datatype is not None:
-            attribute['type'] = datatype
+        # TODO: I don't like using `type` as the argname,
+        # but that is the name of the MCF property, and making
+        # the setter's argnames match makes it convenient to do things
+        # like mc_a.set_band_description(1, **mc_b.get_band_description(1))
+        if type is not None:
+            attribute['type'] = type
 
         self.mcf['content_info']['attributes'][idx] = attribute
+        # TODO: cannot validate entire MCF here because this setter
+        # is called as part of the init process before other required MCF
+        # properties are set. Solutions could be to make create_band_description()
+        # and create_field_description() methods instead of calling these setters.
+        # Or figure out how to validate just one section of the MCF.
+        # self.validate()
 
     def get_band_description(self, band_number):
         """Get the attribute metadata for a band.
@@ -484,7 +494,7 @@ class MetadataControl(object):
             f'{self.datasource} has no attribute named {name}')
 
     def set_field_description(self, name, title=None, abstract=None,
-                              units=None, datatype=None, insert=False):
+                              units=None, type=None, insert=False):
         """Define metadata for a tabular field.
 
         Args:
@@ -516,10 +526,12 @@ class MetadataControl(object):
             attribute['abstract'] = abstract
         if units is not None:
             attribute['units'] = units
-        if datatype is not None:
-            attribute['type'] = datatype
+        if type is not None:
+            attribute['type'] = type
 
         self.mcf['content_info']['attributes'][idx] = attribute
+        # TODO: see comment in set_band_description
+        # self.validate()
 
     def get_field_description(self, name):
         """Get the attribute metadata for a field.
@@ -617,7 +629,7 @@ class MetadataControl(object):
                         f'{field.name} will be "object".')
                     datatype = 'object'
                 self.set_field_description(
-                    field.name, datatype=datatype, insert=True)
+                    field.name, type=datatype, insert=True)
             #     attribute = {}
             #     attribute['name'] = field.name
             #     try:
@@ -650,7 +662,7 @@ class MetadataControl(object):
                 datatype = 'integer' if band.DataType < 6 else 'number'
                 abstract = band.GetDescription()
                 self.set_band_description(
-                    b, datatype=datatype, abstract=abstract, insert=True)
+                    b, type=datatype, abstract=abstract, insert=True)
             band = None
             raster = None
 
