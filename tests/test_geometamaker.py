@@ -436,11 +436,11 @@ class MetadataControlTests(unittest.TestCase):
         mc = MetadataControl(datasource_path)
         name = 'CC-BY-4.0'
         url = 'https://creativecommons.org/licenses/by/4.0/'
-        mc.set_license(license_name=name)
+        mc.set_license(name=name)
         self.assertEqual(mc.get_license(), {'name': name, 'url': ''})
-        mc.set_license(license_url=url)
+        mc.set_license(url=url)
         self.assertEqual(mc.get_license(), {'name': '', 'url': url})
-        mc.set_license(license_name=name, license_url=url)
+        mc.set_license(name=name, url=url)
         self.assertEqual(mc.get_license(), {'name': name, 'url': url})
 
     def test_set_license_validates(self):
@@ -453,9 +453,9 @@ class MetadataControlTests(unittest.TestCase):
         mc = MetadataControl(datasource_path)
         name = 4.0  # should be a string
         with self.assertRaises(ValidationError):
-            mc.set_license(license_name=name)
+            mc.set_license(name=name)
         with self.assertRaises(ValidationError):
-            mc.set_license(license_url=name)
+            mc.set_license(url=name)
 
     def test_set_and_get_lineage(self):
         """MetadataControl: set lineage of dataset."""

@@ -347,7 +347,7 @@ class MetadataControl(object):
     def get_keywords(self, section='default'):
         return self.mcf['identification']['keywords'][section]
 
-    def set_license(self, license_name=None, license_url=None):
+    def set_license(self, name=None, url=None):
         """Add a license for the dataset.
 
         Args:
@@ -355,17 +355,17 @@ class MetadataControl(object):
 
         """
         # One may wish to set these fields to empty strings
-        if license_name is None and license_url is None:
+        if name is None and url is None:
             raise ValueError(
-                'either `license_name` or `license_url` is required.')
+                'either `name` or `url` is required.')
 
         constraints = ''
-        if license_name or license_url:
+        if name or url:
             constraints = 'license'
 
         license_dict = {}
-        license_dict['name'] = license_name if license_name else ''
-        license_dict['url'] = license_url if license_url else ''
+        license_dict['name'] = name if name else ''
+        license_dict['url'] = url if url else ''
         self.mcf['identification']['license'] = license_dict
         self.mcf['identification']['accessconstraints'] = constraints
         self.validate()
