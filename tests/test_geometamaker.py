@@ -56,15 +56,14 @@ def create_vector(target_filepath, field_map=None):
 def create_raster(
         numpy_dtype, target_path,
         pixel_size=(1, 1), projection_epsg=4326,
-        origin=(0, 0)):
+        origin=(0, 0), n_bands=2):
     driver_name, creation_options = DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
     raster_driver = gdal.GetDriverByName(driver_name)
     ny, nx = (2, 2)
-    n_bands = 2
     gdal_type = gdal_array.NumericTypeCodeToGDALTypeCode(numpy_dtype)
-    new_raster = raster_driver.Create(
+    raster = raster_driver.Create(
         target_path, nx, ny, n_bands, gdal_type)
-    new_raster.SetGeoTransform(
+    raster.SetGeoTransform(
         [origin[0], pixel_size[0], 0, origin[1], 0, pixel_size[1]])
 
     projection = osr.SpatialReference()
@@ -73,20 +72,17 @@ def create_raster(
         projection.ImportFromEPSG(projection_epsg)
         projection_wkt = projection.ExportToWkt()
     if projection_wkt is not None:
-        new_raster.SetProjection(projection_wkt)
+        raster.SetProjection(projection_wkt)
 
     base_array = numpy.full((2, 2), 1, dtype=numpy_dtype)
     target_nodata = pygeoprocessing.choose_nodata(numpy_dtype)
 
-    band_1 = new_raster.GetRasterBand(1)
-    band_1.SetNoDataValue(target_nodata)
-    band_1.WriteArray(base_array)
-    band_1 = None
-    band_2 = new_raster.GetRasterBand(2)
-    band_2.SetNoDataValue(target_nodata)
-    band_2.WriteArray(base_array)
-    band_2 = None
-    new_raster = None
+    for i in range(n_bands):
+        band = raster.GetRasterBand(i + 1)
+        band.SetNoDataValue(target_nodata)
+        band.WriteArray(base_array)
+    band = None
+    raster = None
 
 
 class MetadataControlTests(unittest.TestCase):
@@ -517,6 +513,31 @@ class MetadataControlTests(unittest.TestCase):
         self.assertEqual(
             new_mc.get_keywords()['keywords'], [keyword])
 
+    def test_preexisting_mc_raster_new_bands(self):
+        """MetadataControl: test existing MCF when the raster has new bands."""
+        from geometamaker import MetadataControl
+
+        band_name = 'The Band'
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path, n_bands=1)
+        mc = MetadataControl(datasource_path)
+        mc.set_band_description(1, name=band_name)
+        self.assertEqual(mc.get_band_description(1)['type'], 'integer')
+        mc.write()
+
+        # The raster is modified after it's original metadata was written
+        # There's an extra band, and the datatype has changed
+        create_raster(numpy.float32, datasource_path, n_bands=2)
+
+        new_mc = MetadataControl(datasource_path)
+
+        band1 = new_mc.get_band_description(1)
+        self.assertEqual(band1['name'], band_name)
+        self.assertEqual(band1['type'], 'number')
+        band2 = new_mc.get_band_description(2)
+        self.assertEqual(band2['name'], '')
+        self.assertEqual(band2['type'], 'number')
+
     def test_preexisting_mc_vector(self):
         """MetadataControl: test reading and ammending an existing MCF vector."""
         from geometamaker import MetadataControl
@@ -540,6 +561,37 @@ class MetadataControlTests(unittest.TestCase):
             new_mc.get_title(), title)
         self.assertEqual(
             new_mc.get_field_description(field_name)['abstract'], description)
+
+    def test_preexisting_mc_vector_new_fields(self):
+        """MetadataControl: test an existing MCF for vector with new fields."""
+        from geometamaker import MetadataControl
+
+        datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
+        field1_name = 'foo'
+        description = 'description'
+        field_map = {
+            field1_name: list(_OGR_TYPES_VALUES_MAP)[0]}
+        create_vector(datasource_path, field_map)
+        mc = MetadataControl(datasource_path)
+        mc.set_field_description(field1_name, abstract=description)
+        self.assertEqual(
+            mc.get_field_description(field1_name)['type'], 'integer')
+        mc.write()
+
+        # Modify the dataset by changing the field type of the
+        # existing field. And add a second field.
+        field2_name = 'bar'
+        new_field_map = {
+            field1_name: list(_OGR_TYPES_VALUES_MAP)[2],
+            field2_name: list(_OGR_TYPES_VALUES_MAP)[3]}
+        create_vector(datasource_path, new_field_map)
+        new_mc = MetadataControl(datasource_path)
+
+        field1 = new_mc.get_field_description(field1_name)
+        self.assertEqual(field1['abstract'], description)
+        self.assertEqual(field1['type'], 'number')
+        field2 = new_mc.get_field_description(field2_name)
+        self.assertEqual(field2['type'], 'string')
 
     def test_invalid_preexisting_mcf(self):
         """MetadataControl: test overwriting an existing invalid MetadataControl."""

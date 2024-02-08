@@ -422,8 +422,8 @@ class MetadataControl(object):
         """
         return self.mcf['identification'].get('purpose')
 
-    def set_band_description(self, band_number, name=None, title=None, abstract=None,
-                             units=None, type=None, insert=False):
+    def set_band_description(self, band_number, name=None, title=None,
+                             abstract=None, units=None, type=None):
         """Define metadata for a raster band.
 
         Args:
@@ -433,24 +433,13 @@ class MetadataControl(object):
             abstract (str): description of the raster band
             units (str): unit of measurement for the band's pixel values
             type (str): of the band's values, either 'integer' or 'number'
+        Raises:
+            IndexError if MCF attributes do not contain an element for
+            the corresponding ``band_number``.
+
         """
         idx = band_number - 1
-        try:
-            attribute = self.mcf['content_info']['attributes'][idx]
-        except (KeyError, IndexError) as error:
-            if insert:
-                attribute = _get_template(
-                    MCF_SCHEMA['properties']['content_info']['properties'][
-                        'attributes'])[0]
-                try:
-                    extend_n = band_number - len(
-                        self.mcf['content_info']['attributes'])
-                    self.mcf['content_info']['attributes'].extend(
-                        [attribute]*extend_n)
-                except KeyError:
-                    self.mcf['content_info']['attributes'] = [attribute]
-            else:
-                raise error
+        attribute = self.mcf['content_info']['attributes'][idx]
 
         if name is not None:
             attribute['name'] = name
@@ -487,6 +476,9 @@ class MetadataControl(object):
         return self.mcf['content_info']['attributes'][band_number - 1]
 
     def _get_attr(self, name):
+        if len(self.mcf['content_info']['attributes']) == 0:
+            raise KeyError(
+                f'{self.datasource} MCF has not attributes')
         for idx, attr in enumerate(self.mcf['content_info']['attributes']):
             if attr['name'] == name:
                 return idx, attr
@@ -494,7 +486,7 @@ class MetadataControl(object):
             f'{self.datasource} has no attribute named {name}')
 
     def set_field_description(self, name, title=None, abstract=None,
-                              units=None, type=None, insert=False):
+                              units=None, type=None):
         """Define metadata for a tabular field.
 
         Args:
@@ -502,23 +494,11 @@ class MetadataControl(object):
             title (str): title for the field
             abstract (str): description of the field
             units (str): unit of measurement for the field's values
+
+        Raises:
+            KeyError if MCF does not contain an attribute with ``name``
         """
-        try:
-            idx, attribute = self._get_attr(name)
-        except KeyError as error:
-            if insert:
-                attribute = _get_template(
-                    MCF_SCHEMA['properties']['content_info']['properties'][
-                        'attributes'])[0]
-                attribute['name'] = name
-                try:
-                    self.mcf['content_info']['attributes'].append(
-                        [attribute])
-                except KeyError:
-                    self.mcf['content_info']['attributes'] = [attribute]
-                idx = len(self.mcf['content_info']['attributes']) - 1
-            else:
-                raise error
+        idx, attribute = self._get_attr(name)
 
         if title is not None:
             attribute['title'] = title
@@ -591,13 +571,9 @@ class MetadataControl(object):
 
     def _set_spatial_info(self):
         """Populate the MCF using spatial properties of the dataset."""
-        # try:
         gis_type = pygeoprocessing.get_gis_type(self.datasource)
-        # except ValueError:
-        #     self.mcf['metadata']['hierarchylevel'] = 'nonGeographicDataset'
-        #     return
-
         self.mcf['metadata']['hierarchylevel'] = 'dataset'
+
         if gis_type == pygeoprocessing.VECTOR_TYPE:
             self.mcf['spatial']['datatype'] = 'vector'
             self.mcf['content_info']['type'] = 'coverage'
@@ -618,8 +594,20 @@ class MetadataControl(object):
                 geomtype = 'complex'
             self.mcf['spatial']['geomtype'] = geomtype
 
-            # attributes = []
+            if len(layer.schema) and 'attributes' not in self.mcf['content_info']:
+                self.mcf['content_info']['attributes'] = []
+
             for field in layer.schema:
+                try:
+                    idx, attribute = self._get_attr(field.name)
+                except KeyError:
+                    attribute = _get_template(
+                        MCF_SCHEMA['properties']['content_info']['properties'][
+                            'attributes'])[0]
+                    attribute['name'] = field.name
+                    self.mcf['content_info']['attributes'].append(
+                        attribute)
+
                 try:
                     datatype = OGR_MCF_ATTR_TYPE_MAP[field.type]
                 except KeyError:
@@ -628,23 +616,8 @@ class MetadataControl(object):
                         f'attribute type map; attribute type for field '
                         f'{field.name} will be "object".')
                     datatype = 'object'
-                self.set_field_description(
-                    field.name, type=datatype, insert=True)
-            #     attribute = {}
-            #     attribute['name'] = field.name
-            #     try:
-            #         attribute['type'] = OGR_MCF_ATTR_TYPE_MAP[field.type]
-            #     except KeyError:
-            #         LOGGER.warning(
-            #             f'{field.type} is missing in the OGR-to-MCF '
-            #             f'attribute type map; attribute type for field '
-            #             f'{field.name} will be "object".')
-            #     attribute['units'] = ''
-            #     attribute['title'] = ''
-            #     attribute['abstract'] = ''
-            #     attributes.append(attribute)
-            # if len(attributes):
-            #     self.mcf['content_info']['attributes'] = attributes
+                self.set_field_description(field.name, type=datatype)
+
             vector = None
             layer = None
 
@@ -656,13 +629,25 @@ class MetadataControl(object):
             self.mcf['content_info']['type'] = 'image'
 
             raster = gdal.OpenEx(self.datasource, gdal.OF_RASTER)
+
+            attr = _get_template(
+                    MCF_SCHEMA['properties']['content_info']['properties'][
+                        'attributes'])[0]
+
+            if 'attributes' not in self.mcf['content_info']:
+                self.mcf['content_info']['attributes'] = [attr]*raster.RasterCount
+            else:
+                n_attrs = len(self.mcf['content_info']['attributes'])
+                if n_attrs < raster.RasterCount:
+                    extend_n = raster.RasterCount - n_attrs
+                    self.mcf['content_info']['attributes'].extend(
+                        [attr]*extend_n)
+
             for i in range(raster.RasterCount):
                 b = i + 1
                 band = raster.GetRasterBand(b)
                 datatype = 'integer' if band.DataType < 6 else 'number'
-                abstract = band.GetDescription()
-                self.set_band_description(
-                    b, type=datatype, abstract=abstract, insert=True)
+                self.set_band_description(b, type=datatype)
             band = None
             raster = None
 
