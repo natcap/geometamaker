@@ -118,8 +118,8 @@ class MetadataControlTests(unittest.TestCase):
         from geometamaker import MetadataControl
 
         datasource_path = os.path.join(self.workspace_dir, 'data.csv')
-        field_names = ['Strings', 'Numbers', 'Booleans']
-        field_values = ['foo', 1, True]
+        field_names = ['Strings', 'Ints', 'Reals']
+        field_values = ['foo', 1, 0.9]
         with open(datasource_path, 'w') as file:
             writer = csv.writer(file)
             writer.writerow(field_names)
@@ -135,6 +135,9 @@ class MetadataControlTests(unittest.TestCase):
         self.assertEqual(
             len(mc.mcf['content_info']['attributes']),
             len(field_names))
+        self.assertEqual(mc.get_field_description('Strings')['type'], 'string')
+        self.assertEqual(mc.get_field_description('Ints')['type'], 'integer')
+        self.assertEqual(mc.get_field_description('Reals')['type'], 'number')
 
         title = 'title'
         abstract = 'some abstract'

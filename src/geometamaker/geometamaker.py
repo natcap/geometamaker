@@ -433,9 +433,6 @@ class MetadataControl(object):
             abstract (str): description of the raster band
             units (str): unit of measurement for the band's pixel values
             type (str): of the band's values, either 'integer' or 'number'
-        Raises:
-            IndexError if MCF attributes do not contain an element for
-            the corresponding ``band_number``.
 
         """
         idx = band_number - 1
@@ -495,8 +492,6 @@ class MetadataControl(object):
             abstract (str): description of the field
             units (str): unit of measurement for the field's values
 
-        Raises:
-            KeyError if MCF does not contain an attribute with ``name``
         """
         idx, attribute = self._get_attr(name)
 
@@ -578,7 +573,8 @@ class MetadataControl(object):
             self.mcf['spatial']['datatype'] = 'vector'
             self.mcf['content_info']['type'] = 'coverage'
 
-            vector = gdal.OpenEx(self.datasource, gdal.OF_VECTOR)
+            vector = gdal.OpenEx(self.datasource, gdal.OF_VECTOR,
+                                 open_options=['AUTODETECT_TYPE=YES'])
             layer = vector.GetLayer()
             layer_defn = layer.GetLayerDefn()
             geomname = ogr.GeometryTypeToName(layer_defn.GetGeomType())
