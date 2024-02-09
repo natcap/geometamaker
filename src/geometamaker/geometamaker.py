@@ -461,6 +461,20 @@ class MetadataControl(object):
         return self.mcf['content_info']['attributes'][band_number - 1]
 
     def _get_attr(self, name):
+        """Get an attribute by its name property.
+
+        Args:
+            name (string): to match the value of the 'name' key in a dict
+
+        Returns:
+            tuple of (list index of the matching attribute, the attribute
+                dict)
+
+        Raises:
+            KeyError if no attributes exist in the MCF or if the named
+                attribute does not exist.
+
+        """
         if len(self.mcf['content_info']['attributes']) == 0:
             raise KeyError(
                 f'{self.datasource} MCF has not attributes')
@@ -519,12 +533,6 @@ class MetadataControl(object):
         - 'myraster.tif'
         - 'myraster.tif.yml'
         - 'myraster.tif.xml'
-
-        Args:
-            schema (str): name of a metadata schema supported by pygeometa.
-
-        Returns:
-            None
 
         """
         self.mcf['metadata']['datestamp'] = datetime.utcnow().strftime(
