@@ -348,16 +348,17 @@ class MetadataControl(object):
     def set_license(self, name=None, url=None):
         """Add a license for the dataset.
 
+        Either or both name and url are required if there is a license.
+        Call with no arguments to remove access constraints and license
+        info.
+
         Args:
-            license (str): name of the license of the source dataset
+            name (str): name of the license of the source dataset
+            url (str): url for the license
 
         """
-        # One may wish to set these fields to empty strings
-        if name is None and url is None:
-            raise ValueError(
-                'either `name` or `url` is required.')
-
-        constraints = ''
+        # MCF spec says use 'otherRestrictions' to mean no restrictions
+        constraints = 'otherRestrictions'
         if name or url:
             constraints = 'license'
 
@@ -552,10 +553,6 @@ class MetadataControl(object):
         jsonschema.validate(self.mcf, MCF_SCHEMA)
 
     def to_string(self):
-        pass
-
-    def _set_content_info(self):
-        """Populate the MCF using properties of attributes of the dataset."""
         pass
 
     def _set_spatial_info(self):

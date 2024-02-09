@@ -290,6 +290,16 @@ class MetadataControlTests(unittest.TestCase):
         self.assertEqual(attr['abstract'], abstract)
         self.assertEqual(attr['units'], units)
 
+    def test_set_abstract(self):
+        """MetadataControl: set and get an abstract."""
+
+        from geometamaker import MetadataControl
+
+        abstract = 'foo bar'
+        mc = MetadataControl()
+        mc.set_abstract(abstract)
+        self.assertEqual(mc.get_abstract(), abstract)
+
     def test_set_contact(self):
         """MetadataControl: set and get a contact section."""
 
@@ -435,12 +445,24 @@ class MetadataControlTests(unittest.TestCase):
         mc = MetadataControl(datasource_path)
         name = 'CC-BY-4.0'
         url = 'https://creativecommons.org/licenses/by/4.0/'
+
         mc.set_license(name=name)
+        self.assertEqual(
+            mc.mcf['identification']['accessconstraints'],
+            'license')
         self.assertEqual(mc.get_license(), {'name': name, 'url': ''})
+
         mc.set_license(url=url)
         self.assertEqual(mc.get_license(), {'name': '', 'url': url})
+
         mc.set_license(name=name, url=url)
         self.assertEqual(mc.get_license(), {'name': name, 'url': url})
+
+        mc.set_license()
+        self.assertEqual(mc.get_license(), {'name': '', 'url': ''})
+        self.assertEqual(
+            mc.mcf['identification']['accessconstraints'],
+            'otherRestrictions')
 
     def test_set_license_validates(self):
         """MetadataControl: test set license raises ValidationError."""
