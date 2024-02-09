@@ -510,8 +510,8 @@ class MetadataControl(object):
         with open(target_path, 'w') as file:
             file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
 
-    def write(self, schema='iso19139'):
-        """Write MCF and XML to disk.
+    def write(self):
+        """Write MCF and ISO-19139 XML to disk.
 
         This creates sidecar files with '.yml' and '.xml' extensions
         appended to the full filename of the data source. For example,
@@ -530,7 +530,7 @@ class MetadataControl(object):
         self.mcf['metadata']['datestamp'] = datetime.utcnow().strftime(
                 '%Y-%m-%d')
         self._write_mcf(self.mcf_path)
-        schema_obj = load_schema(schema)
+        schema_obj = load_schema('iso19139')
         xml_string = schema_obj.write(self.mcf)
         with open(f'{self.datasource}.xml', 'w') as xmlfile:
             xmlfile.write(xml_string)
