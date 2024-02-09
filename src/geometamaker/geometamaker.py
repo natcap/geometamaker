@@ -278,8 +278,6 @@ class MetadataControl(object):
             for k, v in kwargs.items():
                 self.mcf['contact'][section][k] = v
 
-        # TODO: validate just the contact section instead?
-        # Not obvious how to do that using the complete schema.
         self.validate()
 
     def get_contact(self, section='default'):
@@ -446,20 +444,10 @@ class MetadataControl(object):
             attribute['abstract'] = abstract
         if units is not None:
             attribute['units'] = units
-        # TODO: I don't like using `type` as the argname,
-        # but that is the name of the MCF property, and making
-        # the setter's argnames match makes it convenient to do things
-        # like mc_a.set_band_description(1, **mc_b.get_band_description(1))
         if type is not None:
             attribute['type'] = type
 
         self.mcf['content_info']['attributes'][idx] = attribute
-        # TODO: cannot validate entire MCF here because this setter
-        # is called as part of the init process before other required MCF
-        # properties are set. Solutions could be to make create_band_description()
-        # and create_field_description() methods instead of calling these setters.
-        # Or figure out how to validate just one section of the MCF.
-        # self.validate()
 
     def get_band_description(self, band_number):
         """Get the attribute metadata for a band.
@@ -505,8 +493,6 @@ class MetadataControl(object):
             attribute['type'] = type
 
         self.mcf['content_info']['attributes'][idx] = attribute
-        # TODO: see comment in set_band_description
-        # self.validate()
 
     def get_field_description(self, name):
         """Get the attribute metadata for a field.
