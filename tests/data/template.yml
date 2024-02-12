@@ -13,8 +13,6 @@ contact:
     postalcode: ''
     url: ''
 content_info:
-  attributes:
-  - name: ''
   dimensions:
   - max: 0.0
     min: 0.0

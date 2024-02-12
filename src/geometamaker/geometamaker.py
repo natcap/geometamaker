@@ -6,8 +6,7 @@ from datetime import datetime
 import jsonschema
 from jsonschema.exceptions import ValidationError
 import pygeometa.core
-from pygeometa.schemas.iso19139 import ISO19139OutputSchema
-from pygeometa.schemas.iso19139_2 import ISO19139_2OutputSchema
+from pygeometa.schemas import load_schema
 import pygeoprocessing
 from osgeo import gdal
 from osgeo import ogr
@@ -34,12 +33,17 @@ with open(MCF_SCHEMA_FILE, 'r') as schema_file:
 # template MCFs have all the properties we expect
 # users to use.
 MCF_SCHEMA['required'].append('content_info')
-MCF_SCHEMA['properties']['content_info']['required'].append(
-    'attributes')
 MCF_SCHEMA['required'].append('dataquality')
 MCF_SCHEMA['properties']['identification']['properties'][
     'keywords']['patternProperties']['^.*'][
     'required'] = ['keywords', 'keywords_type']
+# to accomodate tables that do not represent spatial content:
+NO_GEOM_TYPE = 'none'
+MCF_SCHEMA['properties']['spatial']['properties'][
+    'geomtype']['enum'].append(NO_GEOM_TYPE)
+TABLE_CONTENT_TYPE = 'table'
+MCF_SCHEMA['properties']['content_info']['properties'][
+    'type']['enum'].append(TABLE_CONTENT_TYPE)
 
 OGR_MCF_ATTR_TYPE_MAP = {
     ogr.OFTInteger: 'integer',
@@ -210,13 +214,12 @@ class MetadataControl(object):
                 self.mcf = _get_template(MCF_SCHEMA)
                 self.mcf['metadata']['identifier'] = str(uuid.uuid4())
 
-                # fill all values that can be derived from the dataset
-                self._set_spatial_info()
-                self.mcf['metadata']['datestamp'] = datetime.utcnow(
-                    ).strftime('%Y-%m-%d')
+            # fill all values that can be derived from the dataset
+            self._set_spatial_info()
 
         else:
             self.mcf = _get_template(MCF_SCHEMA)
+
         self.mcf['mcf']['version'] = \
             MCF_SCHEMA['properties']['mcf'][
                 'properties']['version']['const']
@@ -230,6 +233,10 @@ class MetadataControl(object):
         """
         self.mcf['identification']['title'] = title
 
+    def get_title(self):
+        """Get the title for the dataset."""
+        return self.mcf['identification']['title']
+
     def set_abstract(self, abstract):
         """Add an abstract for the dataset.
 
@@ -238,6 +245,10 @@ class MetadataControl(object):
 
         """
         self.mcf['identification']['abstract'] = abstract
+
+    def get_abstract(self):
+        """Get the abstract for the dataset."""
+        return self.mcf['identification']['abstract']
 
     def set_contact(self, organization=None, individualname=None, positionname=None,
                     email=None, section='default', **kwargs):
@@ -267,8 +278,6 @@ class MetadataControl(object):
             for k, v in kwargs.items():
                 self.mcf['contact'][section][k] = v
 
-        # TODO: validate just the contact section instead?
-        # Not obvious how to do that using the complete schema.
         self.validate()
 
     def get_contact(self, section='default'):
@@ -333,25 +342,29 @@ class MetadataControl(object):
         self.mcf['identification']['keywords'][section] = section_dict
         self.validate()
 
-    def set_license(self, license_name=None, license_url=None):
+    def get_keywords(self, section='default'):
+        return self.mcf['identification']['keywords'][section]
+
+    def set_license(self, name=None, url=None):
         """Add a license for the dataset.
 
+        Either or both name and url are required if there is a license.
+        Call with no arguments to remove access constraints and license
+        info.
+
         Args:
-            license (str): name of the license of the source dataset
+            name (str): name of the license of the source dataset
+            url (str): url for the license
 
         """
-        # One may wish to set these fields to empty strings
-        if license_name is None and license_url is None:
-            raise ValueError(
-                'either `license_name` or `license_url` is required.')
-
-        constraints = ''
-        if license_name or license_url:
+        # MCF spec says use 'otherRestrictions' to mean no restrictions
+        constraints = 'otherRestrictions'
+        if name or url:
             constraints = 'license'
 
         license_dict = {}
-        license_dict['name'] = license_name if license_name else ''
-        license_dict['url'] = license_url if license_url else ''
+        license_dict['name'] = name if name else ''
+        license_dict['url'] = url if url else ''
         self.mcf['identification']['license'] = license_dict
         self.mcf['identification']['accessconstraints'] = constraints
         self.validate()
@@ -408,8 +421,8 @@ class MetadataControl(object):
         """
         return self.mcf['identification'].get('purpose')
 
-    def set_band_description(self, band_number, name=None, title=None, abstract=None,
-                             units=None):
+    def set_band_description(self, band_number, name=None, title=None,
+                             abstract=None, units=None, type=None):
         """Define metadata for a raster band.
 
         Args:
@@ -418,9 +431,12 @@ class MetadataControl(object):
             title (str): title for the raster band
             abstract (str): description of the raster band
             units (str): unit of measurement for the band's pixel values
+            type (str): of the band's values, either 'integer' or 'number'
+
         """
         idx = band_number - 1
         attribute = self.mcf['content_info']['attributes'][idx]
+
         if name is not None:
             attribute['name'] = name
         if title is not None:
@@ -429,11 +445,48 @@ class MetadataControl(object):
             attribute['abstract'] = abstract
         if units is not None:
             attribute['units'] = units
+        if type is not None:
+            attribute['type'] = type
 
         self.mcf['content_info']['attributes'][idx] = attribute
 
+    def get_band_description(self, band_number):
+        """Get the attribute metadata for a band.
+
+        Args:
+            band_number (int): a raster band index, starting at 1
+
+        Returns:
+            dict
+        """
+        return self.mcf['content_info']['attributes'][band_number - 1]
+
+    def _get_attr(self, name):
+        """Get an attribute by its name property.
+
+        Args:
+            name (string): to match the value of the 'name' key in a dict
+
+        Returns:
+            tuple of (list index of the matching attribute, the attribute
+                dict)
+
+        Raises:
+            KeyError if no attributes exist in the MCF or if the named
+                attribute does not exist.
+
+        """
+        if len(self.mcf['content_info']['attributes']) == 0:
+            raise KeyError(
+                f'{self.datasource} MCF has not attributes')
+        for idx, attr in enumerate(self.mcf['content_info']['attributes']):
+            if attr['name'] == name:
+                return idx, attr
+        raise KeyError(
+            f'{self.datasource} has no attribute named {name}')
+
     def set_field_description(self, name, title=None, abstract=None,
-                              units=None):
+                              units=None, type=None):
         """Define metadata for a tabular field.
 
         Args:
@@ -441,15 +494,9 @@ class MetadataControl(object):
             title (str): title for the field
             abstract (str): description of the field
             units (str): unit of measurement for the field's values
-        """
-        def get_attr(attribute_list):
-            for idx, attr in enumerate(attribute_list):
-                if attr['name'] == name:
-                    return idx, attr
-            raise ValueError(
-                f'{self.datasource} has no attribute named {name}')
 
-        idx, attribute = get_attr(self.mcf['content_info']['attributes'])
+        """
+        idx, attribute = self._get_attr(name)
 
         if title is not None:
             attribute['title'] = title
@@ -457,8 +504,22 @@ class MetadataControl(object):
             attribute['abstract'] = abstract
         if units is not None:
             attribute['units'] = units
+        if type is not None:
+            attribute['type'] = type
 
         self.mcf['content_info']['attributes'][idx] = attribute
+
+    def get_field_description(self, name):
+        """Get the attribute metadata for a field.
+
+        Args:
+            name (str): name and unique identifier of the field
+
+        Returns:
+            dict
+        """
+        idx, attribute = self._get_attr(name)
+        return attribute
 
     def _write_mcf(self, target_path):
         with open(target_path, 'w') as file:
@@ -475,11 +536,11 @@ class MetadataControl(object):
         - 'myraster.tif.xml'
 
         """
+        self.mcf['metadata']['datestamp'] = datetime.utcnow().strftime(
+                '%Y-%m-%d')
         self._write_mcf(self.mcf_path)
-        # TODO: allow user to override the iso schema choice
-        # iso_schema = ISO19139_2OutputSchema() # additional req'd properties
-        iso_schema = ISO19139OutputSchema()
-        xml_string = iso_schema.write(self.mcf)
+        schema_obj = load_schema('iso19139')
+        xml_string = schema_obj.write(self.mcf)
         with open(f'{self.datasource}.xml', 'w') as xmlfile:
             xmlfile.write(xml_string)
 
@@ -495,19 +556,16 @@ class MetadataControl(object):
         pass
 
     def _set_spatial_info(self):
-        """Populate the MCF using properties of the dataset."""
-        try:
-            gis_type = pygeoprocessing.get_gis_type(self.datasource)
-        except ValueError:
-            self.mcf['metadata']['hierarchylevel'] = 'nonGeographicDataset'
-            return
+        """Populate the MCF using spatial properties of the dataset."""
+        gis_type = pygeoprocessing.get_gis_type(self.datasource)
+        self.mcf['metadata']['hierarchylevel'] = 'dataset'
 
         if gis_type == pygeoprocessing.VECTOR_TYPE:
-            self.mcf['metadata']['hierarchylevel'] = 'dataset'
             self.mcf['spatial']['datatype'] = 'vector'
             self.mcf['content_info']['type'] = 'coverage'
 
-            vector = gdal.OpenEx(self.datasource, gdal.OF_VECTOR)
+            vector = gdal.OpenEx(self.datasource, gdal.OF_VECTOR,
+                                 open_options=['AUTODETECT_TYPE=YES'])
             layer = vector.GetLayer()
             layer_defn = layer.GetLayerDefn()
             geomname = ogr.GeometryTypeToName(layer_defn.GetGeomType())
@@ -523,55 +581,81 @@ class MetadataControl(object):
                 geomtype = 'complex'
             self.mcf['spatial']['geomtype'] = geomtype
 
-            attributes = []
+            if len(layer.schema) and 'attributes' not in self.mcf['content_info']:
+                self.mcf['content_info']['attributes'] = []
+
             for field in layer.schema:
-                attribute = {}
-                attribute['name'] = field.name
                 try:
-                    attribute['type'] = OGR_MCF_ATTR_TYPE_MAP[field.type]
+                    idx, attribute = self._get_attr(field.name)
+                except KeyError:
+                    attribute = _get_template(
+                        MCF_SCHEMA['properties']['content_info']['properties'][
+                            'attributes'])[0]
+                    attribute['name'] = field.name
+                    self.mcf['content_info']['attributes'].append(
+                        attribute)
+
+                try:
+                    datatype = OGR_MCF_ATTR_TYPE_MAP[field.type]
                 except KeyError:
                     LOGGER.warning(
                         f'{field.type} is missing in the OGR-to-MCF '
                         f'attribute type map; attribute type for field '
                         f'{field.name} will be "object".')
-                attribute['units'] = ''
-                attribute['title'] = ''
-                attribute['abstract'] = ''
-                attributes.append(attribute)
-            if len(attributes):
-                self.mcf['content_info']['attributes'] = attributes
+                    datatype = 'object'
+                self.set_field_description(field.name, type=datatype)
+
             vector = None
             layer = None
 
             gis_info = pygeoprocessing.get_vector_info(self.datasource)
 
         if gis_type == pygeoprocessing.RASTER_TYPE:
-            self.mcf['metadata']['hierarchylevel'] = 'dataset'
             self.mcf['spatial']['datatype'] = 'grid'
             self.mcf['spatial']['geomtype'] = 'surface'
             self.mcf['content_info']['type'] = 'image'
 
             raster = gdal.OpenEx(self.datasource, gdal.OF_RASTER)
-            attributes = []
+
+            attr = _get_template(
+                    MCF_SCHEMA['properties']['content_info']['properties'][
+                        'attributes'])[0]
+
+            if 'attributes' not in self.mcf['content_info']:
+                self.mcf['content_info']['attributes'] = [attr]*raster.RasterCount
+            else:
+                n_attrs = len(self.mcf['content_info']['attributes'])
+                if n_attrs < raster.RasterCount:
+                    extend_n = raster.RasterCount - n_attrs
+                    self.mcf['content_info']['attributes'].extend(
+                        [attr]*extend_n)
+
             for i in range(raster.RasterCount):
                 b = i + 1
                 band = raster.GetRasterBand(b)
-                attribute = {}
-                attribute['name'] = ''
-                attribute['type'] = 'integer' if band.DataType < 6 else 'number'
-                attribute['units'] = ''
-                attribute['title'] = ''
-                attribute['abstract'] = band.GetDescription()
-                attributes.append(attribute)
-            if len(attributes):
-                self.mcf['content_info']['attributes'] = attributes
+                datatype = 'integer' if band.DataType < 6 else 'number'
+                self.set_band_description(b, type=datatype)
+            band = None
             raster = None
 
             gis_info = pygeoprocessing.get_raster_info(self.datasource)
 
-        srs = osr.SpatialReference()
-        srs.ImportFromWkt(gis_info['projection_wkt'])
-        epsg = srs.GetAttrValue('AUTHORITY', 1)
+        if os.path.splitext(self.datasource)[1] == '.csv':
+            # These properties are required by MCF, even if the CSV
+            # in question is not spatial at all.
+            self.mcf['spatial']['geomtype'] = NO_GEOM_TYPE
+            self.mcf['spatial']['datatype'] = 'textTable'
+            return
+
+        try:
+            srs = osr.SpatialReference()
+            srs.ImportFromWkt(gis_info['projection_wkt'])
+            epsg = srs.GetAttrValue('AUTHORITY', 1)
+        except TypeError:
+            LOGGER.warning(
+                f'could not import a spatial reference system from '
+                f'"projection_wkt" in {gis_info}')
+            epsg = ''
         # for human-readable values after yaml dump, use python types
         # instead of numpy types
         bbox = [float(x) for x in gis_info['bounding_box']]

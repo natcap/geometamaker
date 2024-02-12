@@ -1,3 +1,4 @@
+import csv
 import os
 import shutil
 import tempfile
@@ -55,15 +56,14 @@ def create_vector(target_filepath, field_map=None):
 def create_raster(
         numpy_dtype, target_path,
         pixel_size=(1, 1), projection_epsg=4326,
-        origin=(0, 0)):
+        origin=(0, 0), n_bands=2):
     driver_name, creation_options = DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
     raster_driver = gdal.GetDriverByName(driver_name)
     ny, nx = (2, 2)
-    n_bands = 2
     gdal_type = gdal_array.NumericTypeCodeToGDALTypeCode(numpy_dtype)
-    new_raster = raster_driver.Create(
+    raster = raster_driver.Create(
         target_path, nx, ny, n_bands, gdal_type)
-    new_raster.SetGeoTransform(
+    raster.SetGeoTransform(
         [origin[0], pixel_size[0], 0, origin[1], 0, pixel_size[1]])
 
     projection = osr.SpatialReference()
@@ -72,20 +72,17 @@ def create_raster(
         projection.ImportFromEPSG(projection_epsg)
         projection_wkt = projection.ExportToWkt()
     if projection_wkt is not None:
-        new_raster.SetProjection(projection_wkt)
+        raster.SetProjection(projection_wkt)
 
     base_array = numpy.full((2, 2), 1, dtype=numpy_dtype)
     target_nodata = pygeoprocessing.choose_nodata(numpy_dtype)
 
-    band_1 = new_raster.GetRasterBand(1)
-    band_1.SetNoDataValue(target_nodata)
-    band_1.WriteArray(base_array)
-    band_1 = None
-    band_2 = new_raster.GetRasterBand(2)
-    band_2.SetNoDataValue(target_nodata)
-    band_2.WriteArray(base_array)
-    band_2 = None
-    new_raster = None
+    for i in range(n_bands):
+        band = raster.GetRasterBand(i + 1)
+        band.SetNoDataValue(target_nodata)
+        band.WriteArray(base_array)
+    band = None
+    raster = None
 
 
 class MetadataControlTests(unittest.TestCase):
@@ -115,6 +112,56 @@ class MetadataControlTests(unittest.TestCase):
             expected = yaml.safe_load(file)
 
         self.assertEqual(actual, expected)
+
+    def test_csv_MetadataControl(self):
+        """MetadataControl: validate basic csv MetadataControl."""
+        from geometamaker import MetadataControl
+
+        datasource_path = os.path.join(self.workspace_dir, 'data.csv')
+        field_names = ['Strings', 'Ints', 'Reals']
+        field_values = ['foo', 1, 0.9]
+        with open(datasource_path, 'w') as file:
+            writer = csv.writer(file)
+            writer.writerow(field_names)
+            writer.writerow(field_values)
+
+        mc = MetadataControl(datasource_path)
+        try:
+            mc.validate()
+        except (MCFValidationError, SchemaError) as e:
+            self.fail(
+                'unexpected validation error occurred\n'
+                f'{e}')
+        self.assertEqual(
+            len(mc.mcf['content_info']['attributes']),
+            len(field_names))
+        self.assertEqual(mc.get_field_description('Strings')['type'], 'string')
+        self.assertEqual(mc.get_field_description('Ints')['type'], 'integer')
+        self.assertEqual(mc.get_field_description('Reals')['type'], 'number')
+
+        title = 'title'
+        abstract = 'some abstract'
+        units = 'mm'
+        mc.set_field_description(
+            field_names[1],
+            title=title,
+            abstract=abstract)
+        # To demonstrate that properties can be added while preserving others
+        mc.set_field_description(
+            field_names[1],
+            units=units)
+        try:
+            mc.validate()
+        except (MCFValidationError, SchemaError) as e:
+            self.fail(
+                'unexpected validation error occurred\n'
+                f'{e}')
+
+        attr = [attr for attr in mc.mcf['content_info']['attributes']
+                if attr['name'] == field_names[1]][0]
+        self.assertEqual(attr['title'], title)
+        self.assertEqual(attr['abstract'], abstract)
+        self.assertEqual(attr['units'], units)
 
     def test_vector_MetadataControl(self):
         """MetadataControl: validate basic vector MetadataControl."""
@@ -242,6 +289,16 @@ class MetadataControlTests(unittest.TestCase):
         self.assertEqual(attr['title'], title)
         self.assertEqual(attr['abstract'], abstract)
         self.assertEqual(attr['units'], units)
+
+    def test_set_abstract(self):
+        """MetadataControl: set and get an abstract."""
+
+        from geometamaker import MetadataControl
+
+        abstract = 'foo bar'
+        mc = MetadataControl()
+        mc.set_abstract(abstract)
+        self.assertEqual(mc.get_abstract(), abstract)
 
     def test_set_contact(self):
         """MetadataControl: set and get a contact section."""
@@ -388,12 +445,24 @@ class MetadataControlTests(unittest.TestCase):
         mc = MetadataControl(datasource_path)
         name = 'CC-BY-4.0'
         url = 'https://creativecommons.org/licenses/by/4.0/'
-        mc.set_license(license_name=name)
+
+        mc.set_license(name=name)
+        self.assertEqual(
+            mc.mcf['identification']['accessconstraints'],
+            'license')
         self.assertEqual(mc.get_license(), {'name': name, 'url': ''})
-        mc.set_license(license_url=url)
+
+        mc.set_license(url=url)
         self.assertEqual(mc.get_license(), {'name': '', 'url': url})
-        mc.set_license(license_name=name, license_url=url)
+
+        mc.set_license(name=name, url=url)
         self.assertEqual(mc.get_license(), {'name': name, 'url': url})
+
+        mc.set_license()
+        self.assertEqual(mc.get_license(), {'name': '', 'url': ''})
+        self.assertEqual(
+            mc.mcf['identification']['accessconstraints'],
+            'otherRestrictions')
 
     def test_set_license_validates(self):
         """MetadataControl: test set license raises ValidationError."""
@@ -405,9 +474,9 @@ class MetadataControlTests(unittest.TestCase):
         mc = MetadataControl(datasource_path)
         name = 4.0  # should be a string
         with self.assertRaises(ValidationError):
-            mc.set_license(license_name=name)
+            mc.set_license(name=name)
         with self.assertRaises(ValidationError):
-            mc.set_license(license_url=name)
+            mc.set_license(url=name)
 
     def test_set_and_get_lineage(self):
         """MetadataControl: set lineage of dataset."""
@@ -444,26 +513,110 @@ class MetadataControlTests(unittest.TestCase):
         mc.set_purpose(purpose)
         self.assertEqual(mc.get_purpose(), purpose)
 
-    def test_preexisting_mc(self):
-        """MetadataControl: test reading and ammending an existing MetadataControl."""
+    def test_preexisting_mc_raster(self):
+        """MetadataControl: test reading and ammending an existing MCF raster."""
         from geometamaker import MetadataControl
 
         title = 'Title'
         keyword = 'foo'
+        band_name = 'The Band'
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
         mc = MetadataControl(datasource_path)
         mc.set_title(title)
+        mc.set_band_description(1, name=band_name)
         mc.write()
 
         new_mc = MetadataControl(datasource_path)
         new_mc.set_keywords([keyword])
 
+        self.assertEqual(new_mc.mcf['metadata']['hierarchylevel'], 'dataset')
         self.assertEqual(
-            new_mc.mcf['identification']['title'], title)
+            new_mc.get_title(), title)
         self.assertEqual(
-            new_mc.mcf['identification']['keywords']['default']['keywords'],
-            [keyword])
+            new_mc.get_band_description(1)['name'], band_name)
+        self.assertEqual(
+            new_mc.get_keywords()['keywords'], [keyword])
+
+    def test_preexisting_mc_raster_new_bands(self):
+        """MetadataControl: test existing MCF when the raster has new bands."""
+        from geometamaker import MetadataControl
+
+        band_name = 'The Band'
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path, n_bands=1)
+        mc = MetadataControl(datasource_path)
+        mc.set_band_description(1, name=band_name)
+        self.assertEqual(mc.get_band_description(1)['type'], 'integer')
+        mc.write()
+
+        # The raster is modified after it's original metadata was written
+        # There's an extra band, and the datatype has changed
+        create_raster(numpy.float32, datasource_path, n_bands=2)
+
+        new_mc = MetadataControl(datasource_path)
+
+        band1 = new_mc.get_band_description(1)
+        self.assertEqual(band1['name'], band_name)
+        self.assertEqual(band1['type'], 'number')
+        band2 = new_mc.get_band_description(2)
+        self.assertEqual(band2['name'], '')
+        self.assertEqual(band2['type'], 'number')
+
+    def test_preexisting_mc_vector(self):
+        """MetadataControl: test reading and ammending an existing MCF vector."""
+        from geometamaker import MetadataControl
+
+        title = 'Title'
+        datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
+        field_name = 'foo'
+        description = 'description'
+        field_map = {
+            field_name: list(_OGR_TYPES_VALUES_MAP)[0]}
+        create_vector(datasource_path, field_map)
+        mc = MetadataControl(datasource_path)
+        mc.set_title(title)
+        mc.set_field_description(field_name, abstract=description)
+        mc.write()
+
+        new_mc = MetadataControl(datasource_path)
+
+        self.assertEqual(new_mc.mcf['metadata']['hierarchylevel'], 'dataset')
+        self.assertEqual(
+            new_mc.get_title(), title)
+        self.assertEqual(
+            new_mc.get_field_description(field_name)['abstract'], description)
+
+    def test_preexisting_mc_vector_new_fields(self):
+        """MetadataControl: test an existing MCF for vector with new fields."""
+        from geometamaker import MetadataControl
+
+        datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
+        field1_name = 'foo'
+        description = 'description'
+        field_map = {
+            field1_name: list(_OGR_TYPES_VALUES_MAP)[0]}
+        create_vector(datasource_path, field_map)
+        mc = MetadataControl(datasource_path)
+        mc.set_field_description(field1_name, abstract=description)
+        self.assertEqual(
+            mc.get_field_description(field1_name)['type'], 'integer')
+        mc.write()
+
+        # Modify the dataset by changing the field type of the
+        # existing field. And add a second field.
+        field2_name = 'bar'
+        new_field_map = {
+            field1_name: list(_OGR_TYPES_VALUES_MAP)[2],
+            field2_name: list(_OGR_TYPES_VALUES_MAP)[3]}
+        create_vector(datasource_path, new_field_map)
+        new_mc = MetadataControl(datasource_path)
+
+        field1 = new_mc.get_field_description(field1_name)
+        self.assertEqual(field1['abstract'], description)
+        self.assertEqual(field1['type'], 'number')
+        field2 = new_mc.get_field_description(field2_name)
+        self.assertEqual(field2['type'], 'string')
 
     def test_invalid_preexisting_mcf(self):
         """MetadataControl: test overwriting an existing invalid MetadataControl."""
