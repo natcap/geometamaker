@@ -96,6 +96,13 @@ class MetadataControlTests(unittest.TestCase):
         """Override tearDown function to remove temporary directory."""
         shutil.rmtree(self.workspace_dir)
 
+    def test_file_does_not_exist(self):
+        """MetadataControl: raises exception if given file does not exist."""
+        from geometamaker import MetadataControl
+
+        with self.assertRaises(FileNotFoundError):
+            _ = MetadataControl('foo.tif')
+
     def test_blank_MetadataControl(self):
         """MetadataControl: template has expected properties."""
         from geometamaker import MetadataControl
