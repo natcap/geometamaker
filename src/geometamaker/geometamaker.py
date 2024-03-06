@@ -541,7 +541,7 @@ class MetadataControl(object):
         with open(target_path, 'w') as file:
             file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
 
-    def write(self):
+    def write(self, workspace=None):
         """Write MCF and ISO-19139 XML to disk.
 
         This creates sidecar files with '.yml' and '.xml' extensions
@@ -552,12 +552,22 @@ class MetadataControl(object):
         - 'myraster.tif.xml'
 
         """
+        if workspace is None:
+            target_mcf_path = self.mcf_path
+            target_xml_path = f'{self.datasource}.xml'
+        else:
+            target_mcf_path = os.path.join(
+                workspace, f'{os.path.basename(self.datasource)}.yml')
+            target_xml_path = os.path.join(
+                workspace, f'{os.path.basename(self.datasource)}.xml')
+
         self.mcf['metadata']['datestamp'] = datetime.utcnow().strftime(
                 '%Y-%m-%d')
-        self._write_mcf(self.mcf_path)
+        self._write_mcf(target_mcf_path)
+
         schema_obj = load_schema('iso19139')
         xml_string = schema_obj.write(self.mcf)
-        with open(f'{self.datasource}.xml', 'w') as xmlfile:
+        with open(target_xml_path, 'w') as xmlfile:
             xmlfile.write(xml_string)
 
     def validate(self):

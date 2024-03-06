@@ -658,3 +658,21 @@ class MetadataControlTests(unittest.TestCase):
             self.fail(
                 'unexpected write error occurred\n'
                 f'{e}')
+
+    def test_write_to_local_workspace(self):
+        """MetadataControl: test write metadata to a different location."""
+        from geometamaker import MetadataControl
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        mc = MetadataControl(datasource_path)
+
+        temp_dir = tempfile.mkdtemp(dir=self.workspace_dir)
+        mc.write(workspace=temp_dir)
+
+        self.assertTrue(
+            os.path.exists(os.path.join(
+                temp_dir, f'{os.path.basename(datasource_path)}.yml')))
+        self.assertTrue(
+            os.path.exists(os.path.join(
+                temp_dir, f'{os.path.basename(datasource_path)}.xml')))
