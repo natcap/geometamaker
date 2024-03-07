@@ -14,7 +14,6 @@ from osgeo import osr
 from pygeometa.core import MCFValidationError
 import pygeoprocessing
 from pygeoprocessing.geoprocessing_core import DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
-import pytest
 import shapely
 import yaml
 
@@ -198,7 +197,10 @@ class MetadataControlTests(unittest.TestCase):
         field_map = {
             f'field_{k}': k
             for k in _OGR_TYPES_VALUES_MAP}
-        for driver, ext in [('GEOJSON', 'geojson'), ('ESRI Shapefile', 'shp')]:
+        for driver, ext in [
+                ('GEOJSON', 'geojson'),
+                ('ESRI Shapefile', 'shp'),
+                ('GPKG', 'gpkg')]:
             with self.subTest(driver=driver, ext=ext):
                 datasource_path = os.path.join(
                     self.workspace_dir, f'vector.{ext}')
@@ -212,6 +214,7 @@ class MetadataControlTests(unittest.TestCase):
                         'unexpected validation error occurred\n'
                         f'{e}')
                 mc.write()
+                self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
 
     def test_vector_no_fields(self):
         """MetadataControl: validate MetadataControl for basic vector with no fields."""
