@@ -2,8 +2,8 @@
 # --------------------
 # This file records the packages and requirements needed in order for
 # the library to work as expected. And to run tests.
+aiohttp
 GDAL
-httpaio
 jsonschema
 numpy
 pygeometa
