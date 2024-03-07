@@ -190,8 +190,8 @@ class MetadataControl(object):
         Instantiating without a ``source_dataset_path`` creates an MCF template.
 
         Args:
-            source_dataset_path (string): path to dataset to which the metadata
-                applies
+            source_dataset_path (string): path or URL to dataset to which the
+                metadata applies
 
         """
         self.mcf = None
@@ -550,6 +550,13 @@ class MetadataControl(object):
         - 'myraster.tif'
         - 'myraster.tif.yml'
         - 'myraster.tif.xml'
+
+        Args:
+            workspace (str): if ``None``, files write to the same location
+                as the source data. If not ``None``, a path to a local directory
+                to write files. They will still be named to match the source
+                filename. Use this option if the source data is not on the local
+                filesystem.
 
         """
         if workspace is None:
