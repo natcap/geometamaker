@@ -164,7 +164,7 @@ class MetadataControlTests(unittest.TestCase):
         self.assertEqual(attr['units'], units)
 
     def test_bad_csv_MetadataControl(self):
-        """MetadataControl: validate basic csv MetadataControl."""
+        """MetadataControl: CSV with extra item in row does not fail."""
         from geometamaker import MetadataControl
 
         datasource_path = os.path.join('data.csv')
