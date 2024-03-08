@@ -595,15 +595,20 @@ class MetadataControl(object):
 
         if gis_type == pygeoprocessing.VECTOR_TYPE:
             LOGGER.debug('opening as GDAL vector')
-            self.mcf['spatial']['datatype'] = 'vector'
             self.mcf['content_info']['type'] = 'coverage'
+            self.mcf['spatial']['datatype'] = 'vector'
+            open_options = []
+
+            if os.path.splitext(self.datasource)[1] == '.csv':
+                self.mcf['spatial']['datatype'] = 'textTable'
+                open_options.append('AUTODETECT_TYPE=YES')
 
             vector = gdal.OpenEx(self.datasource, gdal.OF_VECTOR,
-                                 open_options=['AUTODETECT_TYPE=YES'])
+                                 open_options=open_options)
             layer = vector.GetLayer()
             layer_defn = layer.GetLayerDefn()
             geomname = ogr.GeometryTypeToName(layer_defn.GetGeomType())
-            geomtype = ''
+            geomtype = NO_GEOM_TYPE
             # https://www.fgdc.gov/nap/metadata/register/codelists.html
             if 'Point' in geomname:
                 geomtype = 'point'
@@ -675,27 +680,21 @@ class MetadataControl(object):
 
             gis_info = pygeoprocessing.get_raster_info(self.datasource)
 
-        if os.path.splitext(self.datasource)[1] == '.csv':
-            # These properties are required by MCF, even if the CSV
-            # in question is not spatial at all.
-            self.mcf['spatial']['geomtype'] = NO_GEOM_TYPE
-            self.mcf['spatial']['datatype'] = 'textTable'
-            return
-
-        try:
-            srs = osr.SpatialReference()
-            srs.ImportFromWkt(gis_info['projection_wkt'])
-            epsg = srs.GetAttrValue('AUTHORITY', 1)
-        except TypeError:
-            LOGGER.warning(
-                f'could not import a spatial reference system from '
-                f'"projection_wkt" in {gis_info}')
-            epsg = ''
-        # for human-readable values after yaml dump, use python types
-        # instead of numpy types
-        bbox = [float(x) for x in gis_info['bounding_box']]
-        spatial_info = [{
-            'bbox': bbox,
-            'crs': epsg  # MCF does not support WKT here
-        }]
-        self.mcf['identification']['extents']['spatial'] = spatial_info
+        if gis_info['projection_wkt']:
+            try:
+                srs = osr.SpatialReference()
+                srs.ImportFromWkt(gis_info['projection_wkt'])
+                epsg = srs.GetAttrValue('AUTHORITY', 1)
+            except TypeError:
+                LOGGER.warning(
+                    f'could not import a spatial reference system from '
+                    f'"projection_wkt" in {gis_info}')
+                epsg = ''
+            # for human-readable values after yaml dump, use python types
+            # instead of numpy types
+            bbox = [float(x) for x in gis_info['bounding_box']]
+            spatial_info = [{
+                'bbox': bbox,
+                'crs': epsg  # MCF does not support WKT here
+            }]
+            self.mcf['identification']['extents']['spatial'] = spatial_info

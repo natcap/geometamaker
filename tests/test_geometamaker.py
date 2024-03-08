@@ -34,7 +34,7 @@ _OGR_TYPES_VALUES_MAP = {
 }
 
 
-def create_vector(target_filepath, field_map=None):
+def create_vector(target_filepath, field_map=None, driver='GEOJSON'):
     attribute_list = None
     if field_map:
         attribute_list = [{
@@ -47,7 +47,7 @@ def create_vector(target_filepath, field_map=None):
         [shapely.geometry.Point(1, -1)],
         target_filepath,
         projection.ExportToWkt(),
-        'GEOJSON',
+        driver,
         fields=field_map,
         attribute_list=attribute_list,
         ogr_geom_type=ogr.wkbPoint)
@@ -170,15 +170,17 @@ class MetadataControlTests(unittest.TestCase):
         self.assertEqual(attr['abstract'], abstract)
         self.assertEqual(attr['units'], units)
 
-    def test_vector_MetadataControl(self):
-        """MetadataControl: validate basic vector MetadataControl."""
+    def test_bad_csv_MetadataControl(self):
+        """MetadataControl: CSV with extra item in row does not fail."""
         from geometamaker import MetadataControl
 
-        datasource_path = os.path.join(self.workspace_dir, 'vector.geojson')
-        field_map = {
-            f'field_{k}': k
-            for k in _OGR_TYPES_VALUES_MAP}
-        create_vector(datasource_path, field_map)
+        datasource_path = os.path.join('data.csv')
+        field_names = ['Strings', 'Ints', 'Reals']
+        field_values = ['foo', 1, 0.9, 'extra']
+        with open(datasource_path, 'w') as file:
+            writer = csv.writer(file)
+            writer.writerow(field_names)
+            writer.writerow(field_values)
 
         mc = MetadataControl(datasource_path)
         try:
@@ -188,6 +190,38 @@ class MetadataControlTests(unittest.TestCase):
                 'unexpected validation error occurred\n'
                 f'{e}')
         mc.write()
+        self.assertEqual(
+            len(mc.mcf['content_info']['attributes']),
+            len(field_names))
+        self.assertEqual(mc.get_field_description('Strings')['type'], 'string')
+        self.assertEqual(mc.get_field_description('Ints')['type'], 'integer')
+        self.assertEqual(mc.get_field_description('Reals')['type'], 'number')
+
+    def test_vector_MetadataControl(self):
+        """MetadataControl: validate basic vector MetadataControl."""
+        from geometamaker import MetadataControl
+
+        field_map = {
+            f'field_{k}': k
+            for k in _OGR_TYPES_VALUES_MAP}
+        for driver, ext in [
+                ('GEOJSON', 'geojson'),
+                ('ESRI Shapefile', 'shp'),
+                ('GPKG', 'gpkg')]:
+            with self.subTest(driver=driver, ext=ext):
+                datasource_path = os.path.join(
+                    self.workspace_dir, f'vector.{ext}')
+                create_vector(datasource_path, field_map, driver)
+
+                mc = MetadataControl(datasource_path)
+                try:
+                    mc.validate()
+                except (MCFValidationError, SchemaError) as e:
+                    self.fail(
+                        'unexpected validation error occurred\n'
+                        f'{e}')
+                mc.write()
+                self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
 
     def test_vector_no_fields(self):
         """MetadataControl: validate MetadataControl for basic vector with no fields."""
