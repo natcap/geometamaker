@@ -3,6 +3,7 @@ import os
 import uuid
 from datetime import datetime
 
+import fsspec
 import jsonschema
 from jsonschema.exceptions import ValidationError
 import pygeometa.core
@@ -189,8 +190,8 @@ class MetadataControl(object):
         Instantiating without a ``source_dataset_path`` creates an MCF template.
 
         Args:
-            source_dataset_path (string): path to dataset to which the metadata
-                applies
+            source_dataset_path (string): path or URL to dataset to which the
+                metadata applies
 
         """
         self.mcf = None
@@ -198,23 +199,38 @@ class MetadataControl(object):
             self.datasource = source_dataset_path
             self.mcf_path = f'{self.datasource}.yml'
 
-            if os.path.exists(self.mcf_path):
-                try:
-                    # pygeometa.core.read_mcf can parse nested MCF documents,
-                    # where one MCF refers to another
-                    self.mcf = pygeometa.core.read_mcf(self.mcf_path)
-                    self.validate()
-                except (pygeometa.core.MCFReadError, ValidationError,
-                        AttributeError) as err:
-                    # AttributeError in read_mcf not caught by pygeometa
-                    LOGGER.warning(err)
-                    self.mcf = None
+            # Despite naming, this does not open a resource that must be closed
+            of = fsspec.open(self.datasource)
+            if not of.fs.exists(self.datasource):
+                raise FileNotFoundError(f'{self.datasource} does not exist')
+
+            try:
+                with fsspec.open(self.mcf_path, 'r') as file:
+                    yaml_string = file.read()
+
+                # pygeometa.core.read_mcf can parse nested MCF documents,
+                # where one MCF refers to another
+                self.mcf = pygeometa.core.read_mcf(yaml_string)
+                LOGGER.info(f'loaded existing metadata from {self.mcf_path}')
+                self.validate()
+
+            # Common path: MCF often does not already exist
+            except FileNotFoundError as err:
+                LOGGER.debug(err)
+
+            # Uncommon path: MCF already exists but cannot be used
+            except (pygeometa.core.MCFReadError,
+                    ValidationError, AttributeError) as err:
+                # AttributeError in read_mcf not caught by pygeometa
+                LOGGER.warning(err)
+                self.mcf = None
 
             if self.mcf is None:
                 self.mcf = _get_template(MCF_SCHEMA)
                 self.mcf['metadata']['identifier'] = str(uuid.uuid4())
 
             # fill all values that can be derived from the dataset
+            LOGGER.debug(f'getting properties from {source_dataset_path}')
             self._set_spatial_info()
 
         else:
@@ -525,7 +541,7 @@ class MetadataControl(object):
         with open(target_path, 'w') as file:
             file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
 
-    def write(self):
+    def write(self, workspace=None):
         """Write MCF and ISO-19139 XML to disk.
 
         This creates sidecar files with '.yml' and '.xml' extensions
@@ -535,13 +551,30 @@ class MetadataControl(object):
         - 'myraster.tif.yml'
         - 'myraster.tif.xml'
 
+        Args:
+            workspace (str): if ``None``, files write to the same location
+                as the source data. If not ``None``, a path to a local directory
+                to write files. They will still be named to match the source
+                filename. Use this option if the source data is not on the local
+                filesystem.
+
         """
+        if workspace is None:
+            target_mcf_path = self.mcf_path
+            target_xml_path = f'{self.datasource}.xml'
+        else:
+            target_mcf_path = os.path.join(
+                workspace, f'{os.path.basename(self.datasource)}.yml')
+            target_xml_path = os.path.join(
+                workspace, f'{os.path.basename(self.datasource)}.xml')
+
         self.mcf['metadata']['datestamp'] = datetime.utcnow().strftime(
                 '%Y-%m-%d')
-        self._write_mcf(self.mcf_path)
+        self._write_mcf(target_mcf_path)
+
         schema_obj = load_schema('iso19139')
         xml_string = schema_obj.write(self.mcf)
-        with open(f'{self.datasource}.xml', 'w') as xmlfile:
+        with open(target_xml_path, 'w') as xmlfile:
             xmlfile.write(xml_string)
 
     def validate(self):
@@ -561,6 +594,7 @@ class MetadataControl(object):
         self.mcf['metadata']['hierarchylevel'] = 'dataset'
 
         if gis_type == pygeoprocessing.VECTOR_TYPE:
+            LOGGER.debug('opening as GDAL vector')
             self.mcf['content_info']['type'] = 'coverage'
             self.mcf['spatial']['datatype'] = 'vector'
             open_options = []
@@ -616,6 +650,7 @@ class MetadataControl(object):
             gis_info = pygeoprocessing.get_vector_info(self.datasource)
 
         if gis_type == pygeoprocessing.RASTER_TYPE:
+            LOGGER.debug('opening as GDAL raster')
             self.mcf['spatial']['datatype'] = 'grid'
             self.mcf['spatial']['geomtype'] = 'surface'
             self.mcf['content_info']['type'] = 'image'
