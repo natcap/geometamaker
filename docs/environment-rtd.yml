@@ -9,6 +9,7 @@ channels:
     - conda-forge
 dependencies:
     - python=3.8
+    - fsspec
     - gdal>=3
     - jsonschema
     - numpy
