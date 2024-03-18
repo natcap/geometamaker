@@ -36,6 +36,12 @@ with open(MCF_SCHEMA_FILE, 'r') as schema_file:
 MCF_SCHEMA['required'].append('content_info')
 MCF_SCHEMA['required'].append('dataquality')
 MCF_SCHEMA['properties']['identification']['properties'][
+    'citation'] = {
+        'type': 'string',
+        'description': 'a biobliographic citation for the dataset'
+    }
+MCF_SCHEMA['properties']['identification']['required'].append('citation')
+MCF_SCHEMA['properties']['identification']['properties'][
     'keywords']['patternProperties']['^.*'][
     'required'] = ['keywords', 'keywords_type']
 # to accomodate tables that do not represent spatial content:
