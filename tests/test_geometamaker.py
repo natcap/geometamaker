@@ -574,6 +574,16 @@ class MetadataControlTests(unittest.TestCase):
         mc.set_purpose(purpose)
         self.assertEqual(mc.get_purpose(), purpose)
 
+    def test_set_url(self):
+        """MetadataControl: set and get a url."""
+
+        from geometamaker import MetadataControl
+
+        url = 'http://foo/bar'
+        mc = MetadataControl()
+        mc.set_url(url)
+        self.assertEqual(mc.get_url(), url)
+
     def test_preexisting_mc_raster(self):
         """MetadataControl: test reading and ammending an existing MCF raster."""
         from geometamaker import MetadataControl

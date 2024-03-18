@@ -463,6 +463,19 @@ class MetadataControl(object):
         """
         return self.mcf['identification'].get('purpose')
 
+    def set_url(self, url):
+        """Add a url for the dataset.
+
+        Args:
+            url (str)
+
+        """
+        self.mcf['identification']['url'] = url
+
+    def get_url(self):
+        """Get the url for the dataset."""
+        return self.mcf['identification']['url']
+
     def set_band_description(self, band_number, name=None, title=None,
                              abstract=None, units=None, type=None):
         """Define metadata for a raster band.
