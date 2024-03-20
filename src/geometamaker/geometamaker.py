@@ -36,6 +36,12 @@ with open(MCF_SCHEMA_FILE, 'r') as schema_file:
 MCF_SCHEMA['required'].append('content_info')
 MCF_SCHEMA['required'].append('dataquality')
 MCF_SCHEMA['properties']['identification']['properties'][
+    'citation'] = {
+        'type': 'string',
+        'description': 'a biobliographic citation for the dataset'
+    }
+MCF_SCHEMA['properties']['identification']['required'].append('citation')
+MCF_SCHEMA['properties']['identification']['properties'][
     'keywords']['patternProperties']['^.*'][
     'required'] = ['keywords', 'keywords_type']
 # to accomodate tables that do not represent spatial content:
@@ -266,6 +272,19 @@ class MetadataControl(object):
         """Get the abstract for the dataset."""
         return self.mcf['identification']['abstract']
 
+    def set_citation(self, citation):
+        """Add a citation string for the dataset.
+
+        Args:
+            citation (str)
+
+        """
+        self.mcf['identification']['citation'] = citation
+
+    def get_citation(self):
+        """Get the citation for the dataset."""
+        return self.mcf['identification']['citation']
+
     def set_contact(self, organization=None, individualname=None, positionname=None,
                     email=None, section='default', **kwargs):
         """Add a contact section.
@@ -307,6 +326,19 @@ class MetadataControl(object):
 
         """
         return self.mcf['contact'].get(section)
+
+    def set_doi(self, doi):
+        """Add a doi string for the dataset.
+
+        Args:
+            doi (str)
+
+        """
+        self.mcf['identification']['doi'] = doi
+
+    def get_doi(self):
+        """Get the doi for the dataset."""
+        return self.mcf['identification']['doi']
 
     def set_edition(self, edition):
         """Set the edition for the dataset.
@@ -436,6 +468,19 @@ class MetadataControl(object):
 
         """
         return self.mcf['identification'].get('purpose')
+
+    def set_url(self, url):
+        """Add a url for the dataset.
+
+        Args:
+            url (str)
+
+        """
+        self.mcf['identification']['url'] = url
+
+    def get_url(self):
+        """Get the url for the dataset."""
+        return self.mcf['identification']['url']
 
     def set_band_description(self, band_number, name=None, title=None,
                              abstract=None, units=None, type=None):

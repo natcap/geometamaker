@@ -50,3 +50,6 @@ for path, dirs, files in os.walk(data_dir):
             mc.validate()
             mc.write()
 ```
+
+#### For a complete list of methods:
+https://geometamaker.readthedocs.io/en/latest/api/geometamaker.html

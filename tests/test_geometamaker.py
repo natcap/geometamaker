@@ -341,6 +341,16 @@ class MetadataControlTests(unittest.TestCase):
         mc.set_abstract(abstract)
         self.assertEqual(mc.get_abstract(), abstract)
 
+    def test_set_citation(self):
+        """MetadataControl: set and get a citation."""
+
+        from geometamaker import MetadataControl
+
+        citation = 'foo bar'
+        mc = MetadataControl()
+        mc.set_citation(citation)
+        self.assertEqual(mc.get_citation(), citation)
+
     def test_set_contact(self):
         """MetadataControl: set and get a contact section."""
 
@@ -395,6 +405,16 @@ class MetadataControlTests(unittest.TestCase):
         mc = MetadataControl(datasource_path)
         with self.assertRaises(ValidationError):
             mc.set_contact(postalcode=postalcode)
+
+    def test_set_doi(self):
+        """MetadataControl: set and get a doi."""
+
+        from geometamaker import MetadataControl
+
+        doi = '10.foo/bar'
+        mc = MetadataControl()
+        mc.set_doi(doi)
+        self.assertEqual(mc.get_doi(), doi)
 
     def test_set_get_edition(self):
         """MetadataControl: set and get dataset edition."""
@@ -553,6 +573,16 @@ class MetadataControlTests(unittest.TestCase):
         purpose = 'foo'
         mc.set_purpose(purpose)
         self.assertEqual(mc.get_purpose(), purpose)
+
+    def test_set_url(self):
+        """MetadataControl: set and get a url."""
+
+        from geometamaker import MetadataControl
+
+        url = 'http://foo/bar'
+        mc = MetadataControl()
+        mc.set_url(url)
+        self.assertEqual(mc.get_url(), url)
 
     def test_preexisting_mc_raster(self):
         """MetadataControl: test reading and ammending an existing MCF raster."""
