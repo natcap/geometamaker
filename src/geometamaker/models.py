@@ -6,7 +6,9 @@ import pprint
 
 import frictionless
 import fsspec
+import pygeoprocessing
 import yaml
+from osgeo import gdal
 
 
 LOGGER = logging.getLogger(__name__)
@@ -108,7 +110,7 @@ class TableResource(Resource):
     # without post-init, schema ends up as a dict, or whatever is passed in.
     schema: TableSchema = field(default_factory=TableSchema)
     # type: str = 'table'
-    
+
     def __post_init__(self):
         # Allow init of the resource with a schema of type
         # TableSchema, or type dict. Mostly because dataclasses.replace
@@ -118,27 +120,110 @@ class TableResource(Resource):
         self.schema = TableSchema(**self.schema)
 
 
+@dataclass
+class BoundingBox():
+
+    xmin: float
+    ymin: float
+    xmax: float
+    ymax: float
+
+
+@dataclass
+class SpatialSchema():
+
+    bounding_box: BoundingBox
+    crs: str
+
+
+@dataclass(kw_only=True)
+class VectorResource(TableResource):
+    """Class for metadata for a vector resource."""
+
+    spatial: SpatialSchema
+
+
+@dataclass(kw_only=True)
+class RasterResource(Resource):
+    """Class for metadata for a raster resource."""
+
+    spatial: SpatialSchema
+
+
+def get_file_type(filepath):
+    # GDAL considers CSV a vector, so check against frictionless
+    # first
+    filetype = frictionless.describe(filepath).type
+    if filetype == 'table':
+        return filetype
+    gis_type = pygeoprocessing.get_gis_type(filepath)
+    if gis_type == pygeoprocessing.VECTOR_TYPE:
+        return 'vector'
+    if gis_type == pygeoprocessing.RASTER_TYPE:
+        return 'raster'
+    raise ValueError()
+
+
+def describe_vector(source_dataset_path):
+    description = frictionless.describe(source_dataset_path).to_dict()
+    fields = []
+    vector = gdal.OpenEx(source_dataset_path, gdal.OF_VECTOR)
+    layer = vector.GetLayer()
+    for fld in layer.schema:
+        fields.append(
+            FieldSchema(name=fld.name, type=fld.type))
+    vector = layer = None
+    description['schema'] = TableSchema(fields=fields)
+
+    info = pygeoprocessing.get_vector_info(source_dataset_path)
+    spatial = {
+        'bounding_box': info['bounding_box'],
+        'crs': info['projection_wkt']
+    }
+    description['spatial'] = SpatialSchema(**spatial)
+    description['sources'] = info['file_list']
+    return description
+
+
+def describe_raster(source_dataset_path):
+    pass
+
+
+def describe_table(source_dataset_path):
+    return frictionless.describe(source_dataset_path).to_dict()
+
+
+DESRCIBE_FUNCS = {
+    'table': describe_table,
+    'vector': describe_vector,
+    'raster': describe_raster
+}
+
+RESOURCE_MODELS = {
+    'table': TableResource,
+    'vector': VectorResource,
+    'raster': RasterResource
+}
+
+
 class MetadataControl(object):
 
-    def __init__(self, source_dataset_path=None):
-        if source_dataset_path is not None:
-            self.datasource = source_dataset_path
-            self.data_package_path = f'{self.datasource}.dp.yml'
+    def __init__(self, source_dataset_path):
+        # if source_dataset_path is not None:
+        self.datasource = source_dataset_path
+        self.data_package_path = f'{self.datasource}.dp.yml'
 
         # Despite naming, this does not open a resource that must be closed
         of = fsspec.open(self.datasource)
         if not of.fs.exists(self.datasource):
             raise FileNotFoundError(f'{self.datasource} does not exist')
 
-        # TODO: check the filetype here and create the appropriate instance
+        resource_type = get_file_type(source_dataset_path)
+        description = DESRCIBE_FUNCS[resource_type](source_dataset_path)
         # this is nice for autodetect of field types, but sometimes
         # we will know the table schema (invest MODEL_SPEC).
         # Is there any benefit to passing in the known schema? Maybe not
         # Can also just overwrite the schema attribute with known data after.
-        description = frictionless.describe(source_dataset_path).to_dict()
-        # schema = TableSchema(**description['schema'])
-        # del description['schema']
-        # resource = Resource(resource_dict)
 
         # Load existing metadata file
         try:
@@ -146,16 +231,19 @@ class MetadataControl(object):
                 yaml_string = file.read()
 
             # This validates the existing yaml against our dataclasses.
-            existing_resource = TableResource(**yaml.safe_load(yaml_string))
+            existing_resource = RESOURCE_MODELS[resource_type](
+                **yaml.safe_load(yaml_string))
             # overwrite properties that are intrinsic to the dataset,
             # which is everything from `description` other than schema.
+            # Some parts of schema are intrinsic, but others are human-input
+            # so replace the whole thing for now.
             del description['schema']
             self.metadata = dataclasses.replace(
                 existing_resource, **description)
 
         # Common path: metadata file does not already exist
         except FileNotFoundError as err:
-            self.metadata = TableResource(description)
+            self.metadata = RESOURCE_MODELS[resource_type](**description)
 
     def write(self, workspace=None):
         """Write datapackage yaml to disk.
@@ -189,7 +277,8 @@ if __name__ == "__main__":
     # from natcap.invest import carbon
     # arg_spec = carbon.MODEL_SPEC['args']['carbon_pools_path']
 
-    filepath = 'C:/Users/dmf/projects/geometamaker/data/carbon_pools.csv'
+    # filepath = 'C:/Users/dmf/projects/geometamaker/data/carbon_pools.csv'
+    filepath = 'C:/Users/dmf/projects/geometamaker/data/watershed_gura.shp'
     mc = MetadataControl(filepath)
     pprint.pprint(dataclasses.asdict(mc.metadata))
     # mc.write()
