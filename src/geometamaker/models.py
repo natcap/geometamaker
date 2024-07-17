@@ -182,7 +182,8 @@ def get_file_type(filepath):
 
 
 def describe_vector(source_dataset_path):
-    description = frictionless.describe(source_dataset_path).to_dict()
+    description = frictionless.describe(
+        source_dataset_path, stats=True).to_dict()
     fields = []
     vector = gdal.OpenEx(source_dataset_path, gdal.OF_VECTOR)
     layer = vector.GetLayer()
@@ -203,7 +204,8 @@ def describe_vector(source_dataset_path):
 
 
 def describe_raster(source_dataset_path):
-    description = frictionless.describe(source_dataset_path).to_dict()
+    description = frictionless.describe(
+        source_dataset_path, stats=True).to_dict()
 
     bands = []
     info = pygeoprocessing.get_raster_info(source_dataset_path)
@@ -228,7 +230,9 @@ def describe_raster(source_dataset_path):
 
 
 def describe_table(source_dataset_path):
-    return frictionless.describe(source_dataset_path).to_dict()
+    # frictionless.describe works
+    return frictionless.describe(
+        source_dataset_path, stats=True).to_dict()
 
 
 DESRCIBE_FUNCS = {
