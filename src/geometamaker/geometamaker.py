@@ -1,18 +1,18 @@
+import dataclasses
 import logging
 import os
 import uuid
 from datetime import datetime
 
+import frictionless
 import fsspec
-import jsonschema
-from jsonschema.exceptions import ValidationError
-import pygeometa.core
-from pygeometa.schemas import load_schema
 import pygeoprocessing
 from osgeo import gdal
 from osgeo import ogr
 from osgeo import osr
 import yaml
+
+from . import models
 
 
 # https://stackoverflow.com/questions/13518819/avoid-references-in-pyyaml
@@ -25,151 +25,92 @@ class _NoAliasDumper(yaml.SafeDumper):
 
 LOGGER = logging.getLogger(__name__)
 
-MCF_SCHEMA_FILE = os.path.join(
-    pygeometa.core.SCHEMAS, 'mcf', 'core.yaml')
-with open(MCF_SCHEMA_FILE, 'r') as schema_file:
-    MCF_SCHEMA = pygeometa.core.yaml_load(schema_file)
-
-# modify the core MCF schema so that our default
-# template MCFs have all the properties we expect
-# users to use.
-MCF_SCHEMA['required'].append('content_info')
-MCF_SCHEMA['required'].append('dataquality')
-MCF_SCHEMA['properties']['identification']['properties'][
-    'citation'] = {
-        'type': 'string',
-        'description': 'a biobliographic citation for the dataset'
-    }
-MCF_SCHEMA['properties']['identification']['required'].append('citation')
-MCF_SCHEMA['properties']['identification']['properties'][
-    'keywords']['patternProperties']['^.*'][
-    'required'] = ['keywords', 'keywords_type']
+# MCF_SCHEMA['properties']['identification']['properties'][
+#     'keywords']['patternProperties']['^.*'][
+#     'required'] = ['keywords', 'keywords_type']
 # to accomodate tables that do not represent spatial content:
-NO_GEOM_TYPE = 'none'
-MCF_SCHEMA['properties']['spatial']['properties'][
-    'geomtype']['enum'].append(NO_GEOM_TYPE)
-TABLE_CONTENT_TYPE = 'table'
-MCF_SCHEMA['properties']['content_info']['properties'][
-    'type']['enum'].append(TABLE_CONTENT_TYPE)
 
-OGR_MCF_ATTR_TYPE_MAP = {
-    ogr.OFTInteger: 'integer',
-    ogr.OFTInteger64: 'integer',
-    ogr.OFTReal: 'number',
-    ogr.OFTString: 'string'
+def get_file_type(filepath):
+    # TODO: guard against classifying netCDF, HDF5, etc as GDAL rasters,
+    # we'll want a different data model for multi-dimensional arrays.
+
+    # GDAL considers CSV a vector, so check against frictionless
+    # first.
+    filetype = frictionless.describe(filepath).type
+    if filetype == 'table':
+        return filetype
+    gis_type = pygeoprocessing.get_gis_type(filepath)
+    if gis_type == pygeoprocessing.VECTOR_TYPE:
+        return 'vector'
+    if gis_type == pygeoprocessing.RASTER_TYPE:
+        return 'raster'
+    raise ValueError()
+
+
+def describe_vector(source_dataset_path):
+    description = frictionless.describe(
+        source_dataset_path, stats=True).to_dict()
+    fields = []
+    vector = gdal.OpenEx(source_dataset_path, gdal.OF_VECTOR)
+    layer = vector.GetLayer()
+    for fld in layer.schema:
+        fields.append(
+            models.FieldSchema(name=fld.name, type=fld.type))
+    vector = layer = None
+    description['schema'] = models.TableSchema(fields=fields)
+
+    info = pygeoprocessing.get_vector_info(source_dataset_path)
+    spatial = {
+        'bounding_box': info['bounding_box'],
+        'crs': info['projection_wkt']
+    }
+    description['spatial'] = models.SpatialSchema(**spatial)
+    description['sources'] = info['file_list']
+    return description
+
+
+def describe_raster(source_dataset_path):
+    description = frictionless.describe(
+        source_dataset_path, stats=True).to_dict()
+
+    bands = []
+    info = pygeoprocessing.get_raster_info(source_dataset_path)
+    for i in range(info['n_bands']):
+        b = i + 1
+        # band = raster.GetRasterBand(b)
+        # datatype = 'integer' if band.DataType < 6 else 'number'
+        bands.append(models.BandSchema(
+            index=b,
+            gdal_type=info['datatype'],
+            numpy_type=info['numpy_type'],
+            nodata=info['nodata'][i]))
+    description['schema'] = models.RasterSchema(
+        bands=bands,
+        pixel_size=info['pixel_size'],
+        raster_size=info['raster_size'])
+    description['spatial'] = models.SpatialSchema(
+        bounding_box=info['bounding_box'],
+        crs=info['projection_wkt'])
+    description['sources'] = info['file_list']
+    return description
+
+
+def describe_table(source_dataset_path):
+    return frictionless.describe(
+        source_dataset_path, stats=True).to_dict()
+
+
+DESRCIBE_FUNCS = {
+    'table': describe_table,
+    'vector': describe_vector,
+    'raster': describe_raster
 }
 
-
-def _get_default(item):
-    """Return a default value for a property.
-
-    Args:
-        item (dict): a jsonschema definition of a property with no children.
-
-    Return:
-        a value from DEFAULT_VALUES
-
-    Raises:
-        KeyError if ``item`` does not include an
-        'enum', 'type', or '$ref' property.
-
-    """
-    # TODO: read types from the #/definitions found in MCF_SCHEMA
-    # instead of hardcoding values here
-    # TODO: support i18n properly by using objects
-    # keyed by country codes to contain the array of strings
-    default_values = {
-        'string': str(),
-        'int': int(),
-        'integer': int(),
-        'number': float(),
-        'boolean': False,
-        '#/definitions/date_or_datetime_string': str(),
-        '#/definitions/i18n_string': str(),
-        '#/definitions/i18n_array': list(),
-        '#/definitions/any_type': str(),
-    }
-
-    # If there are enumerated values which must be used
-    try:
-        fixed_values = item['enum']
-        # TODO: find a better way to choose the default
-        return fixed_values[0]
-    except KeyError:
-        pass
-
-    # If no enumerated values, get a default value based on type
-    try:
-        t = item['type']
-    except KeyError:
-        # When 'type' is missing, a $ref to another schema is present
-        try:
-            t = item['$ref']
-        except KeyError:
-            raise KeyError(
-                f'schema has no type and no reference to a type definition\n'
-                f'{item}')
-
-    return default_values[t]
-
-
-def _get_template(schema):
-    """Create a minimal dictionary that is valid against ``schema``.
-
-    The dict will ontain only the 'required' properties.
-
-    Args:
-        schema (dict): a jsonschema definition.
-
-    Return:
-        dict that is valid against ``schema``
-
-    Raises:
-        KeyError if a penultimate property in a schema branch
-        does not include an 'enum', 'type', or '$ref' property.
-
-    """
-    template = {}
-    if 'type' in schema and schema['type'] == 'object':
-        for prop, sch in schema['properties'].items():
-            if 'required' in schema and prop not in schema['required']:
-                continue
-            if 'patternProperties' in sch:
-                # this item's properties can have any name matching the pattern.
-                # assign the name 'default' and overwite the current schema
-                # with a new one that explicitly includes the 'default' property.
-                example_sch = {
-                    'type': 'object',
-                    'required': ['default'],
-                    'properties': {
-                        'default': sch['patternProperties']['^.*']
-                    }
-                }
-                sch = example_sch
-
-            if 'properties' in sch and 'anyOf' in sch['properties']:
-                # if 'anyOf' is a property, then we effectively want to
-                # treat the children of 'anyOf' as the properties instead.
-                template[prop] = {
-                    p: _get_template(s)
-                    for p, s in sch['properties']['anyOf'].items()
-                }
-            else:
-                template[prop] = _get_template(sch)
-        return template
-
-    elif 'type' in schema and schema['type'] == 'array':
-        if 'properties' in schema:
-            # for the weird case where identification.extents.spatial
-            # is type: array but contains 'properties' instead of 'items'
-            return [{
-                p: _get_template(s)
-                for p, s in schema['properties'].items()
-                if p in schema['required']
-            }]
-        return [_get_template(schema['items'])]
-    else:
-        return _get_default(schema)
+RESOURCE_MODELS = {
+    'table': models.TableResource,
+    'vector': models.VectorResource,
+    'raster': models.RasterResource
+}
 
 
 class MetadataControl(object):
@@ -200,51 +141,42 @@ class MetadataControl(object):
                 metadata applies
 
         """
-        self.mcf = None
-        if source_dataset_path is not None:
-            self.datasource = source_dataset_path
-            self.mcf_path = f'{self.datasource}.yml'
 
-            # Despite naming, this does not open a resource that must be closed
-            of = fsspec.open(self.datasource)
-            if not of.fs.exists(self.datasource):
-                raise FileNotFoundError(f'{self.datasource} does not exist')
+        # if source_dataset_path is not None:
+        self.datasource = source_dataset_path
+        self.data_package_path = f'{self.datasource}.yml'
 
-            try:
-                with fsspec.open(self.mcf_path, 'r') as file:
-                    yaml_string = file.read()
+        # Despite naming, this does not open a resource that must be closed
+        of = fsspec.open(self.datasource)
+        if not of.fs.exists(self.datasource):
+            raise FileNotFoundError(f'{self.datasource} does not exist')
 
-                # pygeometa.core.read_mcf can parse nested MCF documents,
-                # where one MCF refers to another
-                self.mcf = pygeometa.core.read_mcf(yaml_string)
-                LOGGER.info(f'loaded existing metadata from {self.mcf_path}')
-                self.validate()
+        resource_type = get_file_type(source_dataset_path)
+        description = DESRCIBE_FUNCS[resource_type](source_dataset_path)
+        # this is nice for autodetect of field types, but sometimes
+        # we will know the table schema (invest MODEL_SPEC).
+        # Is there any benefit to passing in the known schema? Maybe not
+        # Can also just overwrite the schema attribute with known data after.
 
-            # Common path: MCF often does not already exist
-            except FileNotFoundError as err:
-                LOGGER.debug(err)
+        # Load existing metadata file
+        try:
+            with fsspec.open(self.data_package_path, 'r') as file:
+                yaml_string = file.read()
 
-            # Uncommon path: MCF already exists but cannot be used
-            except (pygeometa.core.MCFReadError,
-                    ValidationError, AttributeError) as err:
-                # AttributeError in read_mcf not caught by pygeometa
-                LOGGER.warning(err)
-                self.mcf = None
+            # This validates the existing yaml against our dataclasses.
+            existing_resource = RESOURCE_MODELS[resource_type](
+                **yaml.safe_load(yaml_string))
+            # overwrite properties that are intrinsic to the dataset,
+            # which is everything from `description` other than schema.
+            # Some parts of schema are intrinsic, but others are human-input
+            # so replace the whole thing for now.
+            del description['schema']
+            self.metadata = dataclasses.replace(
+                existing_resource, **description)
 
-            if self.mcf is None:
-                self.mcf = _get_template(MCF_SCHEMA)
-                self.mcf['metadata']['identifier'] = str(uuid.uuid4())
-
-            # fill all values that can be derived from the dataset
-            LOGGER.debug(f'getting properties from {source_dataset_path}')
-            self._set_spatial_info()
-
-        else:
-            self.mcf = _get_template(MCF_SCHEMA)
-
-        self.mcf['mcf']['version'] = \
-            MCF_SCHEMA['properties']['mcf'][
-                'properties']['version']['const']
+        # Common path: metadata file does not already exist
+        except FileNotFoundError as err:
+            self.metadata = RESOURCE_MODELS[resource_type](**description)
 
     def set_title(self, title):
         """Add a title for the dataset.
@@ -253,24 +185,24 @@ class MetadataControl(object):
             title (str)
 
         """
-        self.mcf['identification']['title'] = title
+        self.metadata.title = title
 
     def get_title(self):
         """Get the title for the dataset."""
-        return self.mcf['identification']['title']
+        return self.metadata.title
 
-    def set_abstract(self, abstract):
-        """Add an abstract for the dataset.
+    def set_description(self, description):
+        """Add an description for the dataset.
 
         Args:
-            abstract (str)
+            description (str)
 
         """
-        self.mcf['identification']['abstract'] = abstract
+        self.metadata.description = description
 
-    def get_abstract(self):
-        """Get the abstract for the dataset."""
-        return self.mcf['identification']['abstract']
+    def get_description(self):
+        """Get the description for the dataset."""
+        return self.metadata.description
 
     def set_citation(self, citation):
         """Add a citation string for the dataset.
@@ -279,53 +211,41 @@ class MetadataControl(object):
             citation (str)
 
         """
-        self.mcf['identification']['citation'] = citation
+        self.metadata.citation = citation
 
     def get_citation(self):
         """Get the citation for the dataset."""
-        return self.mcf['identification']['citation']
+        return self.metadata.citation
 
-    def set_contact(self, organization=None, individualname=None, positionname=None,
-                    email=None, section='default', **kwargs):
+    def set_contact(self, organization=None, individual_name=None,
+                    position_name=None, email=None):
         """Add a contact section.
 
         Args:
             organization (str): name of the responsible organization
-            individualname (str): name of the responsible person
-            positionname (str): role or position of the responsible person
-            email (str): email address of the responsible organization or individual
-            section (str): a header for the contact section under which to
-                apply the other args, since there can be more than one.
-            kwargs (dict): key-value pairs for any other properties listed in
-                the contact section of the core MCF schema.
+            individual_name (str): name of the responsible person
+            position_name (str): role or position of the responsible person
+            email (str): address of the responsible organization or individual
 
         """
 
         if organization:
-            self.mcf['contact'][section]['organization'] = organization
-        if individualname:
-            self.mcf['contact'][section]['individualname'] = individualname
-        if positionname:
-            self.mcf['contact'][section]['positionname'] = positionname
+            self.metadata.contact.organization = organization
+        if individual_name:
+            self.metadata.contact.individualname = individual_name
+        if position_name:
+            self.metadata.contact.positionname = position_name
         if email:
-            self.mcf['contact'][section]['email'] = email
-        if kwargs:
-            for k, v in kwargs.items():
-                self.mcf['contact'][section][k] = v
+            self.metadata.contact.email = email
 
-        self.validate()
-
-    def get_contact(self, section='default'):
+    def get_contact(self):
         """Get metadata from a contact section.
 
-        Args:
-            section (str): a header for the contact section under which to
-                    apply the other args, since there can be more than one.
         Returns:
-            A dict or ``None`` if ``section`` does not exist.
+            ContactSchema
 
         """
-        return self.mcf['contact'].get(section)
+        return self.metadata.contact
 
     def set_doi(self, doi):
         """Add a doi string for the dataset.
@@ -334,11 +254,11 @@ class MetadataControl(object):
             doi (str)
 
         """
-        self.mcf['identification']['doi'] = doi
+        self.metadata.doi = doi
 
     def get_doi(self):
         """Get the doi for the dataset."""
-        return self.mcf['identification']['doi']
+        return self.metadata.doi
 
     def set_edition(self, edition):
         """Set the edition for the dataset.
@@ -347,8 +267,7 @@ class MetadataControl(object):
             edition (str): version of the cited resource
 
         """
-        self.mcf['identification']['edition'] = edition
-        self.validate()
+        self.metadata.edition = edition
 
     def get_edition(self):
         """Get the edition of the dataset.
@@ -357,7 +276,7 @@ class MetadataControl(object):
             str or ``None`` if ``edition`` does not exist.
 
         """
-        return self.mcf['identification'].get('edition')
+        return self.metadata.edition
 
     def set_keywords(self, keywords, section='default', keywords_type='theme',
                      vocabulary=None):
@@ -393,58 +312,56 @@ class MetadataControl(object):
     def get_keywords(self, section='default'):
         return self.mcf['identification']['keywords'][section]
 
-    def set_license(self, name=None, url=None):
+    def set_license(self, title=None, path=None):
         """Add a license for the dataset.
 
-        Either or both name and url are required if there is a license.
+        Either or both title and path are required if there is a license.
         Call with no arguments to remove access constraints and license
         info.
 
         Args:
-            name (str): name of the license of the source dataset
-            url (str): url for the license
+            title (str): human-readable title of the license
+            path (str): url for the license
 
         """
-        # MCF spec says use 'otherRestrictions' to mean no restrictions
-        constraints = 'otherRestrictions'
-        if name or url:
-            constraints = 'license'
-
         license_dict = {}
-        license_dict['name'] = name if name else ''
-        license_dict['url'] = url if url else ''
-        self.mcf['identification']['license'] = license_dict
-        self.mcf['identification']['accessconstraints'] = constraints
-        self.validate()
+        license_dict['title'] = title if title else ''
+        license_dict['path'] = path if path else ''
+
+        # TODO: DataPackage/Resource allows for a list of licenses.
+        # So far we only support one license per resource.
+        self.licenses = [models.License(**license_dict)]
 
     def get_license(self):
         """Get ``license`` for the dataset.
 
         Returns:
-            dict or ``None`` if ``license`` does not exist.
+            models.License
 
         """
-        return self.mcf['identification'].get('license')
+        # TODO: DataPackage/Resource allows for a list of licenses.
+        # So far we only support one license per resource.
+        if self.licenses:
+            return self.licenses[0]
 
     def set_lineage(self, statement):
         """Set the lineage statement for the dataset.
 
         Args:
-            statement (str): general explanation describing the lineage or provenance
-                of the dataset
+            statement (str): general explanation describing the lineage or
+                provenance of the dataset
 
         """
-        self.mcf['dataquality']['lineage']['statement'] = statement
-        self.validate()
+        self.metadata.lineage = statement
 
     def get_lineage(self):
         """Get the lineage statement of the dataset.
 
         Returns:
-            str or ``None`` if ``lineage`` does not exist.
+            str
 
         """
-        return self.mcf['dataquality']['lineage'].get('statement')
+        return self.metadata.lineage
 
     def set_purpose(self, purpose):
         """Add a purpose for the dataset.
@@ -453,21 +370,16 @@ class MetadataControl(object):
             purpose (str): description of the purpose of the source dataset
 
         """
-        # 'Purpose' is not supported in the core MCF spec, probably because
-        # `<gmd:purpose>` was added to ISO-19115 in 2014, and MCF still only
-        # supports 2015. For now, we can add `purpose` in `identification`.
-        # Later we can move it elsewhere if it becomes formally supported.
-        self.mcf['identification']['purpose'] = purpose
-        self.validate()
+        self.metadata.purpose = purpose
 
     def get_purpose(self):
         """Get ``purpose`` for the dataset.
 
         Returns:
-            str or ``None`` if ``purpose`` does not exist.
+            str
 
         """
-        return self.mcf['identification'].get('purpose')
+        return self.metadata.purpose
 
     def set_url(self, url):
         """Add a url for the dataset.
@@ -476,11 +388,11 @@ class MetadataControl(object):
             url (str)
 
         """
-        self.mcf['identification']['url'] = url
+        self.metadata.url = url
 
     def get_url(self):
         """Get the url for the dataset."""
-        return self.mcf['identification']['url']
+        return self.metadata.url
 
     def set_band_description(self, band_number, name=None, title=None,
                              abstract=None, units=None, type=None):
@@ -582,19 +494,14 @@ class MetadataControl(object):
         idx, attribute = self._get_attr(name)
         return attribute
 
-    def _write_mcf(self, target_path):
-        with open(target_path, 'w') as file:
-            file.write(yaml.dump(self.mcf, Dumper=_NoAliasDumper))
-
     def write(self, workspace=None):
-        """Write MCF and ISO-19139 XML to disk.
+        """Write datapackage yaml to disk.
 
-        This creates sidecar files with '.yml' and '.xml' extensions
+        This creates sidecar files with '.yml'
         appended to the full filename of the data source. For example,
 
         - 'myraster.tif'
         - 'myraster.tif.yml'
-        - 'myraster.tif.xml'
 
         Args:
             workspace (str): if ``None``, files write to the same location
@@ -605,141 +512,14 @@ class MetadataControl(object):
 
         """
         if workspace is None:
-            target_mcf_path = self.mcf_path
-            target_xml_path = f'{self.datasource}.xml'
+            target_path = self.data_package_path
         else:
-            target_mcf_path = os.path.join(
+            target_path = os.path.join(
                 workspace, f'{os.path.basename(self.datasource)}.yml')
-            target_xml_path = os.path.join(
-                workspace, f'{os.path.basename(self.datasource)}.xml')
 
-        self.mcf['metadata']['datestamp'] = datetime.utcnow().strftime(
-                '%Y-%m-%d')
-        self._write_mcf(target_mcf_path)
-
-        schema_obj = load_schema('iso19139')
-        xml_string = schema_obj.write(self.mcf)
-        with open(target_xml_path, 'w') as xmlfile:
-            xmlfile.write(xml_string)
-
-    def validate(self):
-        """Validate MCF against a jsonschema object."""
-        # validate against our own schema, which could
-        # be a superset of the core MCF schema.
-        # If we wanted to validate against core MCF,
-        # we could use pygeometa.core.validate_mcf
-        jsonschema.validate(self.mcf, MCF_SCHEMA)
+        with open(target_path, 'w') as file:
+            file.write(yaml.dump(
+                dataclasses.asdict(self.metadata), Dumper=_NoAliasDumper))
 
     def to_string(self):
         pass
-
-    def _set_spatial_info(self):
-        """Populate the MCF using spatial properties of the dataset."""
-        gis_type = pygeoprocessing.get_gis_type(self.datasource)
-        self.mcf['metadata']['hierarchylevel'] = 'dataset'
-
-        if gis_type == pygeoprocessing.VECTOR_TYPE:
-            LOGGER.debug('opening as GDAL vector')
-            self.mcf['content_info']['type'] = 'coverage'
-            self.mcf['spatial']['datatype'] = 'vector'
-            open_options = []
-
-            if os.path.splitext(self.datasource)[1] == '.csv':
-                self.mcf['spatial']['datatype'] = 'textTable'
-                open_options.append('AUTODETECT_TYPE=YES')
-
-            vector = gdal.OpenEx(self.datasource, gdal.OF_VECTOR,
-                                 open_options=open_options)
-            layer = vector.GetLayer()
-            layer_defn = layer.GetLayerDefn()
-            geomname = ogr.GeometryTypeToName(layer_defn.GetGeomType())
-            geomtype = NO_GEOM_TYPE
-            # https://www.fgdc.gov/nap/metadata/register/codelists.html
-            if 'Point' in geomname:
-                geomtype = 'point'
-            if 'Polygon' in geomname:
-                geomtype = 'surface'
-            if 'Line' in geomname:
-                geomtype = 'curve'
-            if 'Collection' in geomname:
-                geomtype = 'complex'
-            self.mcf['spatial']['geomtype'] = geomtype
-
-            if len(layer.schema) and 'attributes' not in self.mcf['content_info']:
-                self.mcf['content_info']['attributes'] = []
-
-            for field in layer.schema:
-                try:
-                    idx, attribute = self._get_attr(field.name)
-                except KeyError:
-                    attribute = _get_template(
-                        MCF_SCHEMA['properties']['content_info']['properties'][
-                            'attributes'])[0]
-                    attribute['name'] = field.name
-                    self.mcf['content_info']['attributes'].append(
-                        attribute)
-
-                try:
-                    datatype = OGR_MCF_ATTR_TYPE_MAP[field.type]
-                except KeyError:
-                    LOGGER.warning(
-                        f'{field.type} is missing in the OGR-to-MCF '
-                        f'attribute type map; attribute type for field '
-                        f'{field.name} will be "object".')
-                    datatype = 'object'
-                self.set_field_description(field.name, type=datatype)
-
-            vector = None
-            layer = None
-
-            gis_info = pygeoprocessing.get_vector_info(self.datasource)
-
-        if gis_type == pygeoprocessing.RASTER_TYPE:
-            LOGGER.debug('opening as GDAL raster')
-            self.mcf['spatial']['datatype'] = 'grid'
-            self.mcf['spatial']['geomtype'] = 'surface'
-            self.mcf['content_info']['type'] = 'image'
-
-            raster = gdal.OpenEx(self.datasource, gdal.OF_RASTER)
-
-            attr = _get_template(
-                    MCF_SCHEMA['properties']['content_info']['properties'][
-                        'attributes'])[0]
-
-            if 'attributes' not in self.mcf['content_info']:
-                self.mcf['content_info']['attributes'] = [attr]*raster.RasterCount
-            else:
-                n_attrs = len(self.mcf['content_info']['attributes'])
-                if n_attrs < raster.RasterCount:
-                    extend_n = raster.RasterCount - n_attrs
-                    self.mcf['content_info']['attributes'].extend(
-                        [attr]*extend_n)
-
-            for i in range(raster.RasterCount):
-                b = i + 1
-                band = raster.GetRasterBand(b)
-                datatype = 'integer' if band.DataType < 6 else 'number'
-                self.set_band_description(b, type=datatype)
-            band = None
-            raster = None
-
-            gis_info = pygeoprocessing.get_raster_info(self.datasource)
-
-        if gis_info['projection_wkt']:
-            try:
-                srs = osr.SpatialReference()
-                srs.ImportFromWkt(gis_info['projection_wkt'])
-                epsg = srs.GetAttrValue('AUTHORITY', 1)
-            except TypeError:
-                LOGGER.warning(
-                    f'could not import a spatial reference system from '
-                    f'"projection_wkt" in {gis_info}')
-                epsg = ''
-            # for human-readable values after yaml dump, use python types
-            # instead of numpy types
-            bbox = [float(x) for x in gis_info['bounding_box']]
-            spatial_info = [{
-                'bbox': bbox,
-                'crs': epsg  # MCF does not support WKT here
-            }]
-            self.mcf['identification']['extents']['spatial'] = spatial_info

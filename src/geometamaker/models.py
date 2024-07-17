@@ -1,14 +1,8 @@
-import dataclasses
 from dataclasses import dataclass, field
 import logging
-import os
 import pprint
 
-import frictionless
-import fsspec
-import pygeoprocessing
 import yaml
-from osgeo import gdal
 
 
 LOGGER = logging.getLogger(__name__)
@@ -43,8 +37,21 @@ class ContactSchema:
 
     email: str = ''
     organization: str = ''
-    individualname: str = ''
-    positionname: str = ''
+    individual_name: str = ''
+    position_name: str = ''
+
+
+@dataclass
+class License:
+    """Class for storing license info."""
+
+    # https://datapackage.org/profiles/2.0/dataresource.json
+    # This profile also includes `name`, described as:
+    # "MUST be an Open Definition license identifier",
+    # see http://licenses.opendefinition.org/"
+    # I don't think that's useful to us yet.
+    path: str
+    title: str
 
 
 @dataclass
@@ -104,6 +111,10 @@ class Resource:
     that are important to us.
     """
 
+    # TODO: DP includes `sources` as list of source files
+    # with some amount of metadata for each item. For our
+    # use-case, I think a list of filenames is good enough.
+
     path: str = ''
     type: str = ''
     scheme: str = ''
@@ -116,8 +127,13 @@ class Resource:
     title: str = ''
     description: str = ''
     sources: list = field(default_factory=list)
-    # schema: dict = field(init=False)
     licenses: list = field(default_factory=list)
+    citation: str = ''
+    doi: str = ''
+    url: str = ''
+    edition: str = ''
+    lineage: str = ''
+    purpose: str = ''
     contact: ContactSchema = ContactSchema()
 
     # def __post_init__(self):
@@ -162,166 +178,3 @@ class RasterResource(Resource):
         if isinstance(self.schema, RasterSchema):
             return
         self.schema = RasterSchema(**self.schema)
-
-
-def get_file_type(filepath):
-    # TODO: guard against classifying netCDF, HDF5, etc as GDAL rasters,
-    # we'll want a different data model for multi-dimensional arrays.
-
-    # GDAL considers CSV a vector, so check against frictionless
-    # first.
-    filetype = frictionless.describe(filepath).type
-    if filetype == 'table':
-        return filetype
-    gis_type = pygeoprocessing.get_gis_type(filepath)
-    if gis_type == pygeoprocessing.VECTOR_TYPE:
-        return 'vector'
-    if gis_type == pygeoprocessing.RASTER_TYPE:
-        return 'raster'
-    raise ValueError()
-
-
-def describe_vector(source_dataset_path):
-    description = frictionless.describe(
-        source_dataset_path, stats=True).to_dict()
-    fields = []
-    vector = gdal.OpenEx(source_dataset_path, gdal.OF_VECTOR)
-    layer = vector.GetLayer()
-    for fld in layer.schema:
-        fields.append(
-            FieldSchema(name=fld.name, type=fld.type))
-    vector = layer = None
-    description['schema'] = TableSchema(fields=fields)
-
-    info = pygeoprocessing.get_vector_info(source_dataset_path)
-    spatial = {
-        'bounding_box': info['bounding_box'],
-        'crs': info['projection_wkt']
-    }
-    description['spatial'] = SpatialSchema(**spatial)
-    description['sources'] = info['file_list']
-    return description
-
-
-def describe_raster(source_dataset_path):
-    description = frictionless.describe(
-        source_dataset_path, stats=True).to_dict()
-
-    bands = []
-    info = pygeoprocessing.get_raster_info(source_dataset_path)
-    for i in range(info['n_bands']):
-        b = i + 1
-        # band = raster.GetRasterBand(b)
-        # datatype = 'integer' if band.DataType < 6 else 'number'
-        bands.append(BandSchema(
-            index=b,
-            gdal_type=info['datatype'],
-            numpy_type=info['numpy_type'],
-            nodata=info['nodata'][i]))
-    description['schema'] = RasterSchema(
-        bands=bands,
-        pixel_size=info['pixel_size'],
-        raster_size=info['raster_size'])
-    description['spatial'] = SpatialSchema(
-        bounding_box=info['bounding_box'],
-        crs=info['projection_wkt'])
-    description['sources'] = info['file_list']
-    return description
-
-
-def describe_table(source_dataset_path):
-    # frictionless.describe works
-    return frictionless.describe(
-        source_dataset_path, stats=True).to_dict()
-
-
-DESRCIBE_FUNCS = {
-    'table': describe_table,
-    'vector': describe_vector,
-    'raster': describe_raster
-}
-
-RESOURCE_MODELS = {
-    'table': TableResource,
-    'vector': VectorResource,
-    'raster': RasterResource
-}
-
-
-class MetadataControl(object):
-
-    def __init__(self, source_dataset_path):
-        # if source_dataset_path is not None:
-        self.datasource = source_dataset_path
-        self.data_package_path = f'{self.datasource}.dp.yml'
-
-        # Despite naming, this does not open a resource that must be closed
-        of = fsspec.open(self.datasource)
-        if not of.fs.exists(self.datasource):
-            raise FileNotFoundError(f'{self.datasource} does not exist')
-
-        resource_type = get_file_type(source_dataset_path)
-        description = DESRCIBE_FUNCS[resource_type](source_dataset_path)
-        # this is nice for autodetect of field types, but sometimes
-        # we will know the table schema (invest MODEL_SPEC).
-        # Is there any benefit to passing in the known schema? Maybe not
-        # Can also just overwrite the schema attribute with known data after.
-
-        # Load existing metadata file
-        try:
-            with fsspec.open(self.data_package_path, 'r') as file:
-                yaml_string = file.read()
-
-            # This validates the existing yaml against our dataclasses.
-            existing_resource = RESOURCE_MODELS[resource_type](
-                **yaml.safe_load(yaml_string))
-            # overwrite properties that are intrinsic to the dataset,
-            # which is everything from `description` other than schema.
-            # Some parts of schema are intrinsic, but others are human-input
-            # so replace the whole thing for now.
-            del description['schema']
-            self.metadata = dataclasses.replace(
-                existing_resource, **description)
-
-        # Common path: metadata file does not already exist
-        except FileNotFoundError as err:
-            self.metadata = RESOURCE_MODELS[resource_type](**description)
-
-    def write(self, workspace=None):
-        """Write datapackage yaml to disk.
-
-        This creates sidecar files with '.yml'
-        appended to the full filename of the data source. For example,
-
-        - 'myraster.tif'
-        - 'myraster.tif.yml'
-
-        Args:
-            workspace (str): if ``None``, files write to the same location
-                as the source data. If not ``None``, a path to a local directory
-                to write files. They will still be named to match the source
-                filename. Use this option if the source data is not on the local
-                filesystem.
-
-        """
-        if workspace is None:
-            target_path = self.data_package_path
-        else:
-            target_path = os.path.join(
-                workspace, f'{os.path.basename(self.datasource)}.dp.yml')
-
-        with open(target_path, 'w') as file:
-            file.write(yaml.dump(
-                dataclasses.asdict(self.metadata), Dumper=_NoAliasDumper))
-
-
-if __name__ == "__main__":
-    # from natcap.invest import carbon
-    # arg_spec = carbon.MODEL_SPEC['args']['carbon_pools_path']
-
-    # filepath = 'C:/Users/dmf/projects/geometamaker/data/carbon_pools.csv'
-    # filepath = 'C:/Users/dmf/projects/geometamaker/data/watershed_gura.shp'
-    filepath = 'C:/Users/dmf/projects/geometamaker/data/DEM_gura.tif'
-    mc = MetadataControl(filepath)
-    pprint.pprint(dataclasses.asdict(mc.metadata))
-    # mc.write()
