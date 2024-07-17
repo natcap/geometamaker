@@ -22,6 +22,22 @@ class _NoAliasDumper(yaml.SafeDumper):
 
 
 @dataclass
+class BoundingBox():
+
+    xmin: float
+    ymin: float
+    xmax: float
+    ymax: float
+
+
+@dataclass
+class SpatialSchema():
+
+    bounding_box: BoundingBox
+    crs: str
+
+
+@dataclass
 class ContactSchema:
     """Class for keeping track of contact info."""
 
@@ -62,7 +78,10 @@ class TableSchema:
 class BandSchema:
     """Class for metadata for a raster band."""
 
-    index: int = 1
+    index: int
+    gdal_type: int
+    numpy_type: str
+    nodata: int | float
     description: str = ''
 
 
@@ -70,7 +89,9 @@ class BandSchema:
 class RasterSchema:
     """Class for metadata for raster bands."""
 
-    bands: list = field(default_factory=BandSchema)
+    bands: list
+    pixel_size: list
+    raster_size: list
 
 
 @dataclass(kw_only=True)
@@ -120,22 +141,6 @@ class TableResource(Resource):
         self.schema = TableSchema(**self.schema)
 
 
-@dataclass
-class BoundingBox():
-
-    xmin: float
-    ymin: float
-    xmax: float
-    ymax: float
-
-
-@dataclass
-class SpatialSchema():
-
-    bounding_box: BoundingBox
-    crs: str
-
-
 @dataclass(kw_only=True)
 class VectorResource(TableResource):
     """Class for metadata for a vector resource."""
@@ -147,12 +152,24 @@ class VectorResource(TableResource):
 class RasterResource(Resource):
     """Class for metadata for a raster resource."""
 
+    schema: RasterSchema
     spatial: SpatialSchema
+
+    def __post_init__(self):
+        # Allow init of the resource with a schema of type
+        # RasterSchema, or type dict. Mostly because dataclasses.replace
+        # calls init, but the base object will have already been initialized.
+        if isinstance(self.schema, RasterSchema):
+            return
+        self.schema = RasterSchema(**self.schema)
 
 
 def get_file_type(filepath):
+    # TODO: guard against classifying netCDF, HDF5, etc as GDAL rasters,
+    # we'll want a different data model for multi-dimensional arrays.
+
     # GDAL considers CSV a vector, so check against frictionless
-    # first
+    # first.
     filetype = frictionless.describe(filepath).type
     if filetype == 'table':
         return filetype
@@ -186,7 +203,28 @@ def describe_vector(source_dataset_path):
 
 
 def describe_raster(source_dataset_path):
-    pass
+    description = frictionless.describe(source_dataset_path).to_dict()
+
+    bands = []
+    info = pygeoprocessing.get_raster_info(source_dataset_path)
+    for i in range(info['n_bands']):
+        b = i + 1
+        # band = raster.GetRasterBand(b)
+        # datatype = 'integer' if band.DataType < 6 else 'number'
+        bands.append(BandSchema(
+            index=b,
+            gdal_type=info['datatype'],
+            numpy_type=info['numpy_type'],
+            nodata=info['nodata'][i]))
+    description['schema'] = RasterSchema(
+        bands=bands,
+        pixel_size=info['pixel_size'],
+        raster_size=info['raster_size'])
+    description['spatial'] = SpatialSchema(
+        bounding_box=info['bounding_box'],
+        crs=info['projection_wkt'])
+    description['sources'] = info['file_list']
+    return description
 
 
 def describe_table(source_dataset_path):
@@ -278,7 +316,8 @@ if __name__ == "__main__":
     # arg_spec = carbon.MODEL_SPEC['args']['carbon_pools_path']
 
     # filepath = 'C:/Users/dmf/projects/geometamaker/data/carbon_pools.csv'
-    filepath = 'C:/Users/dmf/projects/geometamaker/data/watershed_gura.shp'
+    # filepath = 'C:/Users/dmf/projects/geometamaker/data/watershed_gura.shp'
+    filepath = 'C:/Users/dmf/projects/geometamaker/data/DEM_gura.tif'
     mc = MetadataControl(filepath)
     pprint.pprint(dataclasses.asdict(mc.metadata))
     # mc.write()
