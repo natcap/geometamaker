@@ -2,12 +2,12 @@ import dataclasses
 from dataclasses import dataclass
 import logging
 import os
-import pprint
 
 import yaml
 
 
 LOGGER = logging.getLogger(__name__)
+
 
 # https://stackoverflow.com/questions/13518819/avoid-references-in-pyyaml
 class _NoAliasDumper(yaml.SafeDumper):
@@ -80,6 +80,18 @@ class TableSchema:
     primaryKey: list = dataclasses.field(default_factory=list)
     foreignKeys: list = dataclasses.field(default_factory=list)
 
+    def __post_init__(self):
+        field_schemas = []
+        for field in self.fields:
+            # Allow init of the resource with a schema of type
+            # FieldSchema, or type dict. Mostly because dataclasses.replace
+            # calls init, but the base object will have already been initialized.
+            if isinstance(field, FieldSchema):
+                field_schemas.append(field)
+            else:
+                field_schemas.append(FieldSchema(**field))
+        self.fields = field_schemas
+
 
 @dataclass
 class BandSchema:
@@ -126,7 +138,7 @@ class Resource:
     name: str = ''
     title: str = ''
     description: str = ''
-    keywords: list = []
+    keywords: list = dataclasses.field(default_factory=list)
     sources: list = dataclasses.field(default_factory=list)
     licenses: list = dataclasses.field(default_factory=list)
     citation: str = ''
@@ -137,6 +149,9 @@ class Resource:
     purpose: str = ''
     contact: ContactSchema = ContactSchema()
 
+    def __post_init__(self):
+        self.metadata_path = f'{self.path}.yml'
+
     def set_title(self, title):
         """Add a title for the dataset.
 
@@ -144,11 +159,11 @@ class Resource:
             title (str)
 
         """
-        self.metadata.title = title
+        self.title = title
 
     def get_title(self):
         """Get the title for the dataset."""
-        return self.metadata.title
+        return self.title
 
     def set_description(self, description):
         """Add an description for the dataset.
@@ -157,11 +172,11 @@ class Resource:
             description (str)
 
         """
-        self.metadata.description = description
+        self.description = description
 
     def get_description(self):
         """Get the description for the dataset."""
-        return self.metadata.description
+        return self.description
 
     def set_citation(self, citation):
         """Add a citation string for the dataset.
@@ -170,11 +185,11 @@ class Resource:
             citation (str)
 
         """
-        self.metadata.citation = citation
+        self.citation = citation
 
     def get_citation(self):
         """Get the citation for the dataset."""
-        return self.metadata.citation
+        return self.citation
 
     def set_contact(self, organization=None, individual_name=None,
                     position_name=None, email=None):
@@ -189,13 +204,13 @@ class Resource:
         """
 
         if organization is not None:
-            self.metadata.contact.organization = organization
+            self.contact.organization = organization
         if individual_name is not None:
-            self.metadata.contact.individualname = individual_name
+            self.contact.individual_name = individual_name
         if position_name is not None:
-            self.metadata.contact.positionname = position_name
+            self.contact.position_name = position_name
         if email is not None:
-            self.metadata.contact.email = email
+            self.contact.email = email
 
     def get_contact(self):
         """Get metadata from a contact section.
@@ -204,7 +219,7 @@ class Resource:
             ContactSchema
 
         """
-        return self.metadata.contact
+        return self.contact
 
     def set_doi(self, doi):
         """Add a doi string for the dataset.
@@ -213,11 +228,11 @@ class Resource:
             doi (str)
 
         """
-        self.metadata.doi = doi
+        self.doi = doi
 
     def get_doi(self):
         """Get the doi for the dataset."""
-        return self.metadata.doi
+        return self.doi
 
     def set_edition(self, edition):
         """Set the edition for the dataset.
@@ -226,7 +241,7 @@ class Resource:
             edition (str): version of the cited resource
 
         """
-        self.metadata.edition = edition
+        self.edition = edition
 
     def get_edition(self):
         """Get the edition of the dataset.
@@ -235,7 +250,7 @@ class Resource:
             str or ``None`` if ``edition`` does not exist.
 
         """
-        return self.metadata.edition
+        return self.edition
 
     def set_keywords(self, keywords):
         """Describe a dataset with a list of keywords.
@@ -244,10 +259,10 @@ class Resource:
             keywords (list): sequence of strings
 
         """
-        self.metadata.keywords = keywords
+        self.keywords = keywords
 
     def get_keywords(self):
-        return self.metadata.keywords
+        return self.keywords
 
     def set_license(self, title=None, path=None):
         """Add a license for the dataset.
@@ -289,7 +304,7 @@ class Resource:
                 provenance of the dataset
 
         """
-        self.metadata.lineage = statement
+        self.lineage = statement
 
     def get_lineage(self):
         """Get the lineage statement of the dataset.
@@ -298,7 +313,7 @@ class Resource:
             str
 
         """
-        return self.metadata.lineage
+        return self.lineage
 
     def set_purpose(self, purpose):
         """Add a purpose for the dataset.
@@ -307,7 +322,7 @@ class Resource:
             purpose (str): description of the purpose of the source dataset
 
         """
-        self.metadata.purpose = purpose
+        self.purpose = purpose
 
     def get_purpose(self):
         """Get ``purpose`` for the dataset.
@@ -316,7 +331,7 @@ class Resource:
             str
 
         """
-        return self.metadata.purpose
+        return self.purpose
 
     def set_url(self, url):
         """Add a url for the dataset.
@@ -325,11 +340,11 @@ class Resource:
             url (str)
 
         """
-        self.metadata.url = url
+        self.url = url
 
     def get_url(self):
         """Get the url for the dataset."""
-        return self.metadata.url
+        return self.url
 
     def write(self, workspace=None):
         """Write datapackage yaml to disk.
@@ -349,14 +364,14 @@ class Resource:
 
         """
         if workspace is None:
-            target_path = self.data_package_path
+            target_path = self.metadata_path
         else:
             target_path = os.path.join(
                 workspace, f'{os.path.basename(self.datasource)}.yml')
 
         with open(target_path, 'w') as file:
             file.write(yaml.dump(
-                dataclasses.asdict(self.metadata), Dumper=_NoAliasDumper))
+                dataclasses.asdict(self), Dumper=_NoAliasDumper))
 
     def to_string(self):
         pass
@@ -366,10 +381,13 @@ class Resource:
 class TableResource(Resource):
     """Class for metadata for a table resource."""
 
+    fields: int
+    rows: int
     # without post-init, schema ends up as a dict, or whatever is passed in.
     schema: TableSchema = dataclasses.field(default_factory=TableSchema)
 
     def __post_init__(self):
+        super().__post_init__()
         # Allow init of the resource with a schema of type
         # TableSchema, or type dict. Mostly because dataclasses.replace
         # calls init, but the base object will have already been initialized.
@@ -396,7 +414,7 @@ class TableResource(Resource):
             raise KeyError(
                 f'{self.schema} has no fields')
         for idx, field in enumerate(self.schema.fields):
-            if field['name'] == name:
+            if field.name == name:
                 return idx, field
         raise KeyError(
             f'{self.schema} has no field named {name}')
@@ -444,6 +462,14 @@ class TableResource(Resource):
 
 
 @dataclass(kw_only=True)
+class ArchiveResource(Resource):
+    """Class for metadata for an archive resource."""
+
+    compression: str
+    innerpath: str
+
+
+@dataclass(kw_only=True)
 class VectorResource(TableResource):
     """Class for metadata for a vector resource."""
 
@@ -458,6 +484,7 @@ class RasterResource(Resource):
     spatial: SpatialSchema
 
     def __post_init__(self):
+        super().__post_init__()
         # Allow init of the resource with a schema of type
         # RasterSchema, or type dict. Mostly because dataclasses.replace
         # calls init, but the base object will have already been initialized.

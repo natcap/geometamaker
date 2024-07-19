@@ -1,1 +1,1 @@
-from .geometamaker import MetadataControl
+from .geometamaker import describe
