@@ -1,7 +1,5 @@
 import dataclasses
 import logging
-import os
-import uuid
 
 import frictionless
 import fsspec

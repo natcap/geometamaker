@@ -5,10 +5,8 @@
 aiohttp
 fsspec
 GDAL
-jsonschema
+frictionless
 numpy
-pygeometa
 pygeoprocessing>=2.4.3
 pyyaml
 requests
-shapely
