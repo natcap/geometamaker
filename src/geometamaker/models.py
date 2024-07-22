@@ -1,3 +1,4 @@
+from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass
 import logging
@@ -160,7 +161,7 @@ class Resource:
 
     # These are not populated by geometamaker
     citation: str = ''
-    contact: ContactSchema = ContactSchema()
+    contact: ContactSchema = dataclasses.field(default_factory=ContactSchema)
     description: str = ''
     doi: str = ''
     edition: str = ''
