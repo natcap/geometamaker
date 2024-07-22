@@ -101,6 +101,7 @@ class BandSchema:
     gdal_type: int
     numpy_type: str
     nodata: int | float
+    title: str = ''
     description: str = ''
 
 
@@ -111,6 +112,19 @@ class RasterSchema:
     bands: list
     pixel_size: list
     raster_size: list
+
+    def __post_init__(self):
+        bands = []
+        for band in self.bands:
+            # When loading an existing document
+            # from serialized data we need to init a BandSchema for
+            # each band dict. But it's also okay to init a RasterSchema
+            # with bands as list of BandSchema.
+            if isinstance(band, BandSchema):
+                bands.append(band)
+            else:
+                bands.append(BandSchema(**band))
+        self.bands = bands
 
 
 @dataclass(kw_only=True)
@@ -367,7 +381,7 @@ class Resource:
             target_path = self.metadata_path
         else:
             target_path = os.path.join(
-                workspace, f'{os.path.basename(self.datasource)}.yml')
+                workspace, os.path.basename(self.metadata_path))
 
         with open(target_path, 'w') as file:
             file.write(yaml.dump(

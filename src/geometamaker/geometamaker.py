@@ -56,7 +56,7 @@ def describe_vector(source_dataset_path):
     description['rows'] = layer.GetFeatureCount()
     for fld in layer.schema:
         fields.append(
-            models.FieldSchema(name=fld.name, type=fld.type))
+            models.FieldSchema(name=fld.name, type=fld.GetTypeName()))
     vector = layer = None
     description['schema'] = models.TableSchema(fields=fields)
     description['fields'] = len(fields)
@@ -119,20 +119,6 @@ RESOURCE_MODELS = {
 }
 
 
-class MetadataControl(object):
-    """Encapsulates the Metadata Control File and methods for populating it.
-
-    A Metadata Control File (MCF) is a YAML file that complies with the
-    MCF specification defined by pygeometa.
-    https://github.com/geopython/pygeometa
-
-    Attributes:
-        datasource (string): path to dataset to which the metadata applies
-        mcf (dict): dict representation of the Metadata Control File
-
-    """
-
-
 def describe(source_dataset_path):
     """Create a metadata resource instance with properties of the dataset.
 
@@ -145,36 +131,63 @@ def describe(source_dataset_path):
             metadata applies
 
     Returns
-        one of TableResource, VectorResource, RasterResource
+        instance of
+            ArchiveResource, TableResource,
+            VectorResource, RasterResource
     """
 
     data_package_path = f'{source_dataset_path}.yml'
 
-    # Despite naming, this does not open a resource that must be closed
+    # Despite naming, this does not open a file that must be closed
     of = fsspec.open(source_dataset_path)
     if not of.fs.exists(source_dataset_path):
         raise FileNotFoundError(f'{source_dataset_path} does not exist')
 
     resource_type = detect_file_type(source_dataset_path)
     description = DESRCIBE_FUNCS[resource_type](source_dataset_path)
-    # this is nice for autodetect of field types, but sometimes
-    # we will know the table schema (invest MODEL_SPEC).
-    # Is there any benefit to passing in the known schema? Maybe not
-    # Can also just overwrite the schema attribute with known data after.
 
     # Load existing metadata file
     try:
         with fsspec.open(data_package_path, 'r') as file:
             yaml_string = file.read()
 
-        # This validates the existing yaml against our dataclasses.
         existing_resource = RESOURCE_MODELS[resource_type](
             **yaml.safe_load(yaml_string))
-        # overwrite properties that are intrinsic to the dataset,
-        # which is everything from `description` other than schema.
-        # Some parts of schema are intrinsic, but others are human-input
-        # so replace the whole thing for now.
-        del description['schema']
+        if 'schema' in description:
+            if isinstance(description['schema'], models.RasterSchema):
+                # If existing band metadata still matches schema of the file
+                # carry over metadata from the existing file because it could
+                # include human-defined properties.
+                new_bands = []
+                for band in description['schema'].bands:
+                    try:
+                        eband = existing_resource.get_band_description(band.index)
+                        # TODO: rewrite this as __eq__ of BandSchema?
+                        if (band.numpy_type, band.gdal_type, band.nodata) == (
+                                eband.numpy_type, eband.gdal_type, eband.nodata):
+                            band = dataclasses.replace(band, **eband.__dict__)
+                    except IndexError:
+                        pass
+                    new_bands.append(band)
+                description['schema'].bands = new_bands
+            if isinstance(description['schema'], models.TableSchema):
+                # If existing field metadata still matches schema of the file
+                # carry over metadata from the existing file because it could
+                # include human-defined properties.
+                new_fields = []
+                for field in description['schema'].fields:
+                    try:
+                        efield = existing_resource.get_field_description(
+                            field.name)
+                        # TODO: rewrite this as __eq__ of FieldSchema?
+                        if field.type == efield.type:
+                            field = dataclasses.replace(field, **efield.__dict__)
+                    except KeyError:
+                        pass
+                    new_fields.append(field)
+                description['schema'].fields = new_fields
+        # overwrite properties that are intrinsic to the dataset
+        # TODO: any other checks that the resources represent the same data?
         resource = dataclasses.replace(
             existing_resource, **description)
 
