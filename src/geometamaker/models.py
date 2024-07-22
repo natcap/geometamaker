@@ -19,6 +19,7 @@ class _NoAliasDumper(yaml.SafeDumper):
 
 @dataclass
 class BoundingBox():
+    """Class for a spatial bounding box."""
 
     xmin: float
     ymin: float
@@ -28,6 +29,7 @@ class BoundingBox():
 
 @dataclass
 class SpatialSchema():
+    """Class for keeping track of spatial info."""
 
     bounding_box: BoundingBox
     crs: str
@@ -58,15 +60,13 @@ class License:
 
 @dataclass
 class FieldSchema:
-    """metadata for a field in a table."""
+    """Metadata for a field in a table."""
 
     # https://datapackage.org/standard/table-schema/
-    name: str = ''
-    title: str = ''
-    type: str = ''
-    format: str = ''
-    example: any = None
+    name: str
+    type: str
     description: str = ''
+    title: str = ''
     units: str = ''
 
 
@@ -101,8 +101,8 @@ class BandSchema:
     gdal_type: int
     numpy_type: str
     nodata: int | float
-    title: str = ''
     description: str = ''
+    title: str = ''
 
 
 @dataclass
@@ -132,36 +132,44 @@ class Resource:
     """Base class for metadata for a resource.
 
     https://datapackage.org/standard/data-resource/
-    This class should be based on Data Package - Resource
+    This class borrows from the Data Package - Resource
     specification. But we have some additional properties
     that are important to us.
+
+    All attributes are keyword-only so that we can init
+    with default values, allowing the user to get a template
+    with which to complete later.
+
     """
 
-    # TODO: DP includes `sources` as list of source files
-    # with some amount of metadata for each item. For our
-    # use-case, I think a list of filenames is good enough.
-
-    path: str = ''
-    type: str = ''
-    scheme: str = ''
+    # These are populated by `frictionless.describe()`
+    bytes: int = 0
     encoding: str = ''
     format: str = ''
-    mediatype: str = ''
-    bytes: int = 0
     hash: str = ''
+    mediatype: str = ''
     name: str = ''
-    title: str = ''
-    description: str = ''
-    keywords: list = dataclasses.field(default_factory=list)
+    path: str = ''
+    scheme: str = ''
+    type: str = ''
+
+    # DataPackage includes `sources` as a list of source files
+    # with some amount of metadata for each item. For our
+    # use-case, I think a list of filenames is good enough.
     sources: list = dataclasses.field(default_factory=list)
-    licenses: list = dataclasses.field(default_factory=list)
+
+    # These are not populated by geometamaker
     citation: str = ''
+    contact: ContactSchema = ContactSchema()
+    description: str = ''
     doi: str = ''
-    url: str = ''
     edition: str = ''
+    keywords: list = dataclasses.field(default_factory=list)
+    licenses: list = dataclasses.field(default_factory=list)
     lineage: str = ''
     purpose: str = ''
-    contact: ContactSchema = ContactSchema()
+    title: str = ''
+    url: str = ''
 
     def __post_init__(self):
         self.metadata_path = f'{self.path}.yml'
@@ -180,7 +188,7 @@ class Resource:
         return self.title
 
     def set_description(self, description):
-        """Add an description for the dataset.
+        """Add a description for the dataset.
 
         Args:
             description (str)
@@ -420,7 +428,7 @@ class TableResource(Resource):
                 dict)
 
         Raises:
-            KeyError if no attributes exist in the MCF or if the named
+            KeyError if no attributes exist in the resource or if the named
                 attribute does not exist.
 
         """
@@ -434,15 +442,15 @@ class TableResource(Resource):
             f'{self.schema} has no field named {name}')
 
     def set_field_description(self, name, title=None, description=None,
-                              units=None, type=None, format=None,
-                              example=None):
+                              units=None, type=None):
         """Define metadata for a tabular field.
 
         Args:
             name (str): name and unique identifier of the field
             title (str): title for the field
-            abstract (str): description of the field
+            description (str): description of the field
             units (str): unit of measurement for the field's values
+            type (str): datatype of values in the field
 
         """
         idx, field = self._get_field(name)
@@ -455,10 +463,6 @@ class TableResource(Resource):
             field.units = units
         if type is not None:
             field.type = type
-        if format is not None:
-            field.format = format
-        if example is not None:
-            field.example = example
 
         self.schema.fields[idx] = field
 
@@ -469,7 +473,7 @@ class TableResource(Resource):
             name (str): name and unique identifier of the field
 
         Returns:
-            dict
+            FieldSchema
         """
         idx, field = self._get_field(name)
         return field
@@ -512,11 +516,9 @@ class RasterResource(Resource):
 
         Args:
             band_number (int): a raster band index, starting at 1
-            name (str): name for the raster band
             title (str): title for the raster band
-            abstract (str): description of the raster band
+            description (str): description of the raster band
             units (str): unit of measurement for the band's pixel values
-            type (str): of the band's values, either 'integer' or 'number'
 
         """
         idx = band_number - 1
@@ -538,6 +540,7 @@ class RasterResource(Resource):
             band_number (int): a raster band index, starting at 1
 
         Returns:
-            dict
+            BandSchema
+
         """
         return self.schema.bands[band_number - 1]

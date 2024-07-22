@@ -2,14 +2,11 @@ import dataclasses
 import logging
 import os
 import uuid
-from datetime import datetime
 
 import frictionless
 import fsspec
 import numpy
 from osgeo import gdal
-from osgeo import ogr
-from osgeo import osr
 import pygeoprocessing
 import yaml
 
@@ -20,11 +17,17 @@ LOGGER = logging.getLogger(__name__)
 
 
 def detect_file_type(filepath):
-    # TODO: zip, or other archives. Can they be represented as a Resource?
-    # or do they need to be a Package?
+    """Detect the type of resource contained in the file.
 
-    # TODO: guard against classifying netCDF, HDF5, etc as GDAL rasters,
-    # we'll want a different data model for multi-dimensional arrays.
+    Args:
+        filepath (str): path to a file to be opened by GDAL or frictionless
+
+    Returns
+        str
+
+    """
+    # TODO: guard against classifying netCDF, HDF5, etc as GDAL rasters.
+    # We'll likely want a different data model for multi-dimensional arrays.
 
     # GDAL considers CSV a vector, so check against frictionless
     # first.
@@ -38,16 +41,35 @@ def detect_file_type(filepath):
         return 'vector'
     if gis_type == pygeoprocessing.RASTER_TYPE:
         return 'raster'
-    raise ValueError()
+    raise ValueError(
+        f'{filepath} does not appear to be one of (archive, table, raster, vector)')
 
 
 def describe_archive(source_dataset_path):
+    """Describe file properties of a compressed file.
+
+    Args:
+        source_dataset_path (str): path to a file.
+
+    Returns:
+        dict
+
+    """
     description = frictionless.describe(
         source_dataset_path, stats=True).to_dict()
     return description
 
 
 def describe_vector(source_dataset_path):
+    """Describe properties of a GDAL vector file.
+
+    Args:
+        source_dataset_path (str): path to a GDAL vector.
+
+    Returns:
+        dict
+
+    """
     description = frictionless.describe(
         source_dataset_path, stats=True).to_dict()
     fields = []
@@ -72,6 +94,15 @@ def describe_vector(source_dataset_path):
 
 
 def describe_raster(source_dataset_path):
+    """Describe properties of a GDAL raster file.
+
+    Args:
+        source_dataset_path (str): path to a GDAL raster.
+
+    Returns:
+        dict
+
+    """
     description = frictionless.describe(
         source_dataset_path, stats=True).to_dict()
 
@@ -98,6 +129,15 @@ def describe_raster(source_dataset_path):
 
 
 def describe_table(source_dataset_path):
+    """Describe properties of a tabular dataset.
+
+    Args:
+        source_dataset_path (str): path to a file representing a table.
+
+    Returns:
+        dict
+
+    """
     description = frictionless.describe(
         source_dataset_path, stats=True).to_dict()
     description['schema'] = models.TableSchema(**description['schema'])
@@ -131,11 +171,10 @@ def describe(source_dataset_path):
             metadata applies
 
     Returns
-        instance of
-            ArchiveResource, TableResource,
-            VectorResource, RasterResource
-    """
+        instance of ArchiveResource, TableResource, VectorResource,
+        or RasterResource
 
+    """
     data_package_path = f'{source_dataset_path}.yml'
 
     # Despite naming, this does not open a file that must be closed
@@ -187,7 +226,6 @@ def describe(source_dataset_path):
                     new_fields.append(field)
                 description['schema'].fields = new_fields
         # overwrite properties that are intrinsic to the dataset
-        # TODO: any other checks that the resources represent the same data?
         resource = dataclasses.replace(
             existing_resource, **description)
 
@@ -196,4 +234,3 @@ def describe(source_dataset_path):
         resource = RESOURCE_MODELS[resource_type](**description)
 
     return resource
-
