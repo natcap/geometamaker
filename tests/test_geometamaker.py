@@ -4,18 +4,14 @@ import shutil
 import tempfile
 import unittest
 
-from jsonschema.exceptions import SchemaError
-from jsonschema.exceptions import ValidationError
 import numpy
 from osgeo import gdal
 from osgeo import gdal_array
 from osgeo import ogr
 from osgeo import osr
-from pygeometa.core import MCFValidationError
 import pygeoprocessing
 from pygeoprocessing.geoprocessing_core import DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
 import shapely
-import yaml
 
 REGRESSION_DATA = os.path.join(
     os.path.dirname(__file__), 'data')
@@ -102,23 +98,6 @@ class MetadataControlTests(unittest.TestCase):
 
         with self.assertRaises(FileNotFoundError):
             _ = geometamaker.describe('foo.tif')
-
-    # def test_blank_geometamaker.describe(self):
-    #     """MetadataControl: template has expected properties."""
-    #     import geometamaker
-
-    #     target_filepath = os.path.join(self.workspace_dir, 'mcf.yml')
-
-    #     mc = geometamaker.describe()
-    #     mc.validate()
-    #     mc._write_mcf(target_filepath)
-
-    #     with open(target_filepath, 'r') as file:
-    #         actual = yaml.safe_load(file)
-    #     with open(os.path.join(REGRESSION_DATA, 'template.yml'), 'r') as file:
-    #         expected = yaml.safe_load(file)
-
-    #     self.assertEqual(actual, expected)
 
     def test_describe_csv(self):
         """Test setting properties on csv."""
@@ -467,41 +446,6 @@ class MetadataControlTests(unittest.TestCase):
         self.assertEqual(field1.type, 'Real')
         field2 = new_resource.get_field_description(field2_name)
         self.assertEqual(field2.type, 'String')
-
-    # TODO: this is important, still need to design for it.
-    # def test_invalid_preexisting_mcf(self):
-    #     """Test overwriting an existing invalid metadata document."""
-    #     import geometamaker
-    #     title = 'Title'
-    #     datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-    #     create_raster(numpy.int16, datasource_path)
-    #     mc = geometamaker.describe(datasource_path)
-    #     mc.set_title(title)
-
-    #     # delete a required property and ensure invalid MetadataControl
-    #     del mc.mcf['mcf']
-    #     with self.assertRaises(ValidationError):
-    #         mc.validate()
-    #     mc.write()  # intentionally writing an invalid MetadataControl
-
-    #     new_mc = geometamaker.describe(datasource_path)
-
-    #     # The new MetadataControl should not have values from the invalid MetadataControl
-    #     self.assertEqual(
-    #         new_mc.mcf['identification']['title'], '')
-
-    #     try:
-    #         new_mc.validate()
-    #     except (MCFValidationError, SchemaError) as e:
-    #         self.fail(
-    #             'unexpected validation error occurred\n'
-    #             f'{e}')
-    #     try:
-    #         new_mc.write()
-    #     except Exception as e:
-    #         self.fail(
-    #             'unexpected write error occurred\n'
-    #             f'{e}')
 
     def test_write_to_local_workspace(self):
         """Test write metadata to a different location."""
