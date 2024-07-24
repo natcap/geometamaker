@@ -4,7 +4,10 @@ from dataclasses import dataclass
 import logging
 import os
 
+import fsspec
 import yaml
+
+import geometamaker
 
 
 LOGGER = logging.getLogger(__name__)
@@ -128,7 +131,7 @@ class RasterSchema:
         self.bands = bands
 
 
-@dataclass(kw_only=True)
+@dataclass()
 class Resource:
     """Base class for metadata for a resource.
 
@@ -142,6 +145,8 @@ class Resource:
     with which to complete later.
 
     """
+    # A version string we can use to identify geometamaker compliant documents
+    metadata_version: str = dataclasses.field(init=False)
 
     # These are populated by `frictionless.describe()`
     bytes: int = 0
@@ -174,6 +179,38 @@ class Resource:
 
     def __post_init__(self):
         self.metadata_path = f'{self.path}.yml'
+        self.metadata_version: str = f'geometamaker.{geometamaker.__version__}'
+
+    @classmethod
+    def load(cls, filepath):
+        """Load metadata document from a yaml file.
+
+        Args:
+            filepath (str): path to yaml file
+
+        Returns:
+            instance of the class
+
+        Raises:
+            FileNotFoundError if filepath does not exist
+            ValueError if the metadata is found to be incompatible with
+                geometamaker.
+
+        """
+        with fsspec.open(filepath, 'r') as file:
+            yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        if 'metadata_version' not in yaml_dict \
+                or not yaml_dict['metadata_version'].startswith('geometamaker'):
+            message = (f'{filepath} exists but is not compatible with '
+                       f'geometamaker. It will be overwritten if write() is '
+                       f'called for this resource.')
+            LOGGER.warning(message)
+            raise ValueError(message)
+        # delete this property so that geometamaker can initialize it itself
+        # with the current version info.
+        del yaml_dict['metadata_version']
+        return cls(**yaml_dict)
 
     def set_title(self, title):
         """Add a title for the dataset.

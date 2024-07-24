@@ -173,7 +173,7 @@ def describe(source_dataset_path):
         or RasterResource
 
     """
-    data_package_path = f'{source_dataset_path}.yml'
+    metadata_path = f'{source_dataset_path}.yml'
 
     # Despite naming, this does not open a file that must be closed
     of = fsspec.open(source_dataset_path)
@@ -185,11 +185,7 @@ def describe(source_dataset_path):
 
     # Load existing metadata file
     try:
-        with fsspec.open(data_package_path, 'r') as file:
-            yaml_string = file.read()
-
-        existing_resource = RESOURCE_MODELS[resource_type](
-            **yaml.safe_load(yaml_string))
+        existing_resource = RESOURCE_MODELS[resource_type].load(metadata_path)
         if 'schema' in description:
             if isinstance(description['schema'], models.RasterSchema):
                 # If existing band metadata still matches schema of the file
@@ -228,7 +224,8 @@ def describe(source_dataset_path):
             existing_resource, **description)
 
     # Common path: metadata file does not already exist
-    except FileNotFoundError as err:
+    # Or less common, ValueError if it exists but is incompatible
+    except (FileNotFoundError, ValueError) as err:
         resource = RESOURCE_MODELS[resource_type](**description)
 
     return resource

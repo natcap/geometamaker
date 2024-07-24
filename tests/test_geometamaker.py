@@ -12,6 +12,7 @@ from osgeo import osr
 import pygeoprocessing
 from pygeoprocessing.geoprocessing_core import DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
 import shapely
+import yaml
 
 REGRESSION_DATA = os.path.join(
     os.path.dirname(__file__), 'data')
@@ -93,7 +94,7 @@ class MetadataControlTests(unittest.TestCase):
         shutil.rmtree(self.workspace_dir)
 
     def test_file_does_not_exist(self):
-        """MetadataControl: raises exception if given file does not exist."""
+        """Raises exception if given file does not exist."""
         import geometamaker
 
         with self.assertRaises(FileNotFoundError):
@@ -446,6 +447,31 @@ class MetadataControlTests(unittest.TestCase):
         self.assertEqual(field1.type, 'Real')
         field2 = new_resource.get_field_description(field2_name)
         self.assertEqual(field2.type, 'String')
+
+    def test_preexisting_incompatible_doc(self):
+        """Test when yaml file not created by geometamaker already exists."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        target_path = f'{datasource_path}.yml'
+        with open(target_path, 'w') as file:
+            file.write(yaml.dump({'foo': 'bar'}))
+        create_raster(numpy.int16, datasource_path)
+
+        # Describing a dataset that already has an incompatible yaml
+        # sidecar file should log a warning.
+        with self.assertLogs('geometamaker', level='WARNING') as cm:
+            resource = geometamaker.describe(datasource_path)
+        expected_message = 'exists but is not compatible with'
+        self.assertIn(expected_message, ''.join(cm.output))
+
+        # After writing new doc, check it has expected property
+        resource.write()
+        with open(target_path, 'r') as file:
+            yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        self.assertIn('metadata_version', yaml_dict)
+        self.assertIn('geometamaker', yaml_dict['metadata_version'])
 
     def test_write_to_local_workspace(self):
         """Test write metadata to a different location."""
