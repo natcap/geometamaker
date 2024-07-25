@@ -3,13 +3,12 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-import datetime
 import os
 import sys
 import sphinx.ext.apidoc
 from pkg_resources import get_distribution
 
-sys.path.insert(0, os.path.abspath('../../src/geometamaker'))
+sys.path.insert(0, os.path.abspath('../../src'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information

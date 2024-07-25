@@ -8,13 +8,11 @@ name: env-readthedocs
 channels:
     - conda-forge
 dependencies:
-    - python=3.8
+    - python=3.10
+    - frictionless
     - fsspec
     - gdal>=3
-    - jsonschema
     - numpy
-    - pygeometa
     - pygeoprocessing>=2.4.2
-    - shapely
     - pyyaml
     - sphinx_rtd_theme
