@@ -34,13 +34,15 @@ def detect_file_type(filepath):
         return 'table'
     if desc.compression:
         return 'archive'
-    gis_type = pygeoprocessing.get_gis_type(filepath)
+    try:
+        gis_type = pygeoprocessing.get_gis_type(filepath)
+    except ValueError:
+        raise ValueError(
+            f'{filepath} does not appear to be one of (archive, table, raster, vector)')
     if gis_type == pygeoprocessing.VECTOR_TYPE:
         return 'vector'
     if gis_type == pygeoprocessing.RASTER_TYPE:
         return 'raster'
-    raise ValueError(
-        f'{filepath} does not appear to be one of (archive, table, raster, vector)')
 
 
 def describe_archive(source_dataset_path):
