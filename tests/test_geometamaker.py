@@ -100,6 +100,20 @@ class MetadataControlTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             _ = geometamaker.describe('foo.tif')
 
+    def test_unsupported_file_format(self):
+        """Raises exception if given file format is not supported."""
+        import geometamaker
+
+        filepath = os.path.join(self.workspace_dir, 'foo.html')
+        with open(filepath, 'w') as file:
+            file.write('<html />')
+
+        with self.assertRaises(ValueError) as cm:
+            _ = geometamaker.describe(filepath)
+        actual_message = str(cm.exception)
+        expected_message = 'does not appear to be one of'
+        self.assertIn(expected_message, actual_message)
+
     def test_describe_csv(self):
         """Test setting properties on csv."""
         import geometamaker
