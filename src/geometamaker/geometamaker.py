@@ -20,8 +20,11 @@ def detect_file_type(filepath):
     Args:
         filepath (str): path to a file to be opened by GDAL or frictionless
 
-    Returns
+    Returns:
         str
+
+    Raises:
+        ValueError on unsupported file formats.
 
     """
     # TODO: guard against classifying netCDF, HDF5, etc as GDAL rasters.
@@ -43,6 +46,12 @@ def detect_file_type(filepath):
         return 'vector'
     if gis_type == pygeoprocessing.RASTER_TYPE:
         return 'raster'
+    raise ValueError(
+        f'{filepath} contains both raster and vector data. '
+        'Such files are not supported by GeoMetaMaker. '
+        'If you wish to see support for these files, please '
+        'submit a feature request and share your dataset: '
+        'https://github.com/natcap/geometamaker/issues ')
 
 
 def describe_archive(source_dataset_path):
