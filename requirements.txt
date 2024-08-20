@@ -7,6 +7,7 @@ fsspec
 GDAL
 frictionless
 numpy
+platformdirs
 pygeoprocessing>=2.4.3
 pyyaml
 requests

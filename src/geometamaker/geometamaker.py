@@ -14,6 +14,21 @@ from . import models
 LOGGER = logging.getLogger(__name__)
 
 
+def configure(contact=None, license=None):
+
+    with open(CONFIG_FILE, 'r') as file:
+        yaml_string = file.read()
+    profiles = yaml.safe_load(yaml_string)
+
+    if contact:
+        profiles['contact'] = contact
+    if license:
+        profiles['license'] = license
+
+    with open(target_path, 'w') as file:
+        file.write(yaml.dump(PROFILES))
+
+
 def detect_file_type(filepath):
     """Detect the type of resource contained in the file.
 
@@ -236,7 +251,11 @@ def describe(source_dataset_path):
 
     # Common path: metadata file does not already exist
     # Or less common, ValueError if it exists but is incompatible
-    except (FileNotFoundError, ValueError) as err:
+    except (FileNotFoundError, ValueError):
         resource = RESOURCE_MODELS[resource_type](**description)
+        if CONTACT_PROFILE:
+            resource.set_contact(CONTACT_PROFILE)
+        if LICENSE_PROFILE:
+            resource.set_license(LICENSE_PROFILE)
 
     return resource
