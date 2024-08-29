@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest.mock import MagicMock, patch
 
 import numpy
 from osgeo import gdal
@@ -82,7 +83,7 @@ def create_raster(
     raster = None
 
 
-class MetadataControlTests(unittest.TestCase):
+class GeometamakerTests(unittest.TestCase):
     """Tests for geometamaker."""
 
     def setUp(self):
@@ -501,3 +502,53 @@ class MetadataControlTests(unittest.TestCase):
         self.assertTrue(
             os.path.exists(os.path.join(
                 temp_dir, f'{os.path.basename(datasource_path)}.yml')))
+
+
+class ConfigurationTests(unittest.TestCase):
+    """Tests for geometamaker configuration."""
+
+    def setUp(self):
+        """Override setUp function to create temp workspace directory."""
+        self.workspace_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """Override tearDown function to remove temporary directory."""
+        shutil.rmtree(self.workspace_dir)
+
+    # @patch('platformdirs.user_config_dir')
+    # def test_first_default_config(self, mock_user_config_dir):
+    #     """Test first ever default configuration of geometamaker."""
+    #     mock_user_config_dir.return_value = self.workspace_dir
+
+    #     import geometamaker
+    #     # from geometamaker.config import DEFAULT_PROFILE
+
+    #     # config = geometamaker.Config()
+    #     # self.assertEqual(config.profile, DEFAULT_PROFILE)
+    #     self.assertTrue(os.path.exists(
+    #         os.path.join(self.workspace_dir, 'geometamaker_profile.yml')))
+
+    @patch('platformdirs.user_config_dir')
+    def test_configuration(self, mock_user_config_dir):
+        """Test setting user-configuration of geometamaker."""
+        # with patch('platformdirs.user_config_dir',
+        #            MagicMock(return_value=self.workspace_dir)):
+        mock_user_config_dir.return_value = self.workspace_dir
+
+        import geometamaker
+
+        contact = {
+            'individual_name': 'dave'
+        }
+        license = 'CC-BY-4'
+        # config = geometamaker.Config()
+        geometamaker.configure({
+            'contact': contact,
+            'license': license})
+        # geometamaker.configure()
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        resource = geometamaker.describe(datasource_path)
+        self.assertEqual(contact, resource.contact)
+        self.assertEqual(license, resource.license)

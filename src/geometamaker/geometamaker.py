@@ -4,29 +4,15 @@ import logging
 import frictionless
 import fsspec
 import numpy
-from osgeo import gdal
 import pygeoprocessing
 import yaml
+from osgeo import gdal
 
 from . import models
+from .config import CONFIG
 
 
 LOGGER = logging.getLogger(__name__)
-
-
-def configure(contact=None, license=None):
-
-    with open(CONFIG_FILE, 'r') as file:
-        yaml_string = file.read()
-    profiles = yaml.safe_load(yaml_string)
-
-    if contact:
-        profiles['contact'] = contact
-    if license:
-        profiles['license'] = license
-
-    with open(target_path, 'w') as file:
-        file.write(yaml.dump(PROFILES))
 
 
 def detect_file_type(filepath):
@@ -253,9 +239,10 @@ def describe(source_dataset_path):
     # Or less common, ValueError if it exists but is incompatible
     except (FileNotFoundError, ValueError):
         resource = RESOURCE_MODELS[resource_type](**description)
-        if CONTACT_PROFILE:
-            resource.set_contact(CONTACT_PROFILE)
-        if LICENSE_PROFILE:
-            resource.set_license(LICENSE_PROFILE)
+        print(CONFIG)
+        if 'contact' in CONFIG and CONFIG['contact']:
+            resource.set_contact(CONFIG['contact'])
+        if 'license' in CONFIG and CONFIG['license']:
+            resource.set_license(CONFIG['license'])
 
     return resource
