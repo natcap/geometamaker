@@ -28,9 +28,6 @@ classifiers = [
 # using the corresponding setup args `install_requires` and `extras_require`
 dynamic = ["version", "dependencies", "optional-dependencies"]
 
-[project.scripts]
-geometamaker = "geometamaker.cli:main"
-
 [build-system]
 requires = ["setuptools >= 40.6.0", "wheel", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
