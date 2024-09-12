@@ -15,7 +15,7 @@ from . import models
 
 LOGGER = logging.getLogger(__name__)
 
-# URI schemes we support, a subset of fsspec.available_protocols()
+# URI schemes we support. A subset of fsspec.available_protocols()
 PROTOCOLS = [
     'file',
     'http',
@@ -171,7 +171,6 @@ def describe_raster(source_dataset_path, scheme):
 
     """
     description = describe_file(source_dataset_path)
-    LOGGER.debug('getting raster info')
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     info = pygeoprocessing.get_raster_info(source_dataset_path)
@@ -260,7 +259,6 @@ def describe(source_dataset_path):
 
     # Load existing metadata file
     try:
-        LOGGER.debug('loading existing metadata document')
         existing_resource = RESOURCE_MODELS[resource_type].load(metadata_path)
         if 'schema' in description:
             if isinstance(description['schema'], models.RasterSchema):
