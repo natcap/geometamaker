@@ -34,7 +34,7 @@ def _vsi_path(filepath, scheme):
         str
 
     """
-    if 'http' in scheme:
+    if scheme.startswith('http'):
         filepath = f'/vsicurl/{filepath}'
     return filepath
 
