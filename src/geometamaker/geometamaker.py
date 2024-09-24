@@ -1,6 +1,8 @@
 import dataclasses
 import hashlib
 import logging
+import os
+import requests
 from datetime import datetime, timezone
 
 import frictionless
@@ -8,7 +10,6 @@ import fsspec
 import numpy
 from osgeo import gdal
 import pygeoprocessing
-import yaml
 
 from . import models
 
@@ -21,6 +22,8 @@ PROTOCOLS = [
     'http',
     'https',
 ]
+
+DT_FMT = '%Y-%m-%d %H:%M:%S'
 
 
 def _vsi_path(filepath, scheme):
@@ -44,6 +47,7 @@ def detect_file_type(filepath, scheme):
 
     Args:
         filepath (str): path to a file to be opened by GDAL or frictionless
+        scheme (str): the protocol prefix of the filepath
 
     Returns:
         str
@@ -81,48 +85,54 @@ def detect_file_type(filepath, scheme):
         'https://github.com/natcap/geometamaker/issues ')
 
 
-def describe_file(source_dataset_path):
+def describe_file(source_dataset_path, scheme):
     """Describe basic properties of a file.
 
     Args:
         source_dataset_path (str): path to a file.
+        scheme (str): the protocol prefix of the filepath
 
     Returns:
         dict
 
     """
     description = frictionless.describe(source_dataset_path).to_dict()
-    # Frictionless can retrieve stats like file size, but doing so necessarily
-    # computes a sha256 hash, which is too costly for remote or large files.
-    # So we use fsspec to get basic stats and construct a simple hash
-    of = fsspec.open(source_dataset_path)
-    info = of.fs.info(source_dataset_path)
-    description['bytes'] = info['size']
-    # files opened from http do not have mtime
-    try:
-        mtime = info['mtime']
+
+    # If we want to support more file protocols in the future, it may
+    # make sense to use fsspec to access file info in a protocol-agnostic way.
+    # But not all protocols are equally supported yet.
+    # https://github.com/fsspec/filesystem_spec/issues/526
+    if scheme.startswith('http'):
+        info = requests.head(source_dataset_path).headers
+        description['bytes'] = info['Content-Length']
+        description['last_modified'] = datetime.strptime(
+            info['Last-Modified'], '%a, %d %B %Y %H:%M:%S %Z').strftime(DT_FMT)
+    else:
+        info = os.stat(source_dataset_path)
+        description['bytes'] = info.st_size
         description['last_modified'] = datetime.fromtimestamp(
-            mtime, tz=timezone.utc)
-    except KeyError:
-        mtime = ''
+            info.st_mtime, tz=timezone.utc).strftime(DT_FMT)
+
     hash_func = hashlib.new('sha256')
     hash_func.update(
-        f'{info["size"]}{mtime}{description["path"]}'.encode('ascii'))
+        f'{description["bytes"]}{description["last_modified"]}\
+        {description["path"]}'.encode('ascii'))
     description['uid'] = f'sizetimestamp:{hash_func.hexdigest()}'
     return description
 
 
-def describe_archive(source_dataset_path, scheme=None):
+def describe_archive(source_dataset_path, scheme):
     """Describe file properties of a compressed file.
 
     Args:
         source_dataset_path (str): path to a file.
+        scheme (str): the protocol prefix of the filepath
 
     Returns:
         dict
 
     """
-    description = describe_file(source_dataset_path)
+    description = describe_file(source_dataset_path, scheme)
     return description
 
 
@@ -136,7 +146,7 @@ def describe_vector(source_dataset_path, scheme):
         dict
 
     """
-    description = describe_file(source_dataset_path)
+    description = describe_file(source_dataset_path, scheme)
 
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
@@ -170,7 +180,7 @@ def describe_raster(source_dataset_path, scheme):
         dict
 
     """
-    description = describe_file(source_dataset_path)
+    description = describe_file(source_dataset_path, scheme)
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     info = pygeoprocessing.get_raster_info(source_dataset_path)
@@ -195,17 +205,18 @@ def describe_raster(source_dataset_path, scheme):
     return description
 
 
-def describe_table(source_dataset_path, scheme=None):
+def describe_table(source_dataset_path, scheme):
     """Describe properties of a tabular dataset.
 
     Args:
         source_dataset_path (str): path to a file representing a table.
+        scheme (str): the protocol prefix of the filepath
 
     Returns:
         dict
 
     """
-    description = describe_file(source_dataset_path)
+    description = describe_file(source_dataset_path, scheme)
     description['schema'] = models.TableSchema(**description['schema'])
     return description
 
