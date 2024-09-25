@@ -82,7 +82,7 @@ def create_raster(
     raster = None
 
 
-class MetadataControlTests(unittest.TestCase):
+class GeometamakerTests(unittest.TestCase):
     """Tests for geometamaker."""
 
     def setUp(self):
@@ -501,3 +501,11 @@ class MetadataControlTests(unittest.TestCase):
         self.assertTrue(
             os.path.exists(os.path.join(
                 temp_dir, f'{os.path.basename(datasource_path)}.yml')))
+
+    def test_describe_remote_datasource(self):
+        """Test describe on a file at a public url."""
+        import geometamaker
+
+        filepath = 'https://storage.googleapis.com/natcap-data-cache/global/aster-v3-1s/aster-v3-1s.tif'
+        resource = geometamaker.describe(filepath)
+        self.assertEqual(resource.path, filepath)

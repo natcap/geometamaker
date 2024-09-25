@@ -148,16 +148,17 @@ class Resource:
     # A version string we can use to identify geometamaker compliant documents
     metadata_version: str = dataclasses.field(init=False)
 
-    # These are populated by `frictionless.describe()`
+    # These are populated by `frictionless.describe()` or fsspec info
     bytes: int = 0
     encoding: str = ''
     format: str = ''
-    hash: str = ''
+    uid: str = ''
     mediatype: str = ''
     name: str = ''
     path: str = ''
     scheme: str = ''
     type: str = ''
+    last_modified: str = ''
 
     # DataPackage includes `sources` as a list of source files
     # with some amount of metadata for each item. For our
@@ -441,8 +442,6 @@ class Resource:
 class TableResource(Resource):
     """Class for metadata for a table resource."""
 
-    fields: int
-    rows: int
     # without post-init, schema ends up as a dict, or whatever is passed in.
     schema: TableSchema = dataclasses.field(default_factory=TableSchema)
 
@@ -529,6 +528,7 @@ class ArchiveResource(Resource):
 class VectorResource(TableResource):
     """Class for metadata for a vector resource."""
 
+    n_features: int
     spatial: SpatialSchema
 
 

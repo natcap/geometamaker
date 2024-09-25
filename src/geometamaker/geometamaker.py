@@ -1,24 +1,53 @@
 import dataclasses
+import hashlib
 import logging
+import os
+import requests
+from datetime import datetime, timezone
 
 import frictionless
 import fsspec
 import numpy
 from osgeo import gdal
 import pygeoprocessing
-import yaml
 
 from . import models
 
 
 LOGGER = logging.getLogger(__name__)
 
+# URI schemes we support. A subset of fsspec.available_protocols()
+PROTOCOLS = [
+    'file',
+    'http',
+    'https',
+]
 
-def detect_file_type(filepath):
+DT_FMT = '%Y-%m-%d %H:%M:%S'
+
+
+def _vsi_path(filepath, scheme):
+    """Construct a GDAL virtual file system path.
+
+    Args:
+        filepath (str): path to a file to be opened by GDAL
+        scheme (str): the protocol prefix of the filepath
+
+    Returns:
+        str
+
+    """
+    if scheme.startswith('http'):
+        filepath = f'/vsicurl/{filepath}'
+    return filepath
+
+
+def detect_file_type(filepath, scheme):
     """Detect the type of resource contained in the file.
 
     Args:
         filepath (str): path to a file to be opened by GDAL or frictionless
+        scheme (str): the protocol prefix of the filepath
 
     Returns:
         str
@@ -30,18 +59,20 @@ def detect_file_type(filepath):
     # TODO: guard against classifying netCDF, HDF5, etc as GDAL rasters.
     # We'll likely want a different data model for multi-dimensional arrays.
 
-    # GDAL considers CSV a vector, so check against frictionless
-    # first.
-    desc = frictionless.describe(filepath)
-    if desc.type == 'table':
+    # Frictionless supports a wide range of formats. The quickest way to
+    # determine if a file is recognized as a table or archive is to call list.
+    info = frictionless.list(filepath)[0]
+    if info.type == 'table':
         return 'table'
-    if desc.compression:
+    if info.compression:
         return 'archive'
+    # GDAL considers CSV a vector, so check against frictionless first.
     try:
-        gis_type = pygeoprocessing.get_gis_type(filepath)
+        gis_type = pygeoprocessing.get_gis_type(_vsi_path(filepath, scheme))
     except ValueError:
         raise ValueError(
-            f'{filepath} does not appear to be one of (archive, table, raster, vector)')
+            f'{filepath} does not appear to be one of '
+            f'(archive, table, raster, vector)')
     if gis_type == pygeoprocessing.VECTOR_TYPE:
         return 'vector'
     if gis_type == pygeoprocessing.RASTER_TYPE:
@@ -54,22 +85,58 @@ def detect_file_type(filepath):
         'https://github.com/natcap/geometamaker/issues ')
 
 
-def describe_archive(source_dataset_path):
-    """Describe file properties of a compressed file.
+def describe_file(source_dataset_path, scheme):
+    """Describe basic properties of a file.
 
     Args:
         source_dataset_path (str): path to a file.
+        scheme (str): the protocol prefix of the filepath
 
     Returns:
         dict
 
     """
-    description = frictionless.describe(
-        source_dataset_path, stats=True).to_dict()
+    description = frictionless.describe(source_dataset_path).to_dict()
+
+    # If we want to support more file protocols in the future, it may
+    # make sense to use fsspec to access file info in a protocol-agnostic way.
+    # But not all protocols are equally supported yet.
+    # https://github.com/fsspec/filesystem_spec/issues/526
+    if scheme.startswith('http'):
+        info = requests.head(source_dataset_path).headers
+        description['bytes'] = info['Content-Length']
+        description['last_modified'] = datetime.strptime(
+            info['Last-Modified'], '%a, %d %B %Y %H:%M:%S %Z').strftime(DT_FMT)
+    else:
+        info = os.stat(source_dataset_path)
+        description['bytes'] = info.st_size
+        description['last_modified'] = datetime.fromtimestamp(
+            info.st_mtime, tz=timezone.utc).strftime(DT_FMT)
+
+    hash_func = hashlib.new('sha256')
+    hash_func.update(
+        f'{description["bytes"]}{description["last_modified"]}\
+        {description["path"]}'.encode('ascii'))
+    description['uid'] = f'sizetimestamp:{hash_func.hexdigest()}'
     return description
 
 
-def describe_vector(source_dataset_path):
+def describe_archive(source_dataset_path, scheme):
+    """Describe file properties of a compressed file.
+
+    Args:
+        source_dataset_path (str): path to a file.
+        scheme (str): the protocol prefix of the filepath
+
+    Returns:
+        dict
+
+    """
+    description = describe_file(source_dataset_path, scheme)
+    return description
+
+
+def describe_vector(source_dataset_path, scheme):
     """Describe properties of a GDAL vector file.
 
     Args:
@@ -79,18 +146,19 @@ def describe_vector(source_dataset_path):
         dict
 
     """
-    description = frictionless.describe(
-        source_dataset_path, stats=True).to_dict()
-    fields = []
+    description = describe_file(source_dataset_path, scheme)
+
+    if 'http' in scheme:
+        source_dataset_path = f'/vsicurl/{source_dataset_path}'
     vector = gdal.OpenEx(source_dataset_path, gdal.OF_VECTOR)
     layer = vector.GetLayer()
-    description['rows'] = layer.GetFeatureCount()
+    fields = []
+    description['n_features'] = layer.GetFeatureCount()
     for fld in layer.schema:
         fields.append(
             models.FieldSchema(name=fld.name, type=fld.GetTypeName()))
     vector = layer = None
     description['schema'] = models.TableSchema(fields=fields)
-    description['fields'] = len(fields)
 
     info = pygeoprocessing.get_vector_info(source_dataset_path)
     spatial = {
@@ -102,7 +170,7 @@ def describe_vector(source_dataset_path):
     return description
 
 
-def describe_raster(source_dataset_path):
+def describe_raster(source_dataset_path, scheme):
     """Describe properties of a GDAL raster file.
 
     Args:
@@ -112,13 +180,11 @@ def describe_raster(source_dataset_path):
         dict
 
     """
-    description = frictionless.describe(
-        source_dataset_path, stats=True).to_dict()
-
-    bands = []
+    description = describe_file(source_dataset_path, scheme)
+    if 'http' in scheme:
+        source_dataset_path = f'/vsicurl/{source_dataset_path}'
     info = pygeoprocessing.get_raster_info(source_dataset_path)
-    # Some values of raster info are numpy types, which the
-    # yaml dumper doesn't know how to represent.
+    bands = []
     for i in range(info['n_bands']):
         b = i + 1
         bands.append(models.BandSchema(
@@ -130,6 +196,8 @@ def describe_raster(source_dataset_path):
         bands=bands,
         pixel_size=info['pixel_size'],
         raster_size=info['raster_size'])
+    # Some values of raster info are numpy types, which the
+    # yaml dumper doesn't know how to represent.
     description['spatial'] = models.SpatialSchema(
         bounding_box=[float(x) for x in info['bounding_box']],
         crs=info['projection_wkt'])
@@ -137,18 +205,18 @@ def describe_raster(source_dataset_path):
     return description
 
 
-def describe_table(source_dataset_path):
+def describe_table(source_dataset_path, scheme):
     """Describe properties of a tabular dataset.
 
     Args:
         source_dataset_path (str): path to a file representing a table.
+        scheme (str): the protocol prefix of the filepath
 
     Returns:
         dict
 
     """
-    description = frictionless.describe(
-        source_dataset_path, stats=True).to_dict()
+    description = describe_file(source_dataset_path, scheme)
     description['schema'] = models.TableSchema(**description['schema'])
     return description
 
@@ -191,8 +259,14 @@ def describe(source_dataset_path):
     if not of.fs.exists(source_dataset_path):
         raise FileNotFoundError(f'{source_dataset_path} does not exist')
 
-    resource_type = detect_file_type(source_dataset_path)
-    description = DESRCIBE_FUNCS[resource_type](source_dataset_path)
+    protocol = fsspec.utils.get_protocol(source_dataset_path)
+    if protocol not in PROTOCOLS:
+        raise ValueError(
+            f'Cannot describe {source_dataset_path}. {protocol} '
+            f'is not one of the suppored file protocols: {PROTOCOLS}')
+    resource_type = detect_file_type(source_dataset_path, protocol)
+    description = DESRCIBE_FUNCS[resource_type](
+        source_dataset_path, protocol)
 
     # Load existing metadata file
     try:
