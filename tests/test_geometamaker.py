@@ -503,6 +503,14 @@ class GeometamakerTests(unittest.TestCase):
             os.path.exists(os.path.join(
                 temp_dir, f'{os.path.basename(datasource_path)}.yml')))
 
+    def test_describe_remote_datasource(self):
+        """Test describe on a file at a public url."""
+        import geometamaker
+
+        filepath = 'https://storage.googleapis.com/natcap-data-cache/global/aster-v3-1s/aster-v3-1s.tif'
+        resource = geometamaker.describe(filepath)
+        self.assertEqual(resource.path, filepath)
+
 
 class ConfigurationTests(unittest.TestCase):
     """Tests for geometamaker configuration."""

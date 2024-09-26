@@ -33,7 +33,6 @@ data_path = 'data/dem.tif'
 resource = geometamaker.describe(data_path)
 resource.set_band_description(
     1,  # a raster band index, starting at 1
-    name='band name',
     description='something about the band',
     units='mm')
 
