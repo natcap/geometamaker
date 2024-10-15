@@ -253,9 +253,10 @@ def describe(source_dataset_path, profile=None):
         or RasterResource
 
     """
-    if profile is None:
-        CONFIG = Config()
-        profile = CONFIG.profile
+    CONFIG = Config()
+    user_profile = CONFIG.profile
+    if profile is not None:
+        
 
     metadata_path = f'{source_dataset_path}.yml'
 
