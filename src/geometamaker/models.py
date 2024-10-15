@@ -50,7 +50,7 @@ class ContactSchema:
 
 
 @dataclass
-class License:
+class LicenseSchema:
     """Class for storing license info."""
 
     # https://datapackage.org/profiles/2.0/dataresource.json
@@ -343,13 +343,13 @@ class Resource:
 
         # TODO: DataPackage/Resource allows for a list of licenses.
         # So far we only support one license per resource.
-        self.licenses = [License(**license_dict)]
+        self.licenses = [LicenseSchema(**license_dict)]
 
     def get_license(self):
         """Get ``license`` for the dataset.
 
         Returns:
-            models.License
+            models.LicenseSchema
 
         """
         # TODO: DataPackage/Resource allows for a list of licenses.
@@ -582,3 +582,11 @@ class RasterResource(Resource):
 
         """
         return self.schema.bands[band_number - 1]
+
+
+@dataclass
+class Profile():
+    """Class for a profile resource."""
+
+    contact: ContactSchema
+    licenses: list

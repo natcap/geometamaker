@@ -12,7 +12,7 @@ import pygeoprocessing
 from osgeo import gdal
 
 from . import models
-from .config import CONFIG
+from .config import Config
 
 
 LOGGER = logging.getLogger(__name__)
@@ -237,7 +237,7 @@ RESOURCE_MODELS = {
 }
 
 
-def describe(source_dataset_path):
+def describe(source_dataset_path, profile=None):
     """Create a metadata resource instance with properties of the dataset.
 
     Properties of the dataset are used to populate as many metadata
@@ -253,6 +253,10 @@ def describe(source_dataset_path):
         or RasterResource
 
     """
+    if profile is None:
+        CONFIG = Config()
+        profile = CONFIG.profile
+
     metadata_path = f'{source_dataset_path}.yml'
 
     # Despite naming, this does not open a file that must be closed
@@ -313,10 +317,9 @@ def describe(source_dataset_path):
     # Or less common, ValueError if it exists but is incompatible
     except (FileNotFoundError, ValueError):
         resource = RESOURCE_MODELS[resource_type](**description)
-        print(CONFIG)
-        if 'contact' in CONFIG and CONFIG['contact']:
-            resource.set_contact(CONFIG['contact'])
-        if 'license' in CONFIG and CONFIG['license']:
-            resource.set_license(CONFIG['license'])
+        if 'contact' in profile and profile['contact']:
+            resource.set_contact(**profile['contact'])
+        if 'license' in profile and profile['license']:
+            resource.set_license(**profile['license'])
 
     return resource
