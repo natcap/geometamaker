@@ -526,7 +526,6 @@ class ConfigurationTests(unittest.TestCase):
     @patch('geometamaker.config.platformdirs.user_config_dir')
     def test_user_configuration(self, mock_user_config_dir):
         """Test existing config populates resource."""
-        print(self.workspace_dir)
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker
         import geometamaker.config
@@ -555,7 +554,6 @@ class ConfigurationTests(unittest.TestCase):
     @patch('geometamaker.config.platformdirs.user_config_dir')
     def test_runtime_configuration(self, mock_user_config_dir):
         """Test runtime config overrides user-level config."""
-        print(self.workspace_dir)
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker
         import geometamaker.config
@@ -590,3 +588,27 @@ class ConfigurationTests(unittest.TestCase):
         # license was not part of profile passed at runtime,
         # so it should default to the user-config
         self.assertEqual(license['title'], resource.get_license().title)
+
+    @patch('geometamaker.config.platformdirs.user_config_dir')
+    def test_invalid_profile(self, mock_user_config_dir):
+        """Test runtime config overrides user-level config."""
+        mock_user_config_dir.return_value = self.workspace_dir
+        import geometamaker
+        import geometamaker.config
+
+        contact = {
+            'foo_name': 'bob'  # incorrect key
+        }
+        profile = {
+            'contact': contact,
+        }
+        with open(geometamaker.config.DEFAULT_CONFIG_PATH, 'w') as file:
+            file.write(yaml.dump(profile))
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        resource = geometamaker.describe(
+            datasource_path, profile=profile)
+        self.assertEqual(profile['contact']['foo_name'],
+                         resource.get_contact().individual_name)

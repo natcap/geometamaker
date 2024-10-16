@@ -256,7 +256,8 @@ def describe(source_dataset_path, profile=None):
     CONFIG = Config()
     user_profile = CONFIG.profile
     if profile is not None:
-        
+        for k, v in profile.items():
+            user_profile[k] = v
 
     metadata_path = f'{source_dataset_path}.yml'
 
@@ -318,9 +319,9 @@ def describe(source_dataset_path, profile=None):
     # Or less common, ValueError if it exists but is incompatible
     except (FileNotFoundError, ValueError):
         resource = RESOURCE_MODELS[resource_type](**description)
-        if 'contact' in profile and profile['contact']:
-            resource.set_contact(**profile['contact'])
-        if 'license' in profile and profile['license']:
-            resource.set_license(**profile['license'])
+        if 'contact' in user_profile and user_profile['contact']:
+            resource.set_contact(**user_profile['contact'])
+        if 'license' in user_profile and user_profile['license']:
+            resource.set_license(**user_profile['license'])
 
     return resource

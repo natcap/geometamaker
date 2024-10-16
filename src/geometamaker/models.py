@@ -58,8 +58,8 @@ class LicenseSchema:
     # "MUST be an Open Definition license identifier",
     # see http://licenses.opendefinition.org/"
     # I don't think that's useful to us yet.
-    path: str
-    title: str
+    path: str = ''
+    title: str = ''
 
 
 @dataclass
@@ -145,6 +145,7 @@ class Resource:
     with which to complete later.
 
     """
+
     # A version string we can use to identify geometamaker compliant documents
     metadata_version: str = dataclasses.field(init=False)
 
@@ -172,7 +173,7 @@ class Resource:
     doi: str = ''
     edition: str = ''
     keywords: list = dataclasses.field(default_factory=list)
-    licenses: list = dataclasses.field(default_factory=list)
+    license: LicenseSchema = dataclasses.field(default_factory=LicenseSchema)
     lineage: str = ''
     purpose: str = ''
     title: str = ''
@@ -343,7 +344,7 @@ class Resource:
 
         # TODO: DataPackage/Resource allows for a list of licenses.
         # So far we only support one license per resource.
-        self.licenses = [LicenseSchema(**license_dict)]
+        self.license = LicenseSchema(**license_dict)
 
     def get_license(self):
         """Get ``license`` for the dataset.
@@ -354,8 +355,7 @@ class Resource:
         """
         # TODO: DataPackage/Resource allows for a list of licenses.
         # So far we only support one license per resource.
-        if self.licenses:
-            return self.licenses[0]
+        return self.license
 
     def set_lineage(self, statement):
         """Set the lineage statement for the dataset.
@@ -589,4 +589,39 @@ class Profile():
     """Class for a profile resource."""
 
     contact: ContactSchema
-    licenses: list
+    license: LicenseSchema
+
+    @classmethod
+    def load(cls, filepath):
+        """Load metadata document from a yaml file.
+
+        Args:
+            filepath (str): path to yaml file
+
+        Returns:
+            instance of the class
+
+        Raises:
+            FileNotFoundError if filepath does not exist
+            ValueError if the metadata is found to be incompatible with
+                geometamaker.
+
+        """
+        with fsspec.open(filepath, 'r') as file:
+            yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        if 'metadata_version' not in yaml_dict \
+                or not yaml_dict['metadata_version'].startswith('geometamaker'):
+            message = (f'{filepath} exists but is not compatible with '
+                       f'geometamaker. It will be overwritten if write() is '
+                       f'called for this resource.')
+            LOGGER.warning(message)
+            raise ValueError(message)
+        # delete this property so that geometamaker can initialize it itself
+        # with the current version info.
+        del yaml_dict['metadata_version']
+        return cls(**yaml_dict)
+
+    def write(self, filepath):
+        with open(geometamaker.config.DEFAULT_CONFIG_PATH, 'w') as file:
+                file.write(yaml.dump(profile))

@@ -7,14 +7,16 @@ import fsspec
 import platformdirs
 import yaml
 
+from . import models
+
 
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_PATH = os.path.join(
     platformdirs.user_config_dir(), 'geometamaker_profile.yml')
 DEFAULT_PROFILE = {
-    'contact': None,
-    'license': None
+    'contact': models.ContactSchema(),
+    'license': models.LicenseSchema()
 }
 
 
