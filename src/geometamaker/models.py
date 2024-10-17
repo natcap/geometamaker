@@ -434,6 +434,14 @@ class Resource:
             file.write(yaml.dump(
                 dataclasses.asdict(self), Dumper=_NoAliasDumper))
 
+    def merge_profile(self, profile):
+        contact = profile.get_contact()
+        if isinstance(contact, ContactSchema):
+            self.contact = contact
+        license = profile.get_license()
+        if isinstance(license, LicenseSchema):
+            self.license = license
+
     def to_string(self):
         pass
 
@@ -586,10 +594,92 @@ class RasterResource(Resource):
 
 @dataclass
 class Profile():
-    """Class for a profile resource."""
+    """Class for a metadata profile.
 
-    contact: ContactSchema
-    license: LicenseSchema
+    This is similar to a Resource, but attributes default to None.
+
+    """
+
+    contact: ContactSchema = None
+    license: LicenseSchema = None
+
+    def __post_init__(self):
+        # Allow init of the resource with a schema of type
+        # TableSchema, or type dict. Mostly because dataclasses.replace
+        # calls init, but the base object will have already been initialized.
+        if self.contact is not None:
+            if isinstance(self.contact, ContactSchema):
+                return
+            self.contact = ContactSchema(**self.contact)
+        if self.license is not None:
+            if isinstance(self.license, LicenseSchema):
+                return
+            self.license = LicenseSchema(**self.license)
+
+    def set_contact(self, organization=None, individual_name=None,
+                    position_name=None, email=None):
+        """Add a contact section.
+
+        Args:
+            organization (str): name of the responsible organization
+            individual_name (str): name of the responsible person
+            position_name (str): role or position of the responsible person
+            email (str): address of the responsible organization or individual
+
+        """
+        if self.contact is None:
+            self.contact = ContactSchema()
+        if organization is not None:
+            self.contact.organization = organization
+        if individual_name is not None:
+            self.contact.individual_name = individual_name
+        if position_name is not None:
+            self.contact.position_name = position_name
+        if email is not None:
+            self.contact.email = email
+        print(self.contact)
+
+    def get_contact(self):
+        """Get metadata from a contact section.
+
+        Returns:
+            ContactSchema
+
+        """
+        return self.contact
+
+    def set_license(self, title=None, path=None):
+        """Add a license for the dataset.
+
+        Either or both title and path are required if there is a license.
+        Call with no arguments to remove access constraints and license
+        info.
+
+        Args:
+            title (str): human-readable title of the license
+            path (str): url for the license
+
+        """
+        if self.license is None:
+            self.license = LicenseSchema()
+        license_dict = {}
+        license_dict['title'] = title if title else ''
+        license_dict['path'] = path if path else ''
+
+        # TODO: DataPackage/Resource allows for a list of licenses.
+        # So far we only support one license per resource.
+        self.license = LicenseSchema(**license_dict)
+
+    def get_license(self):
+        """Get ``license`` for the dataset.
+
+        Returns:
+            models.LicenseSchema
+
+        """
+        # TODO: DataPackage/Resource allows for a list of licenses.
+        # So far we only support one license per resource.
+        return self.license
 
     @classmethod
     def load(cls, filepath):
@@ -610,18 +700,14 @@ class Profile():
         with fsspec.open(filepath, 'r') as file:
             yaml_string = file.read()
         yaml_dict = yaml.safe_load(yaml_string)
-        if 'metadata_version' not in yaml_dict \
-                or not yaml_dict['metadata_version'].startswith('geometamaker'):
-            message = (f'{filepath} exists but is not compatible with '
-                       f'geometamaker. It will be overwritten if write() is '
-                       f'called for this resource.')
-            LOGGER.warning(message)
-            raise ValueError(message)
-        # delete this property so that geometamaker can initialize it itself
-        # with the current version info.
-        del yaml_dict['metadata_version']
         return cls(**yaml_dict)
 
-    def write(self, filepath):
-        with open(geometamaker.config.DEFAULT_CONFIG_PATH, 'w') as file:
-                file.write(yaml.dump(profile))
+    @classmethod
+    def replace(cls, a, b):
+        return dataclasses.replace(
+            a, **{k: v for k, v in b.__dict__.items() if v is not None})
+
+    def write(self, target_path):
+        with open(target_path, 'w') as file:
+            file.write(yaml.dump(
+                dataclasses.asdict(self), Dumper=_NoAliasDumper))

@@ -14,10 +14,6 @@ LOGGER = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_PATH = os.path.join(
     platformdirs.user_config_dir(), 'geometamaker_profile.yml')
-DEFAULT_PROFILE = {
-    'contact': models.ContactSchema(),
-    'license': models.LicenseSchema()
-}
 
 
 # @dataclass()
@@ -33,18 +29,12 @@ class Config(object):
         self.config_path = config_path
         if not os.path.exists(self.config_path):
             if self.config_path == DEFAULT_CONFIG_PATH:
-                print('writing default profile')
-                with open(self.config_path, 'w') as file:
-                    file.write(yaml.dump(DEFAULT_PROFILE))
-
+                default_profile = models.Profile()
+                default_profile.write(self.config_path)
         try:
-            with open(self.config_path, 'r') as file:
-                yaml_string = file.read()
-            self.profile = yaml.safe_load(yaml_string)
+            self.profile = models.Profile.load(self.config_path)
         except:
-            self.profile = None
-
-        # profile: dict = DEFAULT_PROFILE
+            self.profile = models.Profile()
 
     # def save(self):
     #     with open(CONFIG_FILE, 'w') as file:

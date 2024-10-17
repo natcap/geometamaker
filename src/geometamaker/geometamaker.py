@@ -253,11 +253,11 @@ def describe(source_dataset_path, profile=None):
         or RasterResource
 
     """
-    CONFIG = Config()
-    user_profile = CONFIG.profile
+    config = Config()
+    user_profile = config.profile
     if profile is not None:
-        for k, v in profile.items():
-            user_profile[k] = v
+        user_profile = models.Profile.replace(
+            user_profile, profile)
 
     metadata_path = f'{source_dataset_path}.yml'
 
@@ -319,9 +319,6 @@ def describe(source_dataset_path, profile=None):
     # Or less common, ValueError if it exists but is incompatible
     except (FileNotFoundError, ValueError):
         resource = RESOURCE_MODELS[resource_type](**description)
-        if 'contact' in user_profile and user_profile['contact']:
-            resource.set_contact(**user_profile['contact'])
-        if 'license' in user_profile and user_profile['license']:
-            resource.set_license(**user_profile['license'])
+        resource.merge_profile(user_profile)
 
     return resource
