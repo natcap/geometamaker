@@ -528,8 +528,8 @@ class ConfigurationTests(unittest.TestCase):
         """Test existing config populates resource."""
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker
-        import geometamaker.config
         from geometamaker import models
+        from geometamaker.config import Config
 
         contact = {
             'individual_name': 'bob'
@@ -541,7 +541,10 @@ class ConfigurationTests(unittest.TestCase):
         profile = models.Profile()
         profile.set_contact(**contact)
         profile.set_license(**license)
-        profile.write(geometamaker.config.DEFAULT_CONFIG_PATH)
+
+        config = Config()
+        config.save(profile)
+        # profile.write(geometamaker.config.DEFAULT_CONFIG_PATH)
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -555,8 +558,8 @@ class ConfigurationTests(unittest.TestCase):
         """Test existing config populates resource."""
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker
-        import geometamaker.config
         from geometamaker import models
+        from geometamaker.config import Config
 
         contact = {
             'individual_name': 'bob'
@@ -564,7 +567,9 @@ class ConfigurationTests(unittest.TestCase):
 
         profile = models.Profile()
         profile.set_contact(**contact)
-        profile.write(geometamaker.config.DEFAULT_CONFIG_PATH)
+        config = Config()
+        config.save(profile)
+        # profile.write(geometamaker.config.DEFAULT_CONFIG_PATH)
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -579,8 +584,8 @@ class ConfigurationTests(unittest.TestCase):
         """Test runtime config overrides user-level config."""
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker
-        import geometamaker.config
         from geometamaker import models
+        from geometamaker.config import Config
 
         contact = {
             'individual_name': 'bob'
@@ -591,7 +596,9 @@ class ConfigurationTests(unittest.TestCase):
         profile = models.Profile()
         profile.set_contact(**contact)
         profile.set_license(**license)
-        profile.write(geometamaker.config.DEFAULT_CONFIG_PATH)
+        config = Config()
+        config.save(profile)
+        # profile.write(geometamaker.config.DEFAULT_CONFIG_PATH)
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -608,10 +615,15 @@ class ConfigurationTests(unittest.TestCase):
         # so it should default to the user-config
         self.assertEqual(license['title'], resource.get_license().title)
 
-    def test_invalid_profile(self, mock_user_config_dir):
-        """Test runtime config overrides user-level config."""
-        mock_user_config_dir.return_value = self.workspace_dir
-        import geometamaker
+    def test_missing_config(self):
+        """Test that default config is instantiated if file is missing."""
+        from geometamaker.config import Config
+        config = Config('foo/path')
+        self.assertEqual(config.profile.contact, None)
+        self.assertEqual(config.profile.license, None)
+
+    def test_invalid_profile(self):
+        """Test invalid Profile raises TypeError."""
         from geometamaker import models
 
         with self.assertRaises(TypeError):
