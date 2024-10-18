@@ -592,6 +592,7 @@ class RasterResource(Resource):
         return self.schema.bands[band_number - 1]
 
 
+# TODO: Profile has a lot in common with Resource, consider some inheritance
 @dataclass
 class Profile():
     """Class for a metadata profile.

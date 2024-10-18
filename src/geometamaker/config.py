@@ -22,15 +22,19 @@ class Config(object):
 
         """
         self.config_path = config_path
+        self.profile = models.Profile()
 
         try:
             self.profile = models.Profile.load(self.config_path)
         except FileNotFoundError as err:
             LOGGER.debug(err)
             pass
-        # TypeError from an invalid profile should not be caught
-        # TODO: any reason to init an empty profile?
-        #     self.profile = models.Profile()
+        # an invalid profile should raise a TypeError
+        except TypeError as err:
+            LOGGER.warning(err)
+            LOGGER.warning(
+                f'{self.config_path} contains an inavlid profile. '
+                'It will be ignored. You may wish to delete() it.')
 
     def save(self, profile):
         """Save a Profile as the default user profile.
@@ -40,3 +44,7 @@ class Config(object):
         """
         LOGGER.info(f'writing config to {self.config_path}')
         profile.write(self.config_path)
+
+    def delete(self, config_path=DEFAULT_CONFIG_PATH):
+        LOGGER.info(f'removing {self.config_path}')
+        os.remove(config_path)

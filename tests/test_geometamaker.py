@@ -511,6 +511,17 @@ class GeometamakerTests(unittest.TestCase):
         resource = geometamaker.describe(filepath)
         self.assertEqual(resource.path, filepath)
 
+    def test_invalid_profile(self):
+        """Test invalid Profile raises TypeError."""
+        from geometamaker import models
+
+        with self.assertRaises(TypeError):
+            profile = models.Profile(contact={'foo_name': 'bob'})
+
+        profile = models.Profile()
+        with self.assertRaises(TypeError):
+            profile.set_contact(foo_name='bob')
+
 
 class ConfigurationTests(unittest.TestCase):
     """Tests for geometamaker configuration."""
@@ -523,7 +534,7 @@ class ConfigurationTests(unittest.TestCase):
         """Override tearDown function to remove temporary directory."""
         shutil.rmtree(self.workspace_dir)
 
-    @patch('platformdirs.user_config_dir')
+    @patch('geometamaker.config.platformdirs.user_config_dir')
     def test_user_configuration(self, mock_user_config_dir):
         """Test existing config populates resource."""
         mock_user_config_dir.return_value = self.workspace_dir
@@ -553,7 +564,7 @@ class ConfigurationTests(unittest.TestCase):
                          resource.get_contact().individual_name)
         self.assertEqual(license['title'], resource.get_license().title)
 
-    @patch('platformdirs.user_config_dir')
+    @patch('geometamaker.config.platformdirs.user_config_dir')
     def test_partial_user_configuration(self, mock_user_config_dir):
         """Test existing config populates resource."""
         mock_user_config_dir.return_value = self.workspace_dir
@@ -569,7 +580,6 @@ class ConfigurationTests(unittest.TestCase):
         profile.set_contact(**contact)
         config = Config()
         config.save(profile)
-        # profile.write(geometamaker.config.DEFAULT_CONFIG_PATH)
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -579,7 +589,7 @@ class ConfigurationTests(unittest.TestCase):
         # expect a default value for license title
         self.assertEqual('', resource.get_license().title)
 
-    @patch('platformdirs.user_config_dir')
+    @patch('geometamaker.config.platformdirs.user_config_dir')
     def test_runtime_configuration(self, mock_user_config_dir):
         """Test runtime config overrides user-level config."""
         mock_user_config_dir.return_value = self.workspace_dir
@@ -598,7 +608,6 @@ class ConfigurationTests(unittest.TestCase):
         profile.set_license(**license)
         config = Config()
         config.save(profile)
-        # profile.write(geometamaker.config.DEFAULT_CONFIG_PATH)
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
@@ -616,19 +625,35 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(license['title'], resource.get_license().title)
 
     def test_missing_config(self):
-        """Test that default config is instantiated if file is missing."""
+        """Test default profile is instantiated if config file is missing."""
         from geometamaker.config import Config
         config = Config('foo/path')
         self.assertEqual(config.profile.contact, None)
         self.assertEqual(config.profile.license, None)
 
-    def test_invalid_profile(self):
-        """Test invalid Profile raises TypeError."""
-        from geometamaker import models
+    @patch('geometamaker.config.platformdirs.user_config_dir')
+    def test_invalid_config(self, mock_user_config_dir):
+        """Test default profile is instantiated if config is invalid."""
+        mock_user_config_dir.return_value = self.workspace_dir
+        import geometamaker.config
 
-        with self.assertRaises(TypeError):
-            profile = models.Profile(contact={'foo_name': 'bob'})
+        with open(geometamaker.config.DEFAULT_CONFIG_PATH, 'w') as file:
+            file.write(yaml.dump({'bad': 'data'}))
 
-        profile = models.Profile()
-        with self.assertRaises(TypeError):
-            profile.set_contact(foo_name='bob')
+        config = geometamaker.config.Config()
+        self.assertEqual(config.profile.contact, None)
+        self.assertEqual(config.profile.license, None)
+
+    @patch('geometamaker.config.platformdirs.user_config_dir')
+    def test_delete_config(self, mock_user_config_dir):
+        """Test delete method of Config."""
+        mock_user_config_dir.return_value = self.workspace_dir
+        import geometamaker.config
+
+        with open(geometamaker.config.DEFAULT_CONFIG_PATH, 'w') as file:
+            file.write(yaml.dump({'bad': 'data'}))
+
+        config = geometamaker.config.Config()
+        config.delete()
+        self.assertFalse(
+            os.path.exists(geometamaker.config.DEFAULT_CONFIG_PATH))
