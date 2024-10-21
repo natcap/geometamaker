@@ -132,14 +132,14 @@ class RasterSchema:
 
 
 @dataclass()
-class Metadata:
+class _Metadata:
+    """A class for the things shared by Resource and Profile."""
 
     contact: ContactSchema = None
     license: LicenseSchema = None
 
     def __post_init__(self):
-        # Allow init of the profile with an instance of the correct
-        # dataclass, or with a dict.
+        # Allow init with an instance of the correct dataclass, or with a dict.
         if self.contact is not None:
             if not isinstance(self.contact, ContactSchema):
                 self.contact = ContactSchema(**self.contact)
@@ -182,8 +182,7 @@ class Metadata:
         """Add a license for the dataset.
 
         Either or both title and path are required if there is a license.
-        Call with no arguments to remove access constraints and license
-        info.
+        Call with no arguments to remove license info.
 
         Args:
             title (str): human-readable title of the license
@@ -212,15 +211,20 @@ class Metadata:
         return self.license
 
     def replace(self, other):
-        if isinstance(other, Metadata):
+        if isinstance(other, _Metadata):
             return dataclasses.replace(
                 self, **{k: v for k, v in other.__dict__.items() if v is not None})
         return NotImplementedError
 
 
 @dataclass
-class Profile(Metadata):
-    """Class for a metadata profile."""
+class Profile(_Metadata):
+    """Class for a metadata profile.
+
+    A Profile can store metadata properties that are likely to apply
+    to more than one resource, such as ``contact`` and ``license``.
+
+    """
 
     @classmethod
     def load(cls, filepath):
@@ -232,11 +236,6 @@ class Profile(Metadata):
         Returns:
             instance of the class
 
-        Raises:
-            FileNotFoundError if filepath does not exist
-            ValueError if the metadata is found to be incompatible with
-                geometamaker.
-
         """
         with fsspec.open(filepath, 'r') as file:
             yaml_string = file.read()
@@ -244,13 +243,19 @@ class Profile(Metadata):
         return cls(**yaml_dict)
 
     def write(self, target_path):
+        """Write profile data to a yaml file.
+
+        Args:
+            target_path (str): path to a yaml file to be written
+
+        """
         with open(target_path, 'w') as file:
             file.write(yaml.dump(
                 dataclasses.asdict(self), Dumper=_NoAliasDumper))
 
 
 @dataclass()
-class Resource(Metadata):
+class Resource(_Metadata):
     """Base class for metadata for a resource.
 
     https://datapackage.org/standard/data-resource/
