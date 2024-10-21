@@ -95,14 +95,13 @@ import os
 
 import geometamaker
 from geometamaker import models
-from geometamaker.config import Config
 
 contact = {
     'individual_name': 'bob'
 }
 
 profile = models.Profile(contact=contact)
-config = Config()
+config = geometamaker.Config()
 config.save(profile)
 
 data_path = 'data/watershed_gura.shp'

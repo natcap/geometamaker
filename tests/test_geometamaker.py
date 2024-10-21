@@ -529,7 +529,6 @@ class ConfigurationTests(unittest.TestCase):
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker
         from geometamaker import models
-        from geometamaker.config import Config
 
         contact = {
             'individual_name': 'bob'
@@ -542,7 +541,7 @@ class ConfigurationTests(unittest.TestCase):
         profile.set_contact(**contact)
         profile.set_license(**license)
 
-        config = Config()
+        config = geometamaker.Config()
         config.save(profile)
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
@@ -558,7 +557,6 @@ class ConfigurationTests(unittest.TestCase):
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker
         from geometamaker import models
-        from geometamaker.config import Config
 
         contact = {
             'individual_name': 'bob'
@@ -566,7 +564,7 @@ class ConfigurationTests(unittest.TestCase):
 
         profile = models.Profile()
         profile.set_contact(**contact)
-        config = Config()
+        config = geometamaker.Config()
         config.save(profile)
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
@@ -583,7 +581,6 @@ class ConfigurationTests(unittest.TestCase):
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker
         from geometamaker import models
-        from geometamaker.config import Config
 
         contact = {
             'individual_name': 'bob'
@@ -594,7 +591,7 @@ class ConfigurationTests(unittest.TestCase):
         profile = models.Profile()
         profile.set_contact(**contact)
         profile.set_license(**license)
-        config = Config()
+        config = geometamaker.Config()
         config.save(profile)
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
@@ -614,8 +611,8 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_missing_config(self):
         """Test default profile is instantiated if config file is missing."""
-        from geometamaker.config import Config
-        config = Config('foo/path')
+        import geometamaker
+        config = geometamaker.Config('foo/path')
         self.assertEqual(config.profile.contact, None)
         self.assertEqual(config.profile.license, None)
 
