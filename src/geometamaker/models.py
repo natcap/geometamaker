@@ -434,13 +434,11 @@ class Resource:
             file.write(yaml.dump(
                 dataclasses.asdict(self), Dumper=_NoAliasDumper))
 
-    def merge_profile(self, profile):
-        contact = profile.get_contact()
-        if isinstance(contact, ContactSchema):
-            self.contact = contact
-        license = profile.get_license()
-        if isinstance(license, LicenseSchema):
-            self.license = license
+    def replace(self, other):
+        if type(other) in (Resource, Profile):
+            return dataclasses.replace(
+                self, **{k: v for k, v in other.__dict__.items() if v is not None})
+        return NotImplementedError
 
     def to_string(self):
         pass
@@ -605,17 +603,14 @@ class Profile():
     license: LicenseSchema = None
 
     def __post_init__(self):
-        # Allow init of the resource with a schema of type
-        # TableSchema, or type dict. Mostly because dataclasses.replace
-        # calls init, but the base object will have already been initialized.
+        # Allow init of the profile with an instance of the correct
+        # dataclass, or with a dict.
         if self.contact is not None:
-            if isinstance(self.contact, ContactSchema):
-                return
-            self.contact = ContactSchema(**self.contact)
+            if not isinstance(self.contact, ContactSchema):
+                self.contact = ContactSchema(**self.contact)
         if self.license is not None:
-            if isinstance(self.license, LicenseSchema):
-                return
-            self.license = LicenseSchema(**self.license)
+            if not isinstance(self.license, LicenseSchema):
+                self.license = LicenseSchema(**self.license)
 
     def set_contact(self, organization=None, individual_name=None,
                     position_name=None, email=None):
@@ -638,7 +633,6 @@ class Profile():
             self.contact.position_name = position_name
         if email is not None:
             self.contact.email = email
-        print(self.contact)
 
     def get_contact(self):
         """Get metadata from a contact section.
@@ -703,10 +697,11 @@ class Profile():
         yaml_dict = yaml.safe_load(yaml_string)
         return cls(**yaml_dict)
 
-    @classmethod
-    def replace(cls, a, b):
-        return dataclasses.replace(
-            a, **{k: v for k, v in b.__dict__.items() if v is not None})
+    def replace(self, other):
+        if isinstance(other, Profile):
+            return dataclasses.replace(
+                self, **{k: v for k, v in other.__dict__.items() if v is not None})
+        return NotImplementedError
 
     def write(self, target_path):
         with open(target_path, 'w') as file:
