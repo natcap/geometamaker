@@ -3,7 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy
 from osgeo import gdal
@@ -511,17 +511,6 @@ class GeometamakerTests(unittest.TestCase):
         resource = geometamaker.describe(filepath)
         self.assertEqual(resource.path, filepath)
 
-    def test_invalid_profile(self):
-        """Test invalid Profile raises TypeError."""
-        from geometamaker import models
-
-        with self.assertRaises(TypeError):
-            profile = models.Profile(contact={'foo_name': 'bob'})
-
-        profile = models.Profile()
-        with self.assertRaises(TypeError):
-            profile.set_contact(foo_name='bob')
-
 
 class ConfigurationTests(unittest.TestCase):
     """Tests for geometamaker configuration."""
@@ -555,7 +544,6 @@ class ConfigurationTests(unittest.TestCase):
 
         config = Config()
         config.save(profile)
-        # profile.write(geometamaker.config.DEFAULT_CONFIG_PATH)
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)

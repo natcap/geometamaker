@@ -13,6 +13,7 @@ DEFAULT_CONFIG_PATH = os.path.join(
 
 
 class Config(object):
+    """Encapsulates user-settings such as a metadata Profile."""
 
     def __init__(self, config_path=DEFAULT_CONFIG_PATH):
         """Load a Profile from a config file.
@@ -37,6 +38,12 @@ class Config(object):
             LOGGER.warning(
                 f'{self.config_path} contains an inavlid profile. '
                 'It will be ignored. You may wish to delete() it.')
+
+    def __repr__(self):
+        """Represent config as a string."""
+        return (
+            f'{self.config_path}: \n'
+            f'{self.profile}')
 
     def save(self, profile):
         """Save a Profile to a local config file.
