@@ -17,8 +17,10 @@ class Config(object):
     def __init__(self, config_path=DEFAULT_CONFIG_PATH):
         """Load a Profile from a config file.
 
-        Use a default user profile if none given. Create
-        that default profile if necessary.
+        Use a default user profile if none given.
+
+        Args:
+            config_path (str): path to a local yaml file
 
         """
         self.config_path = config_path
@@ -37,14 +39,15 @@ class Config(object):
                 'It will be ignored. You may wish to delete() it.')
 
     def save(self, profile):
-        """Save a Profile as the default user profile.
+        """Save a Profile to a local config file.
 
         Args:
             profile (geometamaker.models.Profile)
         """
-        LOGGER.info(f'writing config to {self.config_path}')
+        LOGGER.info(f'writing profile to {self.config_path}')
         profile.write(self.config_path)
 
-    def delete(self, config_path=DEFAULT_CONFIG_PATH):
+    def delete(self):
+        """Delete the config file."""
         LOGGER.info(f'removing {self.config_path}')
-        os.remove(config_path)
+        os.remove(self.config_path)
