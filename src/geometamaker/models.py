@@ -132,7 +132,125 @@ class RasterSchema:
 
 
 @dataclass()
-class Resource:
+class Metadata:
+
+    contact: ContactSchema = None
+    license: LicenseSchema = None
+
+    def __post_init__(self):
+        # Allow init of the profile with an instance of the correct
+        # dataclass, or with a dict.
+        if self.contact is not None:
+            if not isinstance(self.contact, ContactSchema):
+                self.contact = ContactSchema(**self.contact)
+        if self.license is not None:
+            if not isinstance(self.license, LicenseSchema):
+                self.license = LicenseSchema(**self.license)
+
+    def set_contact(self, organization=None, individual_name=None,
+                    position_name=None, email=None):
+        """Add a contact section.
+
+        Args:
+            organization (str): name of the responsible organization
+            individual_name (str): name of the responsible person
+            position_name (str): role or position of the responsible person
+            email (str): address of the responsible organization or individual
+
+        """
+        if self.contact is None:
+            self.contact = ContactSchema()
+        if organization is not None:
+            self.contact.organization = organization
+        if individual_name is not None:
+            self.contact.individual_name = individual_name
+        if position_name is not None:
+            self.contact.position_name = position_name
+        if email is not None:
+            self.contact.email = email
+
+    def get_contact(self):
+        """Get metadata from a contact section.
+
+        Returns:
+            ContactSchema
+
+        """
+        return self.contact
+
+    def set_license(self, title=None, path=None):
+        """Add a license for the dataset.
+
+        Either or both title and path are required if there is a license.
+        Call with no arguments to remove access constraints and license
+        info.
+
+        Args:
+            title (str): human-readable title of the license
+            path (str): url for the license
+
+        """
+        if self.license is None:
+            self.license = LicenseSchema()
+        license_dict = {}
+        license_dict['title'] = title if title else ''
+        license_dict['path'] = path if path else ''
+
+        # TODO: DataPackage/Resource allows for a list of licenses.
+        # So far we only support one license per resource.
+        self.license = LicenseSchema(**license_dict)
+
+    def get_license(self):
+        """Get ``license`` for the dataset.
+
+        Returns:
+            models.LicenseSchema
+
+        """
+        # TODO: DataPackage/Resource allows for a list of licenses.
+        # So far we only support one license per resource.
+        return self.license
+
+    def replace(self, other):
+        if isinstance(other, Metadata):
+            return dataclasses.replace(
+                self, **{k: v for k, v in other.__dict__.items() if v is not None})
+        return NotImplementedError
+
+
+@dataclass
+class Profile(Metadata):
+    """Class for a metadata profile."""
+
+    @classmethod
+    def load(cls, filepath):
+        """Load metadata document from a yaml file.
+
+        Args:
+            filepath (str): path to yaml file
+
+        Returns:
+            instance of the class
+
+        Raises:
+            FileNotFoundError if filepath does not exist
+            ValueError if the metadata is found to be incompatible with
+                geometamaker.
+
+        """
+        with fsspec.open(filepath, 'r') as file:
+            yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        return cls(**yaml_dict)
+
+    def write(self, target_path):
+        with open(target_path, 'w') as file:
+            file.write(yaml.dump(
+                dataclasses.asdict(self), Dumper=_NoAliasDumper))
+
+
+@dataclass()
+class Resource(Metadata):
     """Base class for metadata for a resource.
 
     https://datapackage.org/standard/data-resource/
@@ -253,36 +371,6 @@ class Resource:
         """Get the citation for the dataset."""
         return self.citation
 
-    def set_contact(self, organization=None, individual_name=None,
-                    position_name=None, email=None):
-        """Add a contact section.
-
-        Args:
-            organization (str): name of the responsible organization
-            individual_name (str): name of the responsible person
-            position_name (str): role or position of the responsible person
-            email (str): address of the responsible organization or individual
-
-        """
-
-        if organization is not None:
-            self.contact.organization = organization
-        if individual_name is not None:
-            self.contact.individual_name = individual_name
-        if position_name is not None:
-            self.contact.position_name = position_name
-        if email is not None:
-            self.contact.email = email
-
-    def get_contact(self):
-        """Get metadata from a contact section.
-
-        Returns:
-            ContactSchema
-
-        """
-        return self.contact
-
     def set_doi(self, doi):
         """Add a doi string for the dataset.
 
@@ -325,37 +413,6 @@ class Resource:
 
     def get_keywords(self):
         return self.keywords
-
-    def set_license(self, title=None, path=None):
-        """Add a license for the dataset.
-
-        Either or both title and path are required if there is a license.
-        Call with no arguments to remove access constraints and license
-        info.
-
-        Args:
-            title (str): human-readable title of the license
-            path (str): url for the license
-
-        """
-        license_dict = {}
-        license_dict['title'] = title if title else ''
-        license_dict['path'] = path if path else ''
-
-        # TODO: DataPackage/Resource allows for a list of licenses.
-        # So far we only support one license per resource.
-        self.license = LicenseSchema(**license_dict)
-
-    def get_license(self):
-        """Get ``license`` for the dataset.
-
-        Returns:
-            models.LicenseSchema
-
-        """
-        # TODO: DataPackage/Resource allows for a list of licenses.
-        # So far we only support one license per resource.
-        return self.license
 
     def set_lineage(self, statement):
         """Set the lineage statement for the dataset.
@@ -433,12 +490,6 @@ class Resource:
         with open(target_path, 'w') as file:
             file.write(yaml.dump(
                 dataclasses.asdict(self), Dumper=_NoAliasDumper))
-
-    def replace(self, other):
-        if type(other) in (Resource, Profile):
-            return dataclasses.replace(
-                self, **{k: v for k, v in other.__dict__.items() if v is not None})
-        return NotImplementedError
 
     def to_string(self):
         pass
@@ -588,122 +639,3 @@ class RasterResource(Resource):
 
         """
         return self.schema.bands[band_number - 1]
-
-
-# TODO: Profile has a lot in common with Resource, consider some inheritance
-@dataclass
-class Profile():
-    """Class for a metadata profile.
-
-    This is similar to a Resource, but attributes default to None.
-
-    """
-
-    contact: ContactSchema = None
-    license: LicenseSchema = None
-
-    def __post_init__(self):
-        # Allow init of the profile with an instance of the correct
-        # dataclass, or with a dict.
-        if self.contact is not None:
-            if not isinstance(self.contact, ContactSchema):
-                self.contact = ContactSchema(**self.contact)
-        if self.license is not None:
-            if not isinstance(self.license, LicenseSchema):
-                self.license = LicenseSchema(**self.license)
-
-    def set_contact(self, organization=None, individual_name=None,
-                    position_name=None, email=None):
-        """Add a contact section.
-
-        Args:
-            organization (str): name of the responsible organization
-            individual_name (str): name of the responsible person
-            position_name (str): role or position of the responsible person
-            email (str): address of the responsible organization or individual
-
-        """
-        if self.contact is None:
-            self.contact = ContactSchema()
-        if organization is not None:
-            self.contact.organization = organization
-        if individual_name is not None:
-            self.contact.individual_name = individual_name
-        if position_name is not None:
-            self.contact.position_name = position_name
-        if email is not None:
-            self.contact.email = email
-
-    def get_contact(self):
-        """Get metadata from a contact section.
-
-        Returns:
-            ContactSchema
-
-        """
-        return self.contact
-
-    def set_license(self, title=None, path=None):
-        """Add a license for the dataset.
-
-        Either or both title and path are required if there is a license.
-        Call with no arguments to remove access constraints and license
-        info.
-
-        Args:
-            title (str): human-readable title of the license
-            path (str): url for the license
-
-        """
-        if self.license is None:
-            self.license = LicenseSchema()
-        license_dict = {}
-        license_dict['title'] = title if title else ''
-        license_dict['path'] = path if path else ''
-
-        # TODO: DataPackage/Resource allows for a list of licenses.
-        # So far we only support one license per resource.
-        self.license = LicenseSchema(**license_dict)
-
-    def get_license(self):
-        """Get ``license`` for the dataset.
-
-        Returns:
-            models.LicenseSchema
-
-        """
-        # TODO: DataPackage/Resource allows for a list of licenses.
-        # So far we only support one license per resource.
-        return self.license
-
-    @classmethod
-    def load(cls, filepath):
-        """Load metadata document from a yaml file.
-
-        Args:
-            filepath (str): path to yaml file
-
-        Returns:
-            instance of the class
-
-        Raises:
-            FileNotFoundError if filepath does not exist
-            ValueError if the metadata is found to be incompatible with
-                geometamaker.
-
-        """
-        with fsspec.open(filepath, 'r') as file:
-            yaml_string = file.read()
-        yaml_dict = yaml.safe_load(yaml_string)
-        return cls(**yaml_dict)
-
-    def replace(self, other):
-        if isinstance(other, Profile):
-            return dataclasses.replace(
-                self, **{k: v for k, v in other.__dict__.items() if v is not None})
-        return NotImplementedError
-
-    def write(self, target_path):
-        with open(target_path, 'w') as file:
-            file.write(yaml.dump(
-                dataclasses.asdict(self), Dumper=_NoAliasDumper))

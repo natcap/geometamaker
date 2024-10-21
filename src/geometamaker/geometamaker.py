@@ -318,6 +318,6 @@ def describe(source_dataset_path, profile=None):
     # Or less common, ValueError if it exists but is incompatible
     except (FileNotFoundError, ValueError):
         resource = RESOURCE_MODELS[resource_type](**description)
-        resource.replace(user_profile)
+        resource = resource.replace(user_profile)
 
     return resource
