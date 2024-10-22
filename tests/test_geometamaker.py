@@ -255,6 +255,18 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(band.nodata, raster_info['nodata'][band_idx])
         self.assertEqual(band.units, units)
 
+    def test_describe_zip(self):
+        """Test metadata for a zipfile."""
+        import zipfile
+        import geometamaker
+
+        zip_filepath = os.path.join(self.workspace_dir, 'data.zip')
+        zipf = zipfile.ZipFile(zip_filepath, "w", zipfile.ZIP_DEFLATED)
+        zipf.write('foo.txt')
+        zipf.write('bar.txt')
+        resource = geometamaker.describe(zip_filepath)
+        self.assertEqual(resource.sources, ['foo.txt', 'bar.txt'])
+
     def test_set_description(self):
         """Test set and get a description for a resource."""
 
