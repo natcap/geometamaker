@@ -211,6 +211,22 @@ class BaseMetadata:
         return self.license
 
     def replace(self, other):
+        """Replace attribute values with those from another instance.
+
+        Only attributes that exist in ``self`` will exist in the
+        returned instance. Only attribute values that are not None will be used
+        to replace existing attribute values in ``self``.
+
+        Args:
+            other (BaseMetadata)
+
+        Returns:
+            an instance of same type as ``self``
+
+        Raises:
+            TypeError if ``other`` is not an instance of BaseMetadata.
+
+        """
         if isinstance(other, BaseMetadata):
             return dataclasses.replace(
                 self, **{k: v for k, v in other.__dict__.items() if v is not None})
