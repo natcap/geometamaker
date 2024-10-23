@@ -132,7 +132,7 @@ class RasterSchema:
 
 
 @dataclass()
-class _Metadata:
+class BaseMetadata:
     """A class for the things shared by Resource and Profile."""
 
     contact: ContactSchema = None
@@ -211,14 +211,14 @@ class _Metadata:
         return self.license
 
     def replace(self, other):
-        if isinstance(other, _Metadata):
+        if isinstance(other, BaseMetadata):
             return dataclasses.replace(
                 self, **{k: v for k, v in other.__dict__.items() if v is not None})
-        raise NotImplementedError
+        raise TypeError(f'{other} must be an instance of BaseMetadata')
 
 
 @dataclass
-class Profile(_Metadata):
+class Profile(BaseMetadata):
     """Class for a metadata profile.
 
     A Profile can store metadata properties that are likely to apply
@@ -255,7 +255,7 @@ class Profile(_Metadata):
 
 
 @dataclass()
-class Resource(_Metadata):
+class Resource(BaseMetadata):
     """Base class for metadata for a resource.
 
     https://datapackage.org/standard/data-resource/
