@@ -256,16 +256,27 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(band.units, units)
 
     def test_describe_zip(self):
-        """Test metadata for a zipfile."""
+        """Test metadata for a zipfile includes list of contents."""
         import zipfile
         import geometamaker
 
+        a_name = 'a.txt'
+        dir_name = 'subdir'
+        os.makedirs(os.path.join(self.workspace_dir, dir_name))
+        b_name = os.path.join(dir_name, 'b.txt')
+        a_path = os.path.join(self.workspace_dir, a_name)
+        b_path = os.path.join(self.workspace_dir, b_name)
+        with open(a_path, 'w') as file:
+            file.write('')
+        with open(b_path, 'w') as file:
+            file.write('')
+
         zip_filepath = os.path.join(self.workspace_dir, 'data.zip')
-        zipf = zipfile.ZipFile(zip_filepath, "w", zipfile.ZIP_DEFLATED)
-        zipf.write('foo.txt')
-        zipf.write('bar.txt')
+        with zipfile.ZipFile(zip_filepath, "w", zipfile.ZIP_DEFLATED) as zipf:
+            zipf.write(a_path, arcname=a_name)
+            zipf.write(b_path, arcname=b_name)
         resource = geometamaker.describe(zip_filepath)
-        self.assertEqual(resource.sources, ['foo.txt', 'bar.txt'])
+        self.assertEqual(resource.sources, [a_name, b_name])
 
     def test_set_description(self):
         """Test set and get a description for a resource."""
