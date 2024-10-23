@@ -8,10 +8,11 @@ from datetime import datetime, timezone
 import frictionless
 import fsspec
 import numpy
-from osgeo import gdal
 import pygeoprocessing
+from osgeo import gdal
 
 from . import models
+from .config import Config
 
 
 LOGGER = logging.getLogger(__name__)
@@ -247,7 +248,7 @@ RESOURCE_MODELS = {
 }
 
 
-def describe(source_dataset_path):
+def describe(source_dataset_path, profile=None):
     """Create a metadata resource instance with properties of the dataset.
 
     Properties of the dataset are used to populate as many metadata
@@ -263,6 +264,11 @@ def describe(source_dataset_path):
         or RasterResource
 
     """
+    config = Config()
+    user_profile = config.profile
+    if profile is not None:
+        user_profile = user_profile.replace(profile)
+
     metadata_path = f'{source_dataset_path}.yml'
 
     # Despite naming, this does not open a file that must be closed
@@ -321,7 +327,8 @@ def describe(source_dataset_path):
 
     # Common path: metadata file does not already exist
     # Or less common, ValueError if it exists but is incompatible
-    except (FileNotFoundError, ValueError) as err:
+    except (FileNotFoundError, ValueError):
         resource = RESOURCE_MODELS[resource_type](**description)
+        resource = resource.replace(user_profile)
 
     return resource
