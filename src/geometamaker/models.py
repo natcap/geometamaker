@@ -50,7 +50,7 @@ class ContactSchema:
 
 
 @dataclass
-class License:
+class LicenseSchema:
     """Class for storing license info."""
 
     # https://datapackage.org/profiles/2.0/dataresource.json
@@ -58,8 +58,8 @@ class License:
     # "MUST be an Open Definition license identifier",
     # see http://licenses.opendefinition.org/"
     # I don't think that's useful to us yet.
-    path: str
-    title: str
+    path: str = ''
+    title: str = ''
 
 
 @dataclass
@@ -132,7 +132,146 @@ class RasterSchema:
 
 
 @dataclass()
-class Resource:
+class BaseMetadata:
+    """A class for the things shared by Resource and Profile."""
+
+    contact: ContactSchema = None
+    license: LicenseSchema = None
+
+    def __post_init__(self):
+        # Allow init with an instance of the correct dataclass, or with a dict.
+        if self.contact is not None:
+            if not isinstance(self.contact, ContactSchema):
+                self.contact = ContactSchema(**self.contact)
+        if self.license is not None:
+            if not isinstance(self.license, LicenseSchema):
+                self.license = LicenseSchema(**self.license)
+
+    def set_contact(self, organization=None, individual_name=None,
+                    position_name=None, email=None):
+        """Add a contact section.
+
+        Args:
+            organization (str): name of the responsible organization
+            individual_name (str): name of the responsible person
+            position_name (str): role or position of the responsible person
+            email (str): address of the responsible organization or individual
+
+        """
+        if self.contact is None:
+            self.contact = ContactSchema()
+        if organization is not None:
+            self.contact.organization = organization
+        if individual_name is not None:
+            self.contact.individual_name = individual_name
+        if position_name is not None:
+            self.contact.position_name = position_name
+        if email is not None:
+            self.contact.email = email
+
+    def get_contact(self):
+        """Get metadata from a contact section.
+
+        Returns:
+            ContactSchema
+
+        """
+        return self.contact
+
+    def set_license(self, title=None, path=None):
+        """Add a license for the dataset.
+
+        Either or both title and path are required if there is a license.
+        Call with no arguments to remove license info.
+
+        Args:
+            title (str): human-readable title of the license
+            path (str): url for the license
+
+        """
+        if self.license is None:
+            self.license = LicenseSchema()
+        license_dict = {}
+        license_dict['title'] = title if title else ''
+        license_dict['path'] = path if path else ''
+
+        # TODO: DataPackage/Resource allows for a list of licenses.
+        # So far we only support one license per resource.
+        self.license = LicenseSchema(**license_dict)
+
+    def get_license(self):
+        """Get ``license`` for the dataset.
+
+        Returns:
+            models.LicenseSchema
+
+        """
+        # TODO: DataPackage/Resource allows for a list of licenses.
+        # So far we only support one license per resource.
+        return self.license
+
+    def replace(self, other):
+        """Replace attribute values with those from another instance.
+
+        Only attributes that exist in ``self`` will exist in the
+        returned instance. Only attribute values that are not None will be used
+        to replace existing attribute values in ``self``.
+
+        Args:
+            other (BaseMetadata)
+
+        Returns:
+            an instance of same type as ``self``
+
+        Raises:
+            TypeError if ``other`` is not an instance of BaseMetadata.
+
+        """
+        if isinstance(other, BaseMetadata):
+            return dataclasses.replace(
+                self, **{k: v for k, v in other.__dict__.items() if v is not None})
+        raise TypeError(f'{other} must be an instance of BaseMetadata')
+
+
+@dataclass
+class Profile(BaseMetadata):
+    """Class for a metadata profile.
+
+    A Profile can store metadata properties that are likely to apply
+    to more than one resource, such as ``contact`` and ``license``.
+
+    """
+
+    @classmethod
+    def load(cls, filepath):
+        """Load metadata document from a yaml file.
+
+        Args:
+            filepath (str): path to yaml file
+
+        Returns:
+            instance of the class
+
+        """
+        with fsspec.open(filepath, 'r') as file:
+            yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        return cls(**yaml_dict)
+
+    def write(self, target_path):
+        """Write profile data to a yaml file.
+
+        Args:
+            target_path (str): path to a yaml file to be written
+
+        """
+        with open(target_path, 'w') as file:
+            file.write(yaml.dump(
+                dataclasses.asdict(self), Dumper=_NoAliasDumper))
+
+
+@dataclass()
+class Resource(BaseMetadata):
     """Base class for metadata for a resource.
 
     https://datapackage.org/standard/data-resource/
@@ -145,6 +284,7 @@ class Resource:
     with which to complete later.
 
     """
+
     # A version string we can use to identify geometamaker compliant documents
     metadata_version: str = dataclasses.field(init=False)
 
@@ -172,7 +312,7 @@ class Resource:
     doi: str = ''
     edition: str = ''
     keywords: list = dataclasses.field(default_factory=list)
-    licenses: list = dataclasses.field(default_factory=list)
+    license: LicenseSchema = dataclasses.field(default_factory=LicenseSchema)
     lineage: str = ''
     purpose: str = ''
     title: str = ''
@@ -252,36 +392,6 @@ class Resource:
         """Get the citation for the dataset."""
         return self.citation
 
-    def set_contact(self, organization=None, individual_name=None,
-                    position_name=None, email=None):
-        """Add a contact section.
-
-        Args:
-            organization (str): name of the responsible organization
-            individual_name (str): name of the responsible person
-            position_name (str): role or position of the responsible person
-            email (str): address of the responsible organization or individual
-
-        """
-
-        if organization is not None:
-            self.contact.organization = organization
-        if individual_name is not None:
-            self.contact.individual_name = individual_name
-        if position_name is not None:
-            self.contact.position_name = position_name
-        if email is not None:
-            self.contact.email = email
-
-    def get_contact(self):
-        """Get metadata from a contact section.
-
-        Returns:
-            ContactSchema
-
-        """
-        return self.contact
-
     def set_doi(self, doi):
         """Add a doi string for the dataset.
 
@@ -324,38 +434,6 @@ class Resource:
 
     def get_keywords(self):
         return self.keywords
-
-    def set_license(self, title=None, path=None):
-        """Add a license for the dataset.
-
-        Either or both title and path are required if there is a license.
-        Call with no arguments to remove access constraints and license
-        info.
-
-        Args:
-            title (str): human-readable title of the license
-            path (str): url for the license
-
-        """
-        license_dict = {}
-        license_dict['title'] = title if title else ''
-        license_dict['path'] = path if path else ''
-
-        # TODO: DataPackage/Resource allows for a list of licenses.
-        # So far we only support one license per resource.
-        self.licenses = [License(**license_dict)]
-
-    def get_license(self):
-        """Get ``license`` for the dataset.
-
-        Returns:
-            models.License
-
-        """
-        # TODO: DataPackage/Resource allows for a list of licenses.
-        # So far we only support one license per resource.
-        if self.licenses:
-            return self.licenses[0]
 
     def set_lineage(self, statement):
         """Set the lineage statement for the dataset.
