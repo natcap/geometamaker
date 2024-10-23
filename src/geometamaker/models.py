@@ -521,7 +521,6 @@ class ArchiveResource(Resource):
     """Class for metadata for an archive resource."""
 
     compression: str
-    innerpath: str
 
 
 @dataclass(kw_only=True)
