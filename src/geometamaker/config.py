@@ -41,9 +41,7 @@ class Config(object):
 
     def __repr__(self):
         """Represent config as a string."""
-        return (
-            f'{self.config_path}: \n'
-            f'{self.profile}')
+        return f'Config(config_path={self.config_path} profile={self.profile})'
 
     def save(self, profile):
         """Save a Profile to a local config file.
