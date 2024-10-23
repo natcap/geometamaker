@@ -30,11 +30,11 @@ class Config(object):
         try:
             self.profile = models.Profile.load(self.config_path)
         except FileNotFoundError as err:
-            LOGGER.debug(err)
+            LOGGER.debug('config file does not exist', exc_info=err)
             pass
         # an invalid profile should raise a TypeError
         except TypeError as err:
-            LOGGER.warning(err)
+            LOGGER.warning('', exc_info=err)
             LOGGER.warning(
                 f'{self.config_path} contains an inavlid profile. '
                 'It will be ignored. You may wish to delete() it.')
