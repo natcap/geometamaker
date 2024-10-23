@@ -214,7 +214,7 @@ class _Metadata:
         if isinstance(other, _Metadata):
             return dataclasses.replace(
                 self, **{k: v for k, v in other.__dict__.items() if v is not None})
-        return NotImplementedError
+        raise NotImplementedError
 
 
 @dataclass
