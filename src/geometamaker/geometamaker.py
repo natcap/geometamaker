@@ -134,6 +134,17 @@ def describe_archive(source_dataset_path, scheme):
 
     """
     description = describe_file(source_dataset_path, scheme)
+    # innerpath is from frictionless and not useful because
+    # it does not include all the files contained in the zip
+    del description['innerpath']
+
+    ZFS = fsspec.get_filesystem_class('zip')
+    zfs = ZFS(source_dataset_path)
+    file_list = []
+    for dirpath, _, files in zfs.walk(zfs.root_marker):
+        for f in files:
+            file_list.append(os.path.join(dirpath, f))
+    description['sources'] = file_list
     return description
 
 
