@@ -292,7 +292,7 @@ class Resource(BaseMetadata):
     # A version string we can use to identify geometamaker compliant documents
     metadata_version: str = dataclasses.field(init=False)
 
-    # These are populated by `frictionless.describe()` or fsspec info
+    # These are populated geometamaker.describe()
     bytes: int = 0
     encoding: str = ''
     format: str = ''
@@ -303,13 +303,13 @@ class Resource(BaseMetadata):
     scheme: str = ''
     type: str = ''
     last_modified: str = ''
-
     # DataPackage includes `sources` as a list of source files
     # with some amount of metadata for each item. For our
     # use-case, I think a list of filenames is good enough.
     sources: list = dataclasses.field(default_factory=list)
 
-    # These are not populated by geometamaker
+    # These are not populated by geometamaker.describe(),
+    # and should have setters & getters
     citation: str = ''
     contact: ContactSchema = dataclasses.field(default_factory=ContactSchema)
     description: str = ''
@@ -325,6 +325,8 @@ class Resource(BaseMetadata):
     def __post_init__(self):
         self.metadata_path = f'{self.path}.yml'
         self.metadata_version: str = f'geometamaker.{geometamaker.__version__}'
+        self.path = self.path.replace('\\', '/')
+        self.sources = [x.replace('\\', '/') for x in self.sources]
 
     @classmethod
     def load(cls, filepath):
