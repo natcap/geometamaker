@@ -111,6 +111,7 @@ class BandSchema:
     nodata: int | float
     description: str = ''
     title: str = ''
+    units: str = ''
 
 
 @dataclass
