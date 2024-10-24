@@ -22,7 +22,7 @@ class _NoAliasDumper(yaml.SafeDumper):
 
 
 def yaml_dump(data):
-    return yaml.dump(data, Dumper=_NoAliasDumper)
+    return yaml.dump(data, allow_unicode=True, Dumper=_NoAliasDumper)
 
 
 @dataclass
