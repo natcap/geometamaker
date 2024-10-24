@@ -21,6 +21,10 @@ class _NoAliasDumper(yaml.SafeDumper):
         return True
 
 
+def yaml_dump(data):
+    return yaml.dump(data, Dumper=_NoAliasDumper)
+
+
 @dataclass
 class BoundingBox():
     """Class for a spatial bounding box."""
@@ -266,8 +270,7 @@ class Profile(BaseMetadata):
 
         """
         with open(target_path, 'w') as file:
-            file.write(yaml.dump(
-                dataclasses.asdict(self), Dumper=_NoAliasDumper))
+            file.write(yaml_dump(dataclasses.asdict(self)))
 
 
 @dataclass()
@@ -509,8 +512,7 @@ class Resource(BaseMetadata):
                 workspace, os.path.basename(self.metadata_path))
 
         with open(target_path, 'w') as file:
-            file.write(yaml.dump(
-                dataclasses.asdict(self), Dumper=_NoAliasDumper))
+            file.write(yaml_dump(dataclasses.asdict(self)))
 
     def to_string(self):
         pass
