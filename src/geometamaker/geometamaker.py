@@ -174,7 +174,7 @@ def describe_vector(source_dataset_path, scheme):
 
     info = pygeoprocessing.get_vector_info(source_dataset_path)
     spatial = {
-        'bounding_box': info['bounding_box'],
+        'bounding_box': models.BoundingBox(*info['bounding_box']),
         'crs': info['projection_wkt']
     }
     description['spatial'] = models.SpatialSchema(**spatial)
@@ -211,7 +211,7 @@ def describe_raster(source_dataset_path, scheme):
     # Some values of raster info are numpy types, which the
     # yaml dumper doesn't know how to represent.
     description['spatial'] = models.SpatialSchema(
-        bounding_box=[float(x) for x in info['bounding_box']],
+        bounding_box=models.BoundingBox(*[float(x) for x in info['bounding_box']]),
         crs=info['projection_wkt'])
     description['sources'] = info['file_list']
     return description
