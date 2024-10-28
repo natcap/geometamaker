@@ -264,7 +264,7 @@ class GeometamakerTests(unittest.TestCase):
         create_raster(numpy.int16, datasource_path, projection_epsg=None)
 
         resource = geometamaker.describe(datasource_path)
-        self.assertEqual(resource.spatial.crs, 'unkown')
+        self.assertEqual(resource.spatial.crs, 'unknown')
 
     def test_describe_zip(self):
         """Test metadata for a zipfile includes list of contents."""
@@ -287,7 +287,7 @@ class GeometamakerTests(unittest.TestCase):
             zipf.write(a_path, arcname=a_name)
             zipf.write(b_path, arcname=b_name)
         resource = geometamaker.describe(zip_filepath)
-        self.assertEqual(resource.sources, [a_name, b_name])
+        self.assertEqual(resource.sources, [a_name, b_name.replace('\\', '/')])
 
     def test_set_description(self):
         """Test set and get a description for a resource."""
