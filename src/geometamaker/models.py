@@ -25,7 +25,7 @@ def _yaml_dump(data):
     return yaml.dump(data, allow_unicode=True, Dumper=_NoAliasDumper)
 
 
-@dataclass
+@dataclass(frozen=True)
 class BoundingBox():
     """Class for a spatial bounding box."""
 
@@ -35,8 +35,8 @@ class BoundingBox():
     ymax: float
 
 
-@dataclass
-class SpatialSchema():
+@dataclass(frozen=True)
+class SpatialSchema:
     """Class for keeping track of spatial info."""
 
     bounding_box: BoundingBox
