@@ -21,8 +21,12 @@ class _NoAliasDumper(yaml.SafeDumper):
         return True
 
 
-@dataclass
-class BoundingBox():
+def _yaml_dump(data):
+    return yaml.dump(data, allow_unicode=True, Dumper=_NoAliasDumper)
+
+
+@dataclass(frozen=True)
+class BoundingBox:
     """Class for a spatial bounding box."""
 
     xmin: float
@@ -31,8 +35,8 @@ class BoundingBox():
     ymax: float
 
 
-@dataclass
-class SpatialSchema():
+@dataclass(frozen=True)
+class SpatialSchema:
     """Class for keeping track of spatial info."""
 
     bounding_box: BoundingBox
@@ -107,6 +111,7 @@ class BandSchema:
     nodata: int | float
     description: str = ''
     title: str = ''
+    units: str = ''
 
 
 @dataclass
@@ -266,8 +271,7 @@ class Profile(BaseMetadata):
 
         """
         with open(target_path, 'w') as file:
-            file.write(yaml.dump(
-                dataclasses.asdict(self), Dumper=_NoAliasDumper))
+            file.write(_yaml_dump(dataclasses.asdict(self)))
 
 
 @dataclass()
@@ -288,7 +292,7 @@ class Resource(BaseMetadata):
     # A version string we can use to identify geometamaker compliant documents
     metadata_version: str = dataclasses.field(init=False)
 
-    # These are populated by `frictionless.describe()` or fsspec info
+    # These are populated geometamaker.describe()
     bytes: int = 0
     encoding: str = ''
     format: str = ''
@@ -299,13 +303,13 @@ class Resource(BaseMetadata):
     scheme: str = ''
     type: str = ''
     last_modified: str = ''
-
     # DataPackage includes `sources` as a list of source files
     # with some amount of metadata for each item. For our
     # use-case, I think a list of filenames is good enough.
     sources: list = dataclasses.field(default_factory=list)
 
-    # These are not populated by geometamaker
+    # These are not populated by geometamaker.describe(),
+    # and should have setters & getters
     citation: str = ''
     contact: ContactSchema = dataclasses.field(default_factory=ContactSchema)
     description: str = ''
@@ -321,6 +325,8 @@ class Resource(BaseMetadata):
     def __post_init__(self):
         self.metadata_path = f'{self.path}.yml'
         self.metadata_version: str = f'geometamaker.{geometamaker.__version__}'
+        self.path = self.path.replace('\\', '/')
+        self.sources = [x.replace('\\', '/') for x in self.sources]
 
     @classmethod
     def load(cls, filepath):
@@ -509,8 +515,7 @@ class Resource(BaseMetadata):
                 workspace, os.path.basename(self.metadata_path))
 
         with open(target_path, 'w') as file:
-            file.write(yaml.dump(
-                dataclasses.asdict(self), Dumper=_NoAliasDumper))
+            file.write(_yaml_dump(dataclasses.asdict(self)))
 
     def to_string(self):
         pass

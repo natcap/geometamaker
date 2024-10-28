@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import hashlib
 import logging
 import os
@@ -10,6 +11,7 @@ import fsspec
 import numpy
 import pygeoprocessing
 from osgeo import gdal
+from osgeo import osr
 
 from . import models
 from .config import Config
@@ -27,6 +29,46 @@ PROTOCOLS = [
 DT_FMT = '%Y-%m-%d %H:%M:%S'
 
 
+# TODO: In the future we can remove these exception managers in favor of the
+# builtin gdal.ExceptionMgr. It was released in 3.7.0 and debugged in 3.9.1.
+# https://github.com/OSGeo/gdal/blob/v3.9.3/NEWS.md#gdalogr-391-release-notes
+class _OSGEOUseExceptions:
+    """Context manager that enables GDAL/OSR exceptions and restores state after."""
+
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        self.currentGDALUseExceptions = gdal.GetUseExceptions()
+        self.currentOSRUseExceptions = osr.GetUseExceptions()
+        gdal.UseExceptions()
+        osr.UseExceptions()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # The error-handlers are in a stack, so
+        # these must be called from the top down.
+        if self.currentOSRUseExceptions == 0:
+            osr.DontUseExceptions()
+        if self.currentGDALUseExceptions == 0:
+            gdal.DontUseExceptions()
+
+
+def _osgeo_use_exceptions(func):
+    """Decorator that enables GDAL/OSR exceptions and restores state after.
+
+    Args:
+        func (callable): function to call with GDAL/OSR exceptions enabled
+
+    Returns:
+        Wrapper function that calls ``func`` with GDAL/OSR exceptions enabled
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with _OSGEOUseExceptions():
+            return func(*args, **kwargs)
+    return wrapper
+
+
 def _vsi_path(filepath, scheme):
     """Construct a GDAL virtual file system path.
 
@@ -41,6 +83,21 @@ def _vsi_path(filepath, scheme):
     if scheme.startswith('http'):
         filepath = f'/vsicurl/{filepath}'
     return filepath
+
+
+def _wkt_to_epsg_string(wkt_string):
+    crs_string = 'unknown'
+    try:
+        srs = osr.SpatialReference(wkt_string)
+        srs.AutoIdentifyEPSG()
+        crs_string = (
+            f"{srs.GetAttrValue('AUTHORITY', 0)}:"
+            f"{srs.GetAttrValue('AUTHORITY', 1)}; "
+            f"Units:{srs.GetAttrValue('UNITS')}")
+    except RuntimeError:
+        LOGGER.warning(
+            f'{wkt_string} cannot be interpreted as a coordinate reference system')
+    return crs_string
 
 
 def detect_file_type(filepath, scheme):
@@ -107,7 +164,7 @@ def describe_file(source_dataset_path, scheme):
         info = requests.head(source_dataset_path).headers
         description['bytes'] = info['Content-Length']
         description['last_modified'] = datetime.strptime(
-            info['Last-Modified'], '%a, %d %B %Y %H:%M:%S %Z').strftime(DT_FMT)
+            info['Last-Modified'], '%a, %d %b %Y %H:%M:%S %Z').strftime(DT_FMT)
     else:
         info = os.stat(source_dataset_path)
         description['bytes'] = info.st_size
@@ -173,9 +230,10 @@ def describe_vector(source_dataset_path, scheme):
     description['schema'] = models.TableSchema(fields=fields)
 
     info = pygeoprocessing.get_vector_info(source_dataset_path)
+    epsg_string = _wkt_to_epsg_string(info['projection_wkt'])
     spatial = {
-        'bounding_box': info['bounding_box'],
-        'crs': info['projection_wkt']
+        'bounding_box': models.BoundingBox(*info['bounding_box']),
+        'crs': epsg_string
     }
     description['spatial'] = models.SpatialSchema(**spatial)
     description['sources'] = info['file_list']
@@ -210,9 +268,11 @@ def describe_raster(source_dataset_path, scheme):
         raster_size=info['raster_size'])
     # Some values of raster info are numpy types, which the
     # yaml dumper doesn't know how to represent.
+    bbox = models.BoundingBox(*[float(x) for x in info['bounding_box']])
+    epsg_string = _wkt_to_epsg_string(info['projection_wkt'])
     description['spatial'] = models.SpatialSchema(
-        bounding_box=[float(x) for x in info['bounding_box']],
-        crs=info['projection_wkt'])
+        bounding_box=bbox,
+        crs=epsg_string)
     description['sources'] = info['file_list']
     return description
 
@@ -248,6 +308,7 @@ RESOURCE_MODELS = {
 }
 
 
+@_osgeo_use_exceptions
 def describe(source_dataset_path, profile=None):
     """Create a metadata resource instance with properties of the dataset.
 
@@ -258,10 +319,11 @@ def describe(source_dataset_path, profile=None):
     Args:
         source_dataset_path (string): path or URL to dataset to which the
             metadata applies
+        profile (geometamaker.models.Profile): a profile object from
+            which to populate some metadata attributes
 
-    Returns
-        instance of ArchiveResource, TableResource, VectorResource,
-        or RasterResource
+    Returns:
+        geometamaker.models.Resource: a metadata object
 
     """
     config = Config()
