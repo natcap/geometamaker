@@ -164,7 +164,7 @@ def describe_file(source_dataset_path, scheme):
         info = requests.head(source_dataset_path).headers
         description['bytes'] = info['Content-Length']
         description['last_modified'] = datetime.strptime(
-            info['Last-Modified'], '%a, %d %B %Y %H:%M:%S %Z').strftime(DT_FMT)
+            info['Last-Modified'], '%a, %d %b %Y %H:%M:%S %Z').strftime(DT_FMT)
     else:
         info = os.stat(source_dataset_path)
         description['bytes'] = info.st_size

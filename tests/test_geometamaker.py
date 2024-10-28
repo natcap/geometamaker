@@ -540,7 +540,7 @@ class GeometamakerTests(unittest.TestCase):
         """Test describe on a file at a public url."""
         import geometamaker
 
-        filepath = 'https://storage.googleapis.com/natcap-data-cache/global/aster-v3-1s/aster-v3-1s.tif'
+        filepath = 'https://storage.googleapis.com/releases.naturalcapitalproject.org/invest/3.14.2/data/CoastalBlueCarbon.zip'
         resource = geometamaker.describe(filepath)
         self.assertEqual(resource.path, filepath)
 
