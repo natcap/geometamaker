@@ -40,7 +40,7 @@ class SpatialSchema():
     """Class for keeping track of spatial info."""
 
     bounding_box: BoundingBox
-    crs: dict
+    crs: str
 
 
 @dataclass

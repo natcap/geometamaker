@@ -256,6 +256,16 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(band.nodata, raster_info['nodata'][band_idx])
         self.assertEqual(band.units, units)
 
+    def test_describe_raster_no_projection(self):
+        """Test for a raster that is missing a projection."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path, projection_epsg=None)
+
+        resource = geometamaker.describe(datasource_path)
+        self.assertEqual(resource.spatial.crs, 'unkown')
+
     def test_describe_zip(self):
         """Test metadata for a zipfile includes list of contents."""
         import zipfile
