@@ -2,7 +2,7 @@
 name = "geometamaker"
 description = "metadata creation for geospatial data"
 readme = "README.md"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.13"
 license = {file = "LICENSE.txt"}
 maintainers = [
     {name = "Natural Capital Project Software Team"}
@@ -20,7 +20,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: BSD License",
     "Topic :: Scientific/Engineering :: GIS"
 ]
