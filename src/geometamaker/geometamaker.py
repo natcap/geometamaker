@@ -319,10 +319,11 @@ def describe(source_dataset_path, profile=None):
     Args:
         source_dataset_path (string): path or URL to dataset to which the
             metadata applies
+        profile (geometamaker.models.Profile): a profile object from
+            which to populate some metadata attributes
 
-    Returns
-        instance of ArchiveResource, TableResource, VectorResource,
-        or RasterResource
+    Returns:
+        geometamaker.models.Resource: a metadata object
 
     """
     config = Config()

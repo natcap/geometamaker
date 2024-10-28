@@ -50,6 +50,7 @@ DOCS_SOURCE_DIR = os.path.dirname(__file__)
 sphinx.ext.apidoc.main([
     '--force',
     '-d', '1',  # max depth for TOC
+    '--separate',  # Put docs for each module on their own pages
     '-o', os.path.join(DOCS_SOURCE_DIR, 'api'),
     os.path.join(DOCS_SOURCE_DIR, '..', '..', 'src'),
 ])
