@@ -26,7 +26,7 @@ def _yaml_dump(data):
 
 
 @dataclass(frozen=True)
-class BoundingBox():
+class BoundingBox:
     """Class for a spatial bounding box."""
 
     xmin: float
