@@ -21,7 +21,7 @@ class _NoAliasDumper(yaml.SafeDumper):
         return True
 
 
-def yaml_dump(data):
+def _yaml_dump(data):
     return yaml.dump(data, allow_unicode=True, Dumper=_NoAliasDumper)
 
 
@@ -271,7 +271,7 @@ class Profile(BaseMetadata):
 
         """
         with open(target_path, 'w') as file:
-            file.write(yaml_dump(dataclasses.asdict(self)))
+            file.write(_yaml_dump(dataclasses.asdict(self)))
 
 
 @dataclass()
@@ -515,7 +515,7 @@ class Resource(BaseMetadata):
                 workspace, os.path.basename(self.metadata_path))
 
         with open(target_path, 'w') as file:
-            file.write(yaml_dump(dataclasses.asdict(self)))
+            file.write(_yaml_dump(dataclasses.asdict(self)))
 
     def to_string(self):
         pass
