@@ -561,7 +561,6 @@ class ConfigurationTests(unittest.TestCase):
         """Test existing config populates resource."""
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker
-        from geometamaker import models
 
         contact = {
             'individual_name': 'bob'
@@ -570,7 +569,7 @@ class ConfigurationTests(unittest.TestCase):
             'title': 'CC-BY-4'
         }
 
-        profile = models.Profile()
+        profile = geometamaker.Profile()
         profile.set_contact(**contact)
         profile.set_license(**license)
 
@@ -655,7 +654,10 @@ class ConfigurationTests(unittest.TestCase):
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker.config
 
-        with open(geometamaker.config.DEFAULT_CONFIG_PATH, 'w') as file:
+        config_path = os.path.join(
+            geometamaker.config.platformdirs.user_config_dir(),
+            geometamaker.config.CONFIG_FILENAME)
+        with open(config_path, 'w') as file:
             file.write(yaml.dump({'bad': 'data'}))
 
         config = geometamaker.config.Config()
@@ -668,10 +670,12 @@ class ConfigurationTests(unittest.TestCase):
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker.config
 
-        with open(geometamaker.config.DEFAULT_CONFIG_PATH, 'w') as file:
+        config_path = os.path.join(
+            geometamaker.config.platformdirs.user_config_dir(),
+            geometamaker.config.CONFIG_FILENAME)
+        with open(config_path, 'w') as file:
             file.write(yaml.dump({'bad': 'data'}))
 
         config = geometamaker.config.Config()
         config.delete()
-        self.assertFalse(
-            os.path.exists(geometamaker.config.DEFAULT_CONFIG_PATH))
+        self.assertFalse(os.path.exists(config_path))
