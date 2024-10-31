@@ -219,7 +219,9 @@ class GeometamakerTests(unittest.TestCase):
         self.assertTrue(isinstance(
             resource.spatial, geometamaker.models.SpatialSchema))
         self.assertRegex(
-            resource.spatial.crs, r'EPSG:[0-9]*; Units:degree')
+            resource.spatial.crs, r'EPSG:[0-9]*')
+        self.assertEqual(
+            resource.spatial.crs_units, 'degree')
 
         resource.write()
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))

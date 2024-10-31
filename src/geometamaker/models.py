@@ -41,6 +41,7 @@ class SpatialSchema:
 
     bounding_box: BoundingBox
     crs: str
+    crs_units: str
 
 
 @dataclass

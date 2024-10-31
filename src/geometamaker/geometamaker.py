@@ -85,19 +85,20 @@ def _vsi_path(filepath, scheme):
     return filepath
 
 
-def _wkt_to_epsg_string(wkt_string):
+def _wkt_to_epsg_units_string(wkt_string):
     crs_string = 'unknown'
+    units_string = 'unknown'
     try:
         srs = osr.SpatialReference(wkt_string)
         srs.AutoIdentifyEPSG()
         crs_string = (
             f"{srs.GetAttrValue('AUTHORITY', 0)}:"
-            f"{srs.GetAttrValue('AUTHORITY', 1)}; "
-            f"Units:{srs.GetAttrValue('UNIT', 0)}")
+            f"{srs.GetAttrValue('AUTHORITY', 1)}")
+        units_string = srs.GetAttrValue('UNIT', 0)
     except RuntimeError:
         LOGGER.warning(
             f'{wkt_string} cannot be interpreted as a coordinate reference system')
-    return crs_string
+    return crs_string, units_string
 
 
 def detect_file_type(filepath, scheme):
@@ -230,12 +231,13 @@ def describe_vector(source_dataset_path, scheme):
     description['schema'] = models.TableSchema(fields=fields)
 
     info = pygeoprocessing.get_vector_info(source_dataset_path)
-    epsg_string = _wkt_to_epsg_string(info['projection_wkt'])
-    spatial = {
-        'bounding_box': models.BoundingBox(*info['bounding_box']),
-        'crs': epsg_string
-    }
-    description['spatial'] = models.SpatialSchema(**spatial)
+    bbox = models.BoundingBox(*info['bounding_box'])
+    epsg_string, units_string = _wkt_to_epsg_units_string(
+        info['projection_wkt'])
+    description['spatial'] = models.SpatialSchema(
+        bounding_box=bbox,
+        crs=epsg_string,
+        crs_units=units_string)
     description['sources'] = info['file_list']
     return description
 
@@ -269,10 +271,12 @@ def describe_raster(source_dataset_path, scheme):
     # Some values of raster info are numpy types, which the
     # yaml dumper doesn't know how to represent.
     bbox = models.BoundingBox(*[float(x) for x in info['bounding_box']])
-    epsg_string = _wkt_to_epsg_string(info['projection_wkt'])
+    epsg_string, units_string = _wkt_to_epsg_units_string(
+        info['projection_wkt'])
     description['spatial'] = models.SpatialSchema(
         bounding_box=bbox,
-        crs=epsg_string)
+        crs=epsg_string,
+        crs_units=units_string)
     description['sources'] = info['file_list']
     return description
 
