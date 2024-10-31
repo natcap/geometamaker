@@ -93,7 +93,7 @@ def _wkt_to_epsg_string(wkt_string):
         crs_string = (
             f"{srs.GetAttrValue('AUTHORITY', 0)}:"
             f"{srs.GetAttrValue('AUTHORITY', 1)}; "
-            f"Units:{srs.GetAttrValue('UNITS')}")
+            f"Units:{srs.GetAttrValue('UNIT', 0)}")
     except RuntimeError:
         LOGGER.warning(
             f'{wkt_string} cannot be interpreted as a coordinate reference system')

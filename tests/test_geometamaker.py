@@ -213,11 +213,13 @@ class GeometamakerTests(unittest.TestCase):
         import geometamaker
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-        create_raster(numpy.int16, datasource_path)
+        create_raster(numpy.int16, datasource_path, projection_epsg=4326)
 
         resource = geometamaker.describe(datasource_path)
         self.assertTrue(isinstance(
             resource.spatial, geometamaker.models.SpatialSchema))
+        self.assertRegex(
+            resource.spatial.crs, r'EPSG:[0-9]*; Units:degree')
 
         resource.write()
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
