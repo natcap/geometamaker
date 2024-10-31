@@ -255,7 +255,8 @@ class GeometamakerTests(unittest.TestCase):
         band = resource.schema.bands[band_idx]
         self.assertEqual(band.title, title)
         self.assertEqual(band.description, description)
-        self.assertEqual(band.gdal_type, raster_info['datatype'])
+        self.assertEqual(
+            band.gdal_type, gdal.GetDataTypeName(raster_info['datatype']))
         self.assertEqual(band.numpy_type, numpy.dtype(numpy_type).name)
         self.assertEqual(band.nodata, raster_info['nodata'][band_idx])
         self.assertEqual(band.units, units)
