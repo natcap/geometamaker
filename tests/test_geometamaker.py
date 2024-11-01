@@ -213,11 +213,15 @@ class GeometamakerTests(unittest.TestCase):
         import geometamaker
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-        create_raster(numpy.int16, datasource_path)
+        create_raster(numpy.int16, datasource_path, projection_epsg=4326)
 
         resource = geometamaker.describe(datasource_path)
         self.assertTrue(isinstance(
             resource.spatial, geometamaker.models.SpatialSchema))
+        self.assertRegex(
+            resource.spatial.crs, r'EPSG:[0-9]*')
+        self.assertEqual(
+            resource.spatial.crs_units, 'degree')
 
         resource.write()
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
@@ -496,6 +500,27 @@ class GeometamakerTests(unittest.TestCase):
         field2 = new_resource.get_field_description(field2_name)
         self.assertEqual(field2.type, 'String')
 
+    def test_preexisting_metadata_document_new_profile(self):
+        """Test ammending an existing Metadata document with a profile."""
+        import geometamaker
+
+        title = 'Title'
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        resource = geometamaker.describe(datasource_path)
+        resource.set_title(title)
+        resource.set_contact(individual_name='alice')
+        resource.write()
+
+        profile = geometamaker.Profile()
+        profile.set_contact(individual_name='bob')
+        new_resource = geometamaker.describe(datasource_path, profile=profile)
+
+        self.assertEqual(
+            new_resource.get_title(), title)
+        self.assertEqual(
+            new_resource.contact.individual_name, 'bob')
+
     def test_preexisting_incompatible_doc(self):
         """Test when yaml file not created by geometamaker already exists."""
         import geometamaker
@@ -561,7 +586,6 @@ class ConfigurationTests(unittest.TestCase):
         """Test existing config populates resource."""
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker
-        from geometamaker import models
 
         contact = {
             'individual_name': 'bob'
@@ -570,7 +594,7 @@ class ConfigurationTests(unittest.TestCase):
             'title': 'CC-BY-4'
         }
 
-        profile = models.Profile()
+        profile = geometamaker.Profile()
         profile.set_contact(**contact)
         profile.set_license(**license)
 
@@ -655,7 +679,10 @@ class ConfigurationTests(unittest.TestCase):
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker.config
 
-        with open(geometamaker.config.DEFAULT_CONFIG_PATH, 'w') as file:
+        config_path = os.path.join(
+            geometamaker.config.platformdirs.user_config_dir(),
+            geometamaker.config.CONFIG_FILENAME)
+        with open(config_path, 'w') as file:
             file.write(yaml.dump({'bad': 'data'}))
 
         config = geometamaker.config.Config()
@@ -668,10 +695,12 @@ class ConfigurationTests(unittest.TestCase):
         mock_user_config_dir.return_value = self.workspace_dir
         import geometamaker.config
 
-        with open(geometamaker.config.DEFAULT_CONFIG_PATH, 'w') as file:
+        config_path = os.path.join(
+            geometamaker.config.platformdirs.user_config_dir(),
+            geometamaker.config.CONFIG_FILENAME)
+        with open(config_path, 'w') as file:
             file.write(yaml.dump({'bad': 'data'}))
 
         config = geometamaker.config.Config()
         config.delete()
-        self.assertFalse(
-            os.path.exists(geometamaker.config.DEFAULT_CONFIG_PATH))
+        self.assertFalse(os.path.exists(config_path))

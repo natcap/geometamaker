@@ -8,14 +8,13 @@ from . import models
 
 LOGGER = logging.getLogger(__name__)
 
-DEFAULT_CONFIG_PATH = os.path.join(
-    platformdirs.user_config_dir(), 'geometamaker_profile.yml')
+CONFIG_FILENAME = 'geometamaker_profile.yml'
 
 
 class Config(object):
     """Encapsulates user-settings such as a metadata Profile."""
 
-    def __init__(self, config_path=DEFAULT_CONFIG_PATH):
+    def __init__(self, config_path=None):
         """Load a Profile from a config file.
 
         Use a default user profile if none given.
@@ -24,7 +23,11 @@ class Config(object):
             config_path (str): path to a local yaml file
 
         """
-        self.config_path = config_path
+        if config_path is None:
+            self.config_path = os.path.join(
+                platformdirs.user_config_dir(), CONFIG_FILENAME)
+        else:
+            self.config_path = config_path
         self.profile = models.Profile()
 
         try:

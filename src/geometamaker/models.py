@@ -41,6 +41,7 @@ class SpatialSchema:
 
     bounding_box: BoundingBox
     crs: str
+    crs_units: str
 
 
 @dataclass
@@ -247,6 +248,9 @@ class Profile(BaseMetadata):
 
     """
 
+    def __post_init__(self):
+        super().__post_init__()
+
     @classmethod
     def load(cls, filepath):
         """Load metadata document from a yaml file.
@@ -323,6 +327,7 @@ class Resource(BaseMetadata):
     url: str = ''
 
     def __post_init__(self):
+        super().__post_init__()
         self.metadata_path = f'{self.path}.yml'
         self.metadata_version: str = f'geometamaker.{geometamaker.__version__}'
         self.path = self.path.replace('\\', '/')
