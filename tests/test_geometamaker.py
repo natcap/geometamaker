@@ -402,7 +402,7 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(resource.get_lineage(), statement)
 
     def test_lineage_roundtrip(self):
-        """Test writing and loading yaml with custom style."""
+        """Test writing and loading yaml with block indicator."""
         import geometamaker
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')

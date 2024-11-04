@@ -4,7 +4,7 @@ import yaml
 def represent_str(dumper, data):
     scalar = yaml.representer.SafeRepresenter.represent_str(dumper, data)
     if len(data.splitlines()) > 1:
-        scalar.style = '>'  # fold strings with newlines
+        scalar.style = '|'  # literal style, newline chars will be new lines
     return scalar
 
 
