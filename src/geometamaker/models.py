@@ -264,7 +264,7 @@ class Profile(BaseMetadata):
 
         """
         with open(target_path, 'w') as file:
-            file.write(utils._yaml_dump(dataclasses.asdict(self)))
+            file.write(utils.yaml_dump(dataclasses.asdict(self)))
 
 
 @dataclass()
@@ -443,7 +443,7 @@ class Resource(BaseMetadata):
                 provenance of the dataset
 
         """
-        self.lineage = utils.FoldedStr(f'{statement}')
+        self.lineage = statement
 
     def get_lineage(self):
         """Get the lineage statement of the dataset.
@@ -509,7 +509,7 @@ class Resource(BaseMetadata):
                 workspace, os.path.basename(self.metadata_path))
 
         with open(target_path, 'w') as file:
-            file.write(utils._yaml_dump(dataclasses.asdict(self)))
+            file.write(utils.yaml_dump(dataclasses.asdict(self)))
 
     def to_string(self):
         pass

@@ -396,10 +396,27 @@ class GeometamakerTests(unittest.TestCase):
         import geometamaker
 
         resource = geometamaker.models.Resource()
-        statement = 'a lineage statment'
+        statement = 'a lineage statment\n is long and has\n many lines.'
 
         resource.set_lineage(statement)
         self.assertEqual(resource.get_lineage(), statement)
+
+    def test_lineage_roundtrip(self):
+        """Test writing and loading yaml with custom style."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        numpy_type = numpy.int16
+        create_raster(numpy_type, datasource_path)
+
+        resource = geometamaker.describe(datasource_path)
+
+        statement = 'a lineage statment\n is long and has\n many lines.'
+        resource.set_lineage(statement)
+        resource.write()
+
+        new_resource = geometamaker.describe(datasource_path)
+        self.assertEqual(new_resource.get_lineage(), statement)
 
     def test_set_and_get_purpose(self):
         """Test set and get purpose of resource."""
