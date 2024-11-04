@@ -9,7 +9,7 @@ def represent_str(dumper, data):
 
 
 # Patch the default string representer so that it uses
-# a folded style when the data contains newline characters
+# a literal block style when the data contain newline characters
 yaml.SafeDumper.add_representer(str, represent_str)
 
 
