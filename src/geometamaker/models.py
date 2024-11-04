@@ -96,7 +96,7 @@ class BandSchema:
     """Class for metadata for a raster band."""
 
     index: int
-    gdal_type: int
+    gdal_type: str
     numpy_type: str
     nodata: int | float
     description: str = ''
