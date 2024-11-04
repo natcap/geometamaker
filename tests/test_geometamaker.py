@@ -501,6 +501,27 @@ class GeometamakerTests(unittest.TestCase):
         field2 = new_resource.get_field_description(field2_name)
         self.assertEqual(field2.type, 'String')
 
+    def test_preexisting_metadata_document_new_profile(self):
+        """Test ammending an existing Metadata document with a profile."""
+        import geometamaker
+
+        title = 'Title'
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        resource = geometamaker.describe(datasource_path)
+        resource.set_title(title)
+        resource.set_contact(individual_name='alice')
+        resource.write()
+
+        profile = geometamaker.Profile()
+        profile.set_contact(individual_name='bob')
+        new_resource = geometamaker.describe(datasource_path, profile=profile)
+
+        self.assertEqual(
+            new_resource.get_title(), title)
+        self.assertEqual(
+            new_resource.contact.individual_name, 'bob')
+
     def test_preexisting_incompatible_doc(self):
         """Test when yaml file not created by geometamaker already exists."""
         import geometamaker
