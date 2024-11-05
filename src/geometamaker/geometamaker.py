@@ -261,7 +261,7 @@ def describe_raster(source_dataset_path, scheme):
         b = i + 1
         bands.append(models.BandSchema(
             index=b,
-            gdal_type=info['datatype'],
+            gdal_type=gdal.GetDataTypeName(info['datatype']),
             numpy_type=numpy.dtype(info['numpy_type']).name,
             nodata=info['nodata'][i]))
     description['schema'] = models.RasterSchema(

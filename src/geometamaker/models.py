@@ -8,21 +8,10 @@ import fsspec
 import yaml
 
 import geometamaker
+from . import utils
 
 
 LOGGER = logging.getLogger(__name__)
-
-
-# https://stackoverflow.com/questions/13518819/avoid-references-in-pyyaml
-class _NoAliasDumper(yaml.SafeDumper):
-    """Keep the yaml human-readable by avoiding anchors and aliases."""
-
-    def ignore_aliases(self, data):
-        return True
-
-
-def _yaml_dump(data):
-    return yaml.dump(data, allow_unicode=True, Dumper=_NoAliasDumper)
 
 
 @dataclass(frozen=True)
@@ -107,7 +96,7 @@ class BandSchema:
     """Class for metadata for a raster band."""
 
     index: int
-    gdal_type: int
+    gdal_type: str
     numpy_type: str
     nodata: int | float
     description: str = ''
@@ -275,7 +264,7 @@ class Profile(BaseMetadata):
 
         """
         with open(target_path, 'w') as file:
-            file.write(_yaml_dump(dataclasses.asdict(self)))
+            file.write(utils.yaml_dump(dataclasses.asdict(self)))
 
 
 @dataclass()
@@ -520,7 +509,7 @@ class Resource(BaseMetadata):
                 workspace, os.path.basename(self.metadata_path))
 
         with open(target_path, 'w') as file:
-            file.write(_yaml_dump(dataclasses.asdict(self)))
+            file.write(utils.yaml_dump(dataclasses.asdict(self)))
 
     def to_string(self):
         pass
