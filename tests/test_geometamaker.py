@@ -366,6 +366,18 @@ class GeometamakerTests(unittest.TestCase):
             resource.get_keywords(),
             ['foo', 'bar'])
 
+    def test_set_and_get_placenames(self):
+        """Test set and get placenames."""
+
+        import geometamaker
+
+        resource = geometamaker.models.Resource()
+        resource.set_placenames(['Alaska', 'North Pacific'])
+
+        self.assertEqual(
+            resource.get_placenames(),
+            ['Alaska', 'North Pacific'])
+
     def test_set_and_get_license(self):
         """Test set and get license for resource."""
         import geometamaker

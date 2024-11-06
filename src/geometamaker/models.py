@@ -311,6 +311,7 @@ class Resource(BaseMetadata):
     keywords: list = dataclasses.field(default_factory=list)
     license: LicenseSchema = dataclasses.field(default_factory=LicenseSchema)
     lineage: str = ''
+    placenames: list = dataclasses.field(default_factory=list)
     purpose: str = ''
     title: str = ''
     url: str = ''
@@ -433,6 +434,12 @@ class Resource(BaseMetadata):
         self.keywords = keywords
 
     def get_keywords(self):
+        """Get the keywords describing the dataset.
+
+        Returns:
+            list
+
+        """
         return self.keywords
 
     def set_lineage(self, statement):
@@ -453,6 +460,24 @@ class Resource(BaseMetadata):
 
         """
         return self.lineage
+
+    def set_placenames(self, placenames):
+        """Describe the geography of a dataset with a list of placenames.
+
+        Args:
+            places (list): sequence of strings
+
+        """
+        self.placenames = placenames
+
+    def get_placenames(self):
+        """Get the placenames describing the dataset.
+
+        Returns:
+            list
+
+        """
+        return self.placenames
 
     def set_purpose(self, purpose):
         """Add a purpose for the dataset.
