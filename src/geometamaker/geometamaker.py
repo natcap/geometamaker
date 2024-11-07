@@ -393,7 +393,7 @@ def describe(source_dataset_path, profile=None):
 
     # Common path: metadata file does not already exist
     # Or less common, ValueError if it exists but is incompatible
-    except (FileNotFoundError, ValueError):
+    except FileNotFoundError:
         resource = RESOURCE_MODELS[resource_type](**description)
 
     resource = resource.replace(user_profile)
