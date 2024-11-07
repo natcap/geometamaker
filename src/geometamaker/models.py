@@ -1,6 +1,6 @@
 from __future__ import annotations
 import dataclasses
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 import logging
 import os
 
