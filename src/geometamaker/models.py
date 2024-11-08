@@ -131,9 +131,13 @@ class RasterSchema:
 class BaseMetadata:
     """A class for the things shared by Resource and Profile."""
 
-    contact: ContactSchema = None
-    license: LicenseSchema = None
+    # TODO: these default to None in order to facilitate the logic
+    # in ``replace`` where we only replace values that are not None.
+    # Is there a better way?
+    contact: ContactSchema | None = dataclasses.field(default_factory=ContactSchema)
+    license: LicenseSchema | None = dataclasses.field(default_factory=LicenseSchema)
 
+    # TODO: pydantic validation would not allow a dict anyway, or would it?
     def __post_init__(self):
         # Allow init with an instance of the correct dataclass, or with a dict.
         if self.contact is not None:
@@ -238,6 +242,11 @@ class Profile(BaseMetadata):
 
     """
 
+    # For a Profile, default these to None so that they do not replace
+    # values in a Resource
+    contact: ContactSchema | None = None
+    license: LicenseSchema | None = None
+
     def __post_init__(self):
         super().__post_init__()
 
@@ -310,12 +319,12 @@ class Resource(BaseMetadata):
     # These are not populated by geometamaker.describe(),
     # and should have setters & getters
     citation: str = ''
-    contact: ContactSchema = dataclasses.field(default_factory=ContactSchema)
+    # contact: ContactSchema = dataclasses.field(default_factory=ContactSchema)
     description: str = ''
     doi: str = ''
     edition: str = ''
     keywords: list = dataclasses.field(default_factory=list)
-    license: LicenseSchema = dataclasses.field(default_factory=LicenseSchema)
+    # license: LicenseSchema = dataclasses.field(default_factory=LicenseSchema)
     lineage: str = ''
     placenames: list = dataclasses.field(default_factory=list)
     purpose: str = ''
