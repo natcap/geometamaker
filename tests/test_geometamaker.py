@@ -6,14 +6,16 @@ import unittest
 from unittest.mock import patch
 
 import numpy
+import pygeoprocessing
+import shapely
+import yaml
+
 from osgeo import gdal
 from osgeo import gdal_array
 from osgeo import ogr
 from osgeo import osr
-import pygeoprocessing
 from pygeoprocessing.geoprocessing_core import DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
-import shapely
-import yaml
+from pydantic import ValidationError
 
 REGRESSION_DATA = os.path.join(
     os.path.dirname(__file__), 'data')
@@ -562,19 +564,11 @@ class GeometamakerTests(unittest.TestCase):
         create_raster(numpy.int16, datasource_path)
 
         # Describing a dataset that already has an incompatible yaml
-        # sidecar file should log a warning.
-        with self.assertLogs('geometamaker', level='WARNING') as cm:
-            resource = geometamaker.describe(datasource_path)
+        # sidecar file should raise an exception.
+        with self.assertRaises(ValueError) as cm:
+            _ = geometamaker.describe(datasource_path)
         expected_message = 'exists but is not compatible with'
-        self.assertIn(expected_message, ''.join(cm.output))
-
-        # After writing new doc, check it has expected property
-        resource.write()
-        with open(target_path, 'r') as file:
-            yaml_string = file.read()
-        yaml_dict = yaml.safe_load(yaml_string)
-        self.assertIn('metadata_version', yaml_dict)
-        self.assertIn('geometamaker', yaml_dict['metadata_version'])
+        self.assertIn(expected_message, str(cm.exception))
 
     def test_write_to_local_workspace(self):
         """Test write metadata to a different location."""
@@ -598,6 +592,31 @@ class GeometamakerTests(unittest.TestCase):
         filepath = 'https://storage.googleapis.com/releases.naturalcapitalproject.org/invest/3.14.2/data/CoastalBlueCarbon.zip'
         resource = geometamaker.describe(filepath)
         self.assertEqual(resource.path, filepath)
+
+
+class ValidationTests(unittest.TestCase):
+    """Tests for geometamaker type validation."""
+
+    def setUp(self):
+        """Override setUp function to create temp workspace directory."""
+        self.workspace_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """Override tearDown function to remove temporary directory."""
+        shutil.rmtree(self.workspace_dir)
+
+    def test_init_raises_ValidationError(self):
+        import geometamaker
+
+        with self.assertRaises(ValidationError):
+            _ = geometamaker.models.Resource(title=0)
+
+    def test_assignment_raises_ValidationError(self):
+        import geometamaker
+
+        resource = geometamaker.models.Resource()
+        with self.assertRaises(ValidationError):
+            resource.title = 0
 
 
 class ConfigurationTests(unittest.TestCase):

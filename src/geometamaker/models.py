@@ -1,11 +1,12 @@
 from __future__ import annotations
 import dataclasses
-from pydantic.dataclasses import dataclass
 import logging
 import os
 
 import fsspec
 import yaml
+from pydantic import ConfigDict
+from pydantic.dataclasses import dataclass
 
 import geometamaker
 from . import utils
@@ -126,7 +127,7 @@ class RasterSchema:
         self.bands = bands
 
 
-@dataclass()
+@dataclass(config=ConfigDict(validate_assignment=True))
 class BaseMetadata:
     """A class for the things shared by Resource and Profile."""
 
@@ -283,7 +284,12 @@ class Resource(BaseMetadata):
     """
 
     # A version string we can use to identify geometamaker compliant documents
-    metadata_version: str = dataclasses.field(init=False)
+    # TODO: Don't want a default value, but can't mix with defaults
+    # so set init=False
+    # metadata_version: str = dataclasses.field(init=False)
+    metadata_version: str = ''
+    # TODO: don't want to include this in doc, but need it as an attribute
+    metadata_path: str = ''
 
     # These are populated geometamaker.describe()
     bytes: int = 0
@@ -345,9 +351,8 @@ class Resource(BaseMetadata):
         if 'metadata_version' not in yaml_dict \
                 or not yaml_dict['metadata_version'].startswith('geometamaker'):
             message = (f'{filepath} exists but is not compatible with '
-                       f'geometamaker. It will be overwritten if write() is '
-                       f'called for this resource.')
-            LOGGER.warning(message)
+                       f'geometamaker.')
+            # LOGGER.warning(message)
             raise ValueError(message)
         # delete this property so that geometamaker can initialize it itself
         # with the current version info.
