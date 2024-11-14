@@ -605,11 +605,14 @@ class ValidationTests(unittest.TestCase):
         """Override tearDown function to remove temporary directory."""
         shutil.rmtree(self.workspace_dir)
 
-    def test_init_raises_ValidationError(self):
+    def test_init_resource_raises_ValidationError(self):
         import geometamaker
 
         with self.assertRaises(ValidationError):
             _ = geometamaker.models.Resource(title=0)
+
+        with self.assertRaises(ValidationError):
+            _ = geometamaker.models.Profile(license='foo')
 
     def test_assignment_raises_ValidationError(self):
         import geometamaker
@@ -617,6 +620,10 @@ class ValidationTests(unittest.TestCase):
         resource = geometamaker.models.Resource()
         with self.assertRaises(ValidationError):
             resource.title = 0
+
+        profile = geometamaker.models.Profile()
+        with self.assertRaises(ValidationError):
+            profile.license = 'foo'
 
 
 class ConfigurationTests(unittest.TestCase):
