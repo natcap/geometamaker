@@ -625,6 +625,12 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             profile.license = 'foo'
 
+    def test_extra_fields_raises_ValidationError(self):
+        import geometamaker
+
+        with self.assertRaises(ValidationError):
+            _ = geometamaker.models.Resource(foo=0)
+
 
 class ConfigurationTests(unittest.TestCase):
     """Tests for geometamaker configuration."""

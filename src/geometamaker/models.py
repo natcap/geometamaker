@@ -127,7 +127,7 @@ class RasterSchema:
         self.bands = bands
 
 
-@dataclass(config=ConfigDict(validate_assignment=True))
+@dataclass(config=ConfigDict(validate_assignment=True, extra='forbid'))
 class BaseMetadata:
     """A class for the things shared by Resource and Profile."""
 
