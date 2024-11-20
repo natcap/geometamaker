@@ -357,8 +357,8 @@ def describe(source_dataset_path, profile=None):
         if 'schema' in description:
             if isinstance(description['schema'], models.RasterSchema):
                 # If existing band metadata still matches schema of the file
-                # carry over metadata from the existing file because it could
-                # include human-defined properties.
+                # carry over existing metadata because it could include
+                # human-defined properties.
                 new_bands = []
                 for band in description['schema'].bands:
                     try:
@@ -373,8 +373,8 @@ def describe(source_dataset_path, profile=None):
                 description['schema'].bands = new_bands
             if isinstance(description['schema'], models.TableSchema):
                 # If existing field metadata still matches schema of the file
-                # carry over metadata from the existing file because it could
-                # include human-defined properties.
+                # carry over existing metadata because it could include
+                # human-defined properties.
                 new_fields = []
                 for field in description['schema'].fields:
                     try:

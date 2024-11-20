@@ -2,6 +2,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import os
+from typing import List
 
 import fsspec
 import yaml
@@ -57,7 +58,7 @@ class LicenseSchema:
     title: str = ''
 
 
-@dataclass
+@dataclass(config=ConfigDict(validate_assignment=True, extra='forbid'))
 class FieldSchema:
     """Metadata for a field in a table."""
 
@@ -69,30 +70,31 @@ class FieldSchema:
     units: str = ''
 
 
-@dataclass
+@dataclass(config=ConfigDict(validate_assignment=True, extra='forbid'))
 class TableSchema:
     """Class for metadata for tables."""
 
     # https://datapackage.org/standard/table-schema/
-    fields: list = dataclasses.field(default_factory=FieldSchema)
+    # fields: list = dataclasses.field(default_factory=FieldSchema)
+    fields: List[FieldSchema]
     missingValues: list = dataclasses.field(default_factory=list)
     primaryKey: list = dataclasses.field(default_factory=list)
     foreignKeys: list = dataclasses.field(default_factory=list)
 
-    def __post_init__(self):
-        field_schemas = []
-        for field in self.fields:
-            # Allow init of the resource with a schema of type
-            # FieldSchema, or type dict. Mostly because dataclasses.replace
-            # calls init, but the base object will have already been initialized.
-            if isinstance(field, FieldSchema):
-                field_schemas.append(field)
-            else:
-                field_schemas.append(FieldSchema(**field))
-        self.fields = field_schemas
+    # def __post_init__(self):
+    #     field_schemas = []
+    #     for field in self.fields:
+    #         # Allow init of the resource with a schema of type
+    #         # FieldSchema, or type dict. Mostly because dataclasses.replace
+    #         # calls init, but the base object will have already been initialized.
+    #         if isinstance(field, FieldSchema):
+    #             field_schemas.append(field)
+    #         else:
+    #             field_schemas.append(FieldSchema(**field))
+    #     self.fields = field_schemas
 
 
-@dataclass
+@dataclass(config=ConfigDict(validate_assignment=True, extra='forbid'))
 class BandSchema:
     """Class for metadata for a raster band."""
 
@@ -105,29 +107,30 @@ class BandSchema:
     units: str = ''
 
 
-@dataclass
+@dataclass(config=ConfigDict(validate_assignment=True, extra='forbid'))
 class RasterSchema:
     """Class for metadata for raster bands."""
 
-    bands: list
+    bands: List[BandSchema]
     pixel_size: list
     raster_size: list
 
-    def __post_init__(self):
-        bands = []
-        for band in self.bands:
-            # When loading an existing document
-            # from serialized data we need to init a BandSchema for
-            # each band dict. But it's also okay to init a RasterSchema
-            # with bands as list of BandSchema.
-            if isinstance(band, BandSchema):
-                bands.append(band)
-            else:
-                bands.append(BandSchema(**band))
-        self.bands = bands
+    # def __post_init__(self):
+    #     bands = []
+    #     for band in self.bands:
+    #         # When loading an existing document
+    #         # from serialized data we need to init a BandSchema for
+    #         # each band dict. But it's also okay to init a RasterSchema
+    #         # with bands as list of BandSchema.
+    #         if isinstance(band, BandSchema):
+    #             bands.append(band)
+    #         else:
+    #             bands.append(BandSchema(**band))
+    #     self.bands = bands
 
 
 @dataclass(config=ConfigDict(validate_assignment=True, extra='forbid'))
+# @dataclasses.dataclass
 class BaseMetadata:
     """A class for the things shared by Resource and Profile."""
 
@@ -137,15 +140,15 @@ class BaseMetadata:
     contact: ContactSchema | None = dataclasses.field(default_factory=ContactSchema)
     license: LicenseSchema | None = dataclasses.field(default_factory=LicenseSchema)
 
-    # TODO: pydantic validation would not allow a dict anyway, or would it?
-    def __post_init__(self):
-        # Allow init with an instance of the correct dataclass, or with a dict.
-        if self.contact is not None:
-            if not isinstance(self.contact, ContactSchema):
-                self.contact = ContactSchema(**self.contact)
-        if self.license is not None:
-            if not isinstance(self.license, LicenseSchema):
-                self.license = LicenseSchema(**self.license)
+    # TODO: pydantic coerces a dict to the correct type, no need to do this.
+    # def __post_init__(self):
+    #     # Allow init with an instance of the correct dataclass, or with a dict.
+    #     if self.contact is not None:
+    #         if not isinstance(self.contact, ContactSchema):
+    #             self.contact = ContactSchema(**self.contact)
+    #     if self.license is not None:
+    #         if not isinstance(self.license, LicenseSchema):
+    #             self.license = LicenseSchema(**self.license)
 
     def set_contact(self, organization=None, individual_name=None,
                     position_name=None, email=None):
@@ -247,8 +250,8 @@ class Profile(BaseMetadata):
     contact: ContactSchema | None = None
     license: LicenseSchema | None = None
 
-    def __post_init__(self):
-        super().__post_init__()
+    # def __post_init__(self):
+    #     super().__post_init__()
 
     @classmethod
     def load(cls, filepath):
@@ -332,7 +335,7 @@ class Resource(BaseMetadata):
     url: str = ''
 
     def __post_init__(self):
-        super().__post_init__()
+        # super().__post_init__()
         self.metadata_path = f'{self.path}.yml'
         self.metadata_version: str = f'geometamaker.{geometamaker.__version__}'
         self.path = self.path.replace('\\', '/')
@@ -561,14 +564,14 @@ class TableResource(Resource):
     # without post-init, schema ends up as a dict, or whatever is passed in.
     schema: TableSchema = dataclasses.field(default_factory=TableSchema)
 
-    def __post_init__(self):
-        super().__post_init__()
-        # Allow init of the resource with a schema of type
-        # TableSchema, or type dict. Mostly because dataclasses.replace
-        # calls init, but the base object will have already been initialized.
-        if isinstance(self.schema, TableSchema):
-            return
-        self.schema = TableSchema(**self.schema)
+    # def __post_init__(self):
+    #     super().__post_init__()
+    #     # Allow init of the resource with a schema of type
+    #     # TableSchema, or type dict. Mostly because dataclasses.replace
+    #     # calls init, but the base object will have already been initialized.
+    #     if isinstance(self.schema, TableSchema):
+    #         return
+    #     self.schema = TableSchema(**self.schema)
 
     def _get_field(self, name):
         """Get an attribute by its name property.
@@ -654,14 +657,14 @@ class RasterResource(Resource):
     schema: RasterSchema
     spatial: SpatialSchema
 
-    def __post_init__(self):
-        super().__post_init__()
-        # Allow init of the resource with a schema of type
-        # RasterSchema, or type dict. Mostly because dataclasses.replace
-        # calls init, but the base object will have already been initialized.
-        if isinstance(self.schema, RasterSchema):
-            return
-        self.schema = RasterSchema(**self.schema)
+    # def __post_init__(self):
+    #     super().__post_init__()
+    #     # Allow init of the resource with a schema of type
+    #     # RasterSchema, or type dict. Mostly because dataclasses.replace
+    #     # calls init, but the base object will have already been initialized.
+    #     if isinstance(self.schema, RasterSchema):
+    #         return
+    #     self.schema = RasterSchema(**self.schema)
 
     def set_band_description(self, band_number, title=None,
                              description=None, units=None):
