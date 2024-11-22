@@ -131,7 +131,7 @@ class GeometamakerTests(unittest.TestCase):
 
         resource = geometamaker.describe(datasource_path)
         self.assertEqual(
-            len(resource.schema.fields),
+            len(resource.data_model.fields),
             len(field_names))
         self.assertEqual(resource.get_field_description('Strings').type, 'string')
         self.assertEqual(resource.get_field_description('Ints').type, 'integer')
@@ -149,7 +149,7 @@ class GeometamakerTests(unittest.TestCase):
             field_names[1],
             units=units)
 
-        field = [field for field in resource.schema.fields
+        field = [field for field in resource.data_model.fields
                  if field.name == field_names[1]][0]
         self.assertEqual(field.title, title)
         self.assertEqual(field.description, description)
@@ -171,7 +171,7 @@ class GeometamakerTests(unittest.TestCase):
 
         resource.write()
         self.assertEqual(
-            len(resource.schema.fields),
+            len(resource.data_model.fields),
             len(field_names))
         self.assertEqual(resource.get_field_description('Strings').type, 'string')
         self.assertEqual(resource.get_field_description('Ints').type, 'integer')
@@ -208,7 +208,7 @@ class GeometamakerTests(unittest.TestCase):
         create_vector(datasource_path, None)
 
         resource = geometamaker.describe(datasource_path)
-        self.assertEqual(len(resource.schema.fields), 0)
+        self.assertEqual(len(resource.data_model.fields), 0)
 
     def test_describe_raster(self):
         """Test metadata for basic raster."""
@@ -252,9 +252,9 @@ class GeometamakerTests(unittest.TestCase):
 
         raster_info = pygeoprocessing.get_raster_info(datasource_path)
         self.assertEqual(
-            len(resource.schema.bands), raster_info['n_bands'])
+            len(resource.data_model.bands), raster_info['n_bands'])
         band_idx = band_number - 1
-        band = resource.schema.bands[band_idx]
+        band = resource.data_model.bands[band_idx]
         self.assertEqual(band.title, title)
         self.assertEqual(band.description, description)
         self.assertEqual(
