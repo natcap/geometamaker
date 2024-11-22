@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 import os
-from typing import List
+from typing import List, Union
 
 import fsspec
 import yaml
@@ -88,7 +88,7 @@ class BandSchema(Parent):
     index: int
     gdal_type: str
     numpy_type: str
-    nodata: int | float
+    nodata: Union[int, float]
     description: str = ''
     title: str = ''
     units: str = ''
@@ -108,8 +108,8 @@ class BaseMetadata(Parent):
     # TODO: these default to None in order to facilitate the logic
     # in ``replace`` where we only replace values that are not None.
     # Is there a better way?
-    contact: ContactSchema | None = Field(default_factory=ContactSchema)
-    license: LicenseSchema | None = Field(default_factory=LicenseSchema)
+    contact: Union[ContactSchema, None] = Field(default_factory=ContactSchema)
+    license: Union[LicenseSchema, None] = Field(default_factory=LicenseSchema)
 
     def set_contact(self, organization=None, individual_name=None,
                     position_name=None, email=None):
@@ -208,8 +208,8 @@ class Profile(BaseMetadata):
 
     # For a Profile, default these to None so that they do not replace
     # values in a Resource
-    contact: ContactSchema | None = None
-    license: LicenseSchema | None = None
+    contact: Union[ContactSchema, None] = None
+    license: Union[LicenseSchema, None] = None
 
     @classmethod
     def load(cls, filepath):
