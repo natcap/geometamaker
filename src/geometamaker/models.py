@@ -16,12 +16,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Parent(BaseModel):
+    """Parent class on which to configure validation."""
 
     model_config = ConfigDict(validate_assignment=True, extra='forbid')
 
-# TODO: dataclass allows positional args, BaseModel does not.
-# positional args are convenient for BoundingBox, but not critical
-# to keep this way.
+
+# dataclass allows positional args, BaseModel does not.
+# positional args are convenient for initializing BoundingBox,
+# but we could switch to BaseModel for consistency.
 @dataclass(frozen=True)
 class BoundingBox:
     """Class for a spatial bounding box."""
@@ -105,9 +107,8 @@ class RasterSchema(Parent):
 class BaseMetadata(Parent):
     """A class for the things shared by Resource and Profile."""
 
-    # TODO: these default to None in order to facilitate the logic
+    # These default to None in order to facilitate the logic
     # in ``replace`` where we only replace values that are not None.
-    # Is there a better way?
     contact: Union[ContactSchema, None] = Field(default_factory=ContactSchema)
     license: Union[LicenseSchema, None] = Field(default_factory=LicenseSchema)
 
@@ -253,9 +254,6 @@ class Resource(BaseMetadata):
     """
 
     # A version string we can use to identify geometamaker compliant documents
-    # TODO: Don't want a default value, but can't mix with defaults
-    # so set init=False
-    # metadata_version: str = Field(init=False)
     metadata_version: str = ''
     # TODO: don't want to include this in doc, but need it as an attribute
     metadata_path: str = ''
@@ -279,12 +277,10 @@ class Resource(BaseMetadata):
     # These are not populated by geometamaker.describe(),
     # and should have setters & getters
     citation: str = ''
-    # contact: ContactSchema = Field(default_factory=ContactSchema)
     description: str = ''
     doi: str = ''
     edition: str = ''
     keywords: list = Field(default_factory=list)
-    # license: LicenseSchema = Field(default_factory=LicenseSchema)
     lineage: str = ''
     placenames: list = Field(default_factory=list)
     purpose: str = ''
@@ -320,7 +316,6 @@ class Resource(BaseMetadata):
                 or not yaml_dict['metadata_version'].startswith('geometamaker'):
             message = (f'{filepath} exists but is not compatible with '
                        f'geometamaker.')
-            # LOGGER.warning(message)
             raise ValueError(message)
         # delete this property so that geometamaker can initialize it itself
         # with the current version info.
