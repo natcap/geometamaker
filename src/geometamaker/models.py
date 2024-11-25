@@ -1,6 +1,7 @@
 from __future__ import annotations
 import logging
 import os
+import warnings
 from typing import List, Union
 
 import fsspec
@@ -255,7 +256,6 @@ class Resource(BaseMetadata):
 
     # A version string we can use to identify geometamaker compliant documents
     metadata_version: str = ''
-    # TODO: don't want to include this in doc, but need it as an attribute
     metadata_path: str = ''
 
     # These are populated geometamaker.describe()
@@ -320,6 +320,16 @@ class Resource(BaseMetadata):
         # delete this property so that geometamaker can initialize it itself
         # with the current version info.
         del yaml_dict['metadata_version']
+
+        # migrate from 'schema' to 'data_model', if needed.
+        if 'schema' in yaml_dict:
+            warnings.warn(
+                "'schema' has been replaced with 'data_model' as an attribute "
+                "name. In the future, the presence of a 'schema' attribute "
+                "will raise a ValidationError",
+                category=FutureWarning)
+            yaml_dict['data_model'] = yaml_dict['schema']
+            del yaml_dict['schema']
         return cls(**yaml_dict)
 
     def set_title(self, title):
@@ -502,7 +512,8 @@ class Resource(BaseMetadata):
                 workspace, os.path.basename(self.metadata_path))
 
         with open(target_path, 'w') as file:
-            file.write(utils.yaml_dump(self.model_dump()))
+            file.write(utils.yaml_dump(
+                self.model_dump(exclude=['metadata_path'])))
 
     def to_string(self):
         pass
