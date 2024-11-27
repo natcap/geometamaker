@@ -1,4 +1,3 @@
-import dataclasses
 import functools
 import hashlib
 import logging
@@ -228,7 +227,7 @@ def describe_vector(source_dataset_path, scheme):
         fields.append(
             models.FieldSchema(name=fld.name, type=fld.GetTypeName()))
     vector = layer = None
-    description['schema'] = models.TableSchema(fields=fields)
+    description['data_model'] = models.TableSchema(fields=fields)
 
     info = pygeoprocessing.get_vector_info(source_dataset_path)
     bbox = models.BoundingBox(*info['bounding_box'])
@@ -264,7 +263,7 @@ def describe_raster(source_dataset_path, scheme):
             gdal_type=gdal.GetDataTypeName(info['datatype']),
             numpy_type=numpy.dtype(info['numpy_type']).name,
             nodata=info['nodata'][i]))
-    description['schema'] = models.RasterSchema(
+    description['data_model'] = models.RasterSchema(
         bands=bands,
         pixel_size=info['pixel_size'],
         raster_size=info['raster_size'])
@@ -293,7 +292,8 @@ def describe_table(source_dataset_path, scheme):
 
     """
     description = describe_file(source_dataset_path, scheme)
-    description['schema'] = models.TableSchema(**description['schema'])
+    description['data_model'] = models.TableSchema(**description['schema'])
+    del description['schema']  # we forbid extra args in our Pydantic models
     return description
 
 
@@ -354,46 +354,48 @@ def describe(source_dataset_path, profile=None):
     # Load existing metadata file
     try:
         existing_resource = RESOURCE_MODELS[resource_type].load(metadata_path)
-        if 'schema' in description:
-            if isinstance(description['schema'], models.RasterSchema):
-                # If existing band metadata still matches schema of the file
-                # carry over metadata from the existing file because it could
-                # include human-defined properties.
+        if 'data_model' in description:
+            if isinstance(description['data_model'], models.RasterSchema):
+                # If existing band metadata still matches data_model of the file
+                # carry over existing metadata because it could include
+                # human-defined properties.
                 new_bands = []
-                for band in description['schema'].bands:
+                for band in description['data_model'].bands:
                     try:
                         eband = existing_resource.get_band_description(band.index)
                         # TODO: rewrite this as __eq__ of BandSchema?
                         if (band.numpy_type, band.gdal_type, band.nodata) == (
                                 eband.numpy_type, eband.gdal_type, eband.nodata):
-                            band = dataclasses.replace(band, **eband.__dict__)
+                            updated_dict = band.model_dump() | eband.model_dump()
+                            band = models.BandSchema(**updated_dict)
                     except IndexError:
                         pass
                     new_bands.append(band)
-                description['schema'].bands = new_bands
-            if isinstance(description['schema'], models.TableSchema):
-                # If existing field metadata still matches schema of the file
-                # carry over metadata from the existing file because it could
-                # include human-defined properties.
+                description['data_model'].bands = new_bands
+            if isinstance(description['data_model'], models.TableSchema):
+                # If existing field metadata still matches data_model of the file
+                # carry over existing metadata because it could include
+                # human-defined properties.
                 new_fields = []
-                for field in description['schema'].fields:
+                for field in description['data_model'].fields:
                     try:
                         efield = existing_resource.get_field_description(
                             field.name)
                         # TODO: rewrite this as __eq__ of FieldSchema?
                         if field.type == efield.type:
-                            field = dataclasses.replace(field, **efield.__dict__)
+                            updated_dict = field.model_dump() | efield.model_dump()
+                            field = models.FieldSchema(**updated_dict)
                     except KeyError:
                         pass
                     new_fields.append(field)
-                description['schema'].fields = new_fields
+                description['data_model'].fields = new_fields
         # overwrite properties that are intrinsic to the dataset
-        resource = dataclasses.replace(
-            existing_resource, **description)
+        updated_dict = existing_resource.model_dump() | description
+        resource = RESOURCE_MODELS[resource_type](**updated_dict)
 
     # Common path: metadata file does not already exist
     # Or less common, ValueError if it exists but is incompatible
-    except (FileNotFoundError, ValueError):
+    except FileNotFoundError:
         resource = RESOURCE_MODELS[resource_type](**description)
 
     resource = resource.replace(user_profile)

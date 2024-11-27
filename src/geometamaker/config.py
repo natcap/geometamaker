@@ -2,6 +2,7 @@ import logging
 import os
 
 import platformdirs
+from pydantic import ValidationError
 
 from . import models
 
@@ -35,8 +36,8 @@ class Config(object):
         except FileNotFoundError as err:
             LOGGER.debug('config file does not exist', exc_info=err)
             pass
-        # an invalid profile should raise a TypeError
-        except TypeError as err:
+        # an invalid profile should raise a ValidationError
+        except ValidationError as err:
             LOGGER.warning('', exc_info=err)
             LOGGER.warning(
                 f'{self.config_path} contains an inavlid profile. '

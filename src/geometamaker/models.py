@@ -1,11 +1,13 @@
 from __future__ import annotations
-import dataclasses
-from dataclasses import dataclass
 import logging
 import os
+import warnings
+from typing import List, Union
 
 import fsspec
 import yaml
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.dataclasses import dataclass
 
 import geometamaker
 from . import utils
@@ -14,6 +16,15 @@ from . import utils
 LOGGER = logging.getLogger(__name__)
 
 
+class Parent(BaseModel):
+    """Parent class on which to configure validation."""
+
+    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+
+
+# dataclass allows positional args, BaseModel does not.
+# positional args are convenient for initializing BoundingBox,
+# but we could switch to BaseModel for consistency.
 @dataclass(frozen=True)
 class BoundingBox:
     """Class for a spatial bounding box."""
@@ -24,8 +35,7 @@ class BoundingBox:
     ymax: float
 
 
-@dataclass(frozen=True)
-class SpatialSchema:
+class SpatialSchema(Parent):
     """Class for keeping track of spatial info."""
 
     bounding_box: BoundingBox
@@ -33,8 +43,7 @@ class SpatialSchema:
     crs_units: str
 
 
-@dataclass
-class ContactSchema:
+class ContactSchema(Parent):
     """Class for keeping track of contact info."""
 
     email: str = ''
@@ -43,8 +52,7 @@ class ContactSchema:
     position_name: str = ''
 
 
-@dataclass
-class LicenseSchema:
+class LicenseSchema(Parent):
     """Class for storing license info."""
 
     # https://datapackage.org/profiles/2.0/dataresource.json
@@ -56,8 +64,7 @@ class LicenseSchema:
     title: str = ''
 
 
-@dataclass
-class FieldSchema:
+class FieldSchema(Parent):
     """Metadata for a field in a table."""
 
     # https://datapackage.org/standard/table-schema/
@@ -68,79 +75,43 @@ class FieldSchema:
     units: str = ''
 
 
-@dataclass
-class TableSchema:
+class TableSchema(Parent):
     """Class for metadata for tables."""
 
     # https://datapackage.org/standard/table-schema/
-    fields: list = dataclasses.field(default_factory=FieldSchema)
-    missingValues: list = dataclasses.field(default_factory=list)
-    primaryKey: list = dataclasses.field(default_factory=list)
-    foreignKeys: list = dataclasses.field(default_factory=list)
-
-    def __post_init__(self):
-        field_schemas = []
-        for field in self.fields:
-            # Allow init of the resource with a schema of type
-            # FieldSchema, or type dict. Mostly because dataclasses.replace
-            # calls init, but the base object will have already been initialized.
-            if isinstance(field, FieldSchema):
-                field_schemas.append(field)
-            else:
-                field_schemas.append(FieldSchema(**field))
-        self.fields = field_schemas
+    fields: List[FieldSchema]
+    missingValues: list = Field(default_factory=list)
+    primaryKey: list = Field(default_factory=list)
+    foreignKeys: list = Field(default_factory=list)
 
 
-@dataclass
-class BandSchema:
+class BandSchema(Parent):
     """Class for metadata for a raster band."""
 
     index: int
     gdal_type: str
     numpy_type: str
-    nodata: int | float
+    nodata: Union[int, float]
     description: str = ''
     title: str = ''
     units: str = ''
 
 
-@dataclass
-class RasterSchema:
+class RasterSchema(Parent):
     """Class for metadata for raster bands."""
 
-    bands: list
+    bands: List[BandSchema]
     pixel_size: list
     raster_size: list
 
-    def __post_init__(self):
-        bands = []
-        for band in self.bands:
-            # When loading an existing document
-            # from serialized data we need to init a BandSchema for
-            # each band dict. But it's also okay to init a RasterSchema
-            # with bands as list of BandSchema.
-            if isinstance(band, BandSchema):
-                bands.append(band)
-            else:
-                bands.append(BandSchema(**band))
-        self.bands = bands
 
-
-@dataclass()
-class BaseMetadata:
+class BaseMetadata(Parent):
     """A class for the things shared by Resource and Profile."""
 
-    contact: ContactSchema = None
-    license: LicenseSchema = None
-
-    def __post_init__(self):
-        # Allow init with an instance of the correct dataclass, or with a dict.
-        if self.contact is not None:
-            if not isinstance(self.contact, ContactSchema):
-                self.contact = ContactSchema(**self.contact)
-        if self.license is not None:
-            if not isinstance(self.license, LicenseSchema):
-                self.license = LicenseSchema(**self.license)
+    # These default to None in order to facilitate the logic
+    # in ``replace`` where we only replace values that are not None.
+    contact: Union[ContactSchema, None] = Field(default_factory=ContactSchema)
+    license: Union[LicenseSchema, None] = Field(default_factory=LicenseSchema)
 
     def set_contact(self, organization=None, individual_name=None,
                     position_name=None, email=None):
@@ -223,12 +194,12 @@ class BaseMetadata:
 
         """
         if isinstance(other, BaseMetadata):
-            return dataclasses.replace(
-                self, **{k: v for k, v in other.__dict__.items() if v is not None})
-        raise TypeError(f'{other} must be an instance of BaseMetadata')
+            updated_dict = self.model_dump() | {
+                k: v for k, v in other.__dict__.items() if v is not None}
+            return self.__class__(**updated_dict)
+        raise TypeError(f'{type(other)} is not an instance of BaseMetadata')
 
 
-@dataclass
 class Profile(BaseMetadata):
     """Class for a metadata profile.
 
@@ -237,8 +208,10 @@ class Profile(BaseMetadata):
 
     """
 
-    def __post_init__(self):
-        super().__post_init__()
+    # For a Profile, default these to None so that they do not replace
+    # values in a Resource
+    contact: Union[ContactSchema, None] = None
+    license: Union[LicenseSchema, None] = None
 
     @classmethod
     def load(cls, filepath):
@@ -264,10 +237,9 @@ class Profile(BaseMetadata):
 
         """
         with open(target_path, 'w') as file:
-            file.write(utils.yaml_dump(dataclasses.asdict(self)))
+            file.write(utils.yaml_dump(self.model_dump()))
 
 
-@dataclass()
 class Resource(BaseMetadata):
     """Base class for metadata for a resource.
 
@@ -283,7 +255,8 @@ class Resource(BaseMetadata):
     """
 
     # A version string we can use to identify geometamaker compliant documents
-    metadata_version: str = dataclasses.field(init=False)
+    metadata_version: str = ''
+    metadata_path: str = ''
 
     # These are populated geometamaker.describe()
     bytes: int = 0
@@ -299,25 +272,22 @@ class Resource(BaseMetadata):
     # DataPackage includes `sources` as a list of source files
     # with some amount of metadata for each item. For our
     # use-case, I think a list of filenames is good enough.
-    sources: list = dataclasses.field(default_factory=list)
+    sources: list = Field(default_factory=list)
 
     # These are not populated by geometamaker.describe(),
     # and should have setters & getters
     citation: str = ''
-    contact: ContactSchema = dataclasses.field(default_factory=ContactSchema)
     description: str = ''
     doi: str = ''
     edition: str = ''
-    keywords: list = dataclasses.field(default_factory=list)
-    license: LicenseSchema = dataclasses.field(default_factory=LicenseSchema)
+    keywords: list = Field(default_factory=list)
     lineage: str = ''
-    placenames: list = dataclasses.field(default_factory=list)
+    placenames: list = Field(default_factory=list)
     purpose: str = ''
     title: str = ''
     url: str = ''
 
-    def __post_init__(self):
-        super().__post_init__()
+    def model_post_init(self, __context):
         self.metadata_path = f'{self.path}.yml'
         self.metadata_version: str = f'geometamaker.{geometamaker.__version__}'
         self.path = self.path.replace('\\', '/')
@@ -345,13 +315,21 @@ class Resource(BaseMetadata):
         if 'metadata_version' not in yaml_dict \
                 or not yaml_dict['metadata_version'].startswith('geometamaker'):
             message = (f'{filepath} exists but is not compatible with '
-                       f'geometamaker. It will be overwritten if write() is '
-                       f'called for this resource.')
-            LOGGER.warning(message)
+                       f'geometamaker.')
             raise ValueError(message)
         # delete this property so that geometamaker can initialize it itself
         # with the current version info.
         del yaml_dict['metadata_version']
+
+        # migrate from 'schema' to 'data_model', if needed.
+        if 'schema' in yaml_dict:
+            warnings.warn(
+                "'schema' has been replaced with 'data_model' as an attribute "
+                "name. In the future, the presence of a 'schema' attribute "
+                "will raise a ValidationError",
+                category=FutureWarning)
+            yaml_dict['data_model'] = yaml_dict['schema']
+            del yaml_dict['schema']
         return cls(**yaml_dict)
 
     def set_title(self, title):
@@ -534,27 +512,17 @@ class Resource(BaseMetadata):
                 workspace, os.path.basename(self.metadata_path))
 
         with open(target_path, 'w') as file:
-            file.write(utils.yaml_dump(dataclasses.asdict(self)))
+            file.write(utils.yaml_dump(
+                self.model_dump(exclude=['metadata_path'])))
 
     def to_string(self):
         pass
 
 
-@dataclass(kw_only=True)
 class TableResource(Resource):
     """Class for metadata for a table resource."""
 
-    # without post-init, schema ends up as a dict, or whatever is passed in.
-    schema: TableSchema = dataclasses.field(default_factory=TableSchema)
-
-    def __post_init__(self):
-        super().__post_init__()
-        # Allow init of the resource with a schema of type
-        # TableSchema, or type dict. Mostly because dataclasses.replace
-        # calls init, but the base object will have already been initialized.
-        if isinstance(self.schema, TableSchema):
-            return
-        self.schema = TableSchema(**self.schema)
+    data_model: TableSchema = Field(default_factory=TableSchema)
 
     def _get_field(self, name):
         """Get an attribute by its name property.
@@ -571,14 +539,14 @@ class TableResource(Resource):
                 attribute does not exist.
 
         """
-        if len(self.schema.fields) == 0:
+        if len(self.data_model.fields) == 0:
             raise KeyError(
-                f'{self.schema} has no fields')
-        for idx, field in enumerate(self.schema.fields):
+                f'{self.data_model} has no fields')
+        for idx, field in enumerate(self.data_model.fields):
             if field.name == name:
                 return idx, field
         raise KeyError(
-            f'{self.schema} has no field named {name}')
+            f'{self.data_model} has no field named {name}')
 
     def set_field_description(self, name, title=None, description=None,
                               units=None, type=None):
@@ -603,7 +571,7 @@ class TableResource(Resource):
         if type is not None:
             field.type = type
 
-        self.schema.fields[idx] = field
+        self.data_model.fields[idx] = field
 
     def get_field_description(self, name):
         """Get the attribute metadata for a field.
@@ -618,14 +586,12 @@ class TableResource(Resource):
         return field
 
 
-@dataclass(kw_only=True)
 class ArchiveResource(Resource):
     """Class for metadata for an archive resource."""
 
     compression: str
 
 
-@dataclass(kw_only=True)
 class VectorResource(TableResource):
     """Class for metadata for a vector resource."""
 
@@ -633,21 +599,11 @@ class VectorResource(TableResource):
     spatial: SpatialSchema
 
 
-@dataclass(kw_only=True)
 class RasterResource(Resource):
     """Class for metadata for a raster resource."""
 
-    schema: RasterSchema
+    data_model: RasterSchema
     spatial: SpatialSchema
-
-    def __post_init__(self):
-        super().__post_init__()
-        # Allow init of the resource with a schema of type
-        # RasterSchema, or type dict. Mostly because dataclasses.replace
-        # calls init, but the base object will have already been initialized.
-        if isinstance(self.schema, RasterSchema):
-            return
-        self.schema = RasterSchema(**self.schema)
 
     def set_band_description(self, band_number, title=None,
                              description=None, units=None):
@@ -661,7 +617,7 @@ class RasterResource(Resource):
 
         """
         idx = band_number - 1
-        band = self.schema.bands[idx]
+        band = self.data_model.bands[idx]
 
         if title is not None:
             band.title = title
@@ -670,7 +626,7 @@ class RasterResource(Resource):
         if units is not None:
             band.units = units
 
-        self.schema.bands[idx] = band
+        self.data_model.bands[idx] = band
 
     def get_band_description(self, band_number):
         """Get the attribute metadata for a band.
@@ -682,4 +638,4 @@ class RasterResource(Resource):
             BandSchema
 
         """
-        return self.schema.bands[band_number - 1]
+        return self.data_model.bands[band_number - 1]

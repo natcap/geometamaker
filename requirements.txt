@@ -8,6 +8,7 @@ GDAL
 frictionless
 numpy
 platformdirs
+Pydantic
 pygeoprocessing>=2.4.5
 pyyaml
 requests
