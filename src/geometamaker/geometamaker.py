@@ -9,8 +9,10 @@ import frictionless
 import fsspec
 import numpy
 import pygeoprocessing
+import yaml
 from osgeo import gdal
 from osgeo import osr
+from pydantic import ValidationError
 
 from . import models
 from .config import Config
@@ -350,6 +352,7 @@ def describe(source_dataset_path, profile=None):
     resource_type = detect_file_type(source_dataset_path, protocol)
     description = DESRCIBE_FUNCS[resource_type](
         source_dataset_path, protocol)
+    description['type'] = resource_type
 
     # Load existing metadata file
     try:
@@ -400,3 +403,27 @@ def describe(source_dataset_path, profile=None):
 
     resource = resource.replace(user_profile)
     return resource
+
+
+def validate(filepath):
+    validation_messages = None
+    with fsspec.open(filepath, 'r') as file:
+        yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        if 'metadata_version' not in yaml_dict \
+                or not yaml_dict['metadata_version'].startswith('geometamaker'):
+            message = (f'{filepath} exists but is not compatible with '
+                       f'geometamaker.')
+            raise ValueError(message)
+
+    try:
+        RESOURCE_MODELS[yaml_dict['type']](**yaml_dict)
+    except ValidationError as error:
+        error_list = [f'{error.error_count()} validation errors for {filepath}:']
+        for e in error.errors():
+            error_list.append(', '.join(e['loc']))
+            error_list.append(
+                f"  {e['msg']}. [input_value={e['input']}, input_type={type(e['input']).__name__}]")
+        validation_messages = '\n'.join(error_list)
+
+    return validation_messages
