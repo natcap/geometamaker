@@ -1,9 +1,10 @@
 import argparse
 import logging
-import pprint
+import os
 import sys
 
 import geometamaker
+
 
 def main(user_args=None):
     parser = argparse.ArgumentParser(
@@ -22,7 +23,10 @@ def main(user_args=None):
         'validate', help='validate a metadata document')
     validate_subparser.add_argument(
         'filepath',
-        help=('path to a metadata document to validate'))
+        help=('path to a metadata document, or directory containing documents, to validate'))
+    validate_subparser.add_argument(
+        '-r', '--recursive', action='store_true', default=False,
+        help='recurse through subdirectories in search of metadata documents.')
 
     args = parser.parse_args(user_args)
 
@@ -40,9 +44,15 @@ def main(user_args=None):
         parser.exit()
 
     if args.subcommand == 'validate':
-        validation_message = geometamaker.validate(args.filepath)
-        if validation_message:
-            sys.stdout.write(validation_message)
+        if os.path.isdir(args.filepath):
+            file_list, message_list = geometamaker.validate_dir(
+                args.filepath, recursive=args.recursive)
+            for filepath, msg in zip(file_list, message_list):
+                sys.stdout.write(f'{filepath}: {msg}\n')
+        else:
+            validation_message = geometamaker.validate(args.filepath)
+            if validation_message:
+                sys.stdout.write(validation_message)
         parser.exit()
 
 

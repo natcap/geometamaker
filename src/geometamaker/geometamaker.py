@@ -410,7 +410,7 @@ def validate(filepath):
     with fsspec.open(filepath, 'r') as file:
         yaml_string = file.read()
         yaml_dict = yaml.safe_load(yaml_string)
-        if 'metadata_version' not in yaml_dict \
+        if not yaml_dict or 'metadata_version' not in yaml_dict \
                 or not yaml_dict['metadata_version'].startswith('geometamaker'):
             message = (f'{filepath} exists but is not compatible with '
                        f'geometamaker.')
@@ -419,7 +419,8 @@ def validate(filepath):
     try:
         RESOURCE_MODELS[yaml_dict['type']](**yaml_dict)
     except ValidationError as error:
-        error_list = [f'{error.error_count()} validation errors for {filepath}:']
+        error_list = [
+            f'{error.error_count()} validation errors for {filepath}:']
         for e in error.errors():
             error_list.append(', '.join(e['loc']))
             error_list.append(
@@ -427,3 +428,31 @@ def validate(filepath):
         validation_messages = '\n'.join(error_list)
 
     return validation_messages
+
+
+def validate_dir(directory, recursive=False):
+    file_list = []
+    if recursive:
+        for path, dirs, files in os.walk(directory):
+            for file in files:
+                file_list.append(os.path.join(path, file))
+    else:
+        file_list.extend(
+            [os.path.join(directory, path) for path in os.listdir(directory)])
+
+    messages = []
+    yaml_files = []
+    for filepath in file_list:
+        if filepath.endswith('.yml'):
+            yaml_files.append(filepath)
+            try:
+                msg = validate(filepath)
+                if msg:
+                    messages.append(msg)
+                else:
+                    messages.append('valid')
+            except ValueError:
+                messages.append(
+                    'does not appear to be a geometamaker document')
+
+    return (yaml_files, messages)
