@@ -438,7 +438,9 @@ def validate_dir(directory, recursive=False):
                 file_list.append(os.path.join(path, file))
     else:
         file_list.extend(
-            [os.path.join(directory, path) for path in os.listdir(directory)])
+            [os.path.join(directory, path)
+                for path in os.listdir(directory)
+                if os.path.isfile(os.path.join(directory, path))])
 
     messages = []
     yaml_files = []
@@ -466,7 +468,9 @@ def describe_dir(directory, recursive=False):
                 file_list.append(os.path.join(path, file))
     else:
         file_list.extend(
-            [os.path.join(directory, path) for path in os.listdir(directory)])
+            [os.path.join(directory, path)
+                for path in os.listdir(directory)
+                if os.path.isfile(os.path.join(directory, path))])
 
     for filepath in file_list:
         try:

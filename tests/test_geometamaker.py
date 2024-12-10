@@ -615,12 +615,12 @@ class GeometamakerTests(unittest.TestCase):
         resource = geometamaker.describe(datasource_path)
         resource.write()
 
+        # Manually modify the metadata doc
         with open(resource.metadata_path, 'r') as file:
             yaml_string = file.read()
         yaml_dict = yaml.safe_load(yaml_string)
         yaml_dict['foo'] = 'bar'
         yaml_dict['keywords'] = 'not a list'
-
         with open(resource.metadata_path, 'w') as file:
             file.write(utils.yaml_dump(yaml_dict))
 
@@ -631,6 +631,35 @@ class GeometamakerTests(unittest.TestCase):
         self.assertIn('Extra inputs are not permitted', msgs)
         self.assertIn('keywords', msgs)
         self.assertIn('Input should be a valid list', msgs)
+
+    def test_describe_validate_dir(self):
+        """Test describe and validate functions that walk directory tree."""
+        import geometamaker
+
+        subdir = os.path.join(self.workspace_dir, 'subdir')
+        os.makedirs(subdir)
+        raster1 = os.path.join(self.workspace_dir, 'raster1.tif')
+        txt1 = os.path.join(self.workspace_dir, 'foo.txt')
+        raster2 = os.path.join(subdir, 'raster2.tif')
+        txt2 = os.path.join(subdir, 'foo.txt')
+
+        create_raster(numpy.int16, raster1)
+        create_raster(numpy.int16, raster2)
+        with open(txt1, 'w') as file:
+            file.write('')
+        with open(txt2, 'w') as file:
+            file.write('')
+
+        # Only 1 eligible file to describe in the root dir
+        geometamaker.describe_dir(self.workspace_dir)
+        yaml_files, msgs = geometamaker.validate_dir(self.workspace_dir)
+        self.assertEqual(len(yaml_files), 1)
+
+        # 2 eligible files described with recursive option
+        geometamaker.describe_dir(self.workspace_dir, recursive=True)
+        yaml_files, msgs = geometamaker.validate_dir(
+            self.workspace_dir, recursive=True)
+        self.assertEqual(len(yaml_files), 2)
 
 
 class ValidationTests(unittest.TestCase):

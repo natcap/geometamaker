@@ -1,6 +1,7 @@
 import importlib.metadata
 
 from .geometamaker import describe
+from .geometamaker import describe_dir
 from .geometamaker import validate
 from .geometamaker import validate_dir
 from .config import Config
