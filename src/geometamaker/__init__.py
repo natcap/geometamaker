@@ -9,4 +9,4 @@ from .models import Profile
 
 __version__ = importlib.metadata.version('geometamaker')
 
-__all__ = ('describe', 'validate', 'validate_dir', 'Config', 'Profile')
+__all__ = ('describe', 'describe_dir', 'validate', 'validate_dir', 'Config', 'Profile')

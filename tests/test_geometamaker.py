@@ -593,6 +593,45 @@ class GeometamakerTests(unittest.TestCase):
         resource = geometamaker.describe(filepath)
         self.assertEqual(resource.path, filepath)
 
+    def test_validate_valid_document(self):
+        """Test validate function returns nothing."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        resource = geometamaker.describe(datasource_path)
+        resource.write()
+
+        msgs = geometamaker.validate(resource.metadata_path)
+        self.assertIsNone(msgs)
+
+    def test_validate_invalid_document(self):
+        """Test validate function returns messages."""
+        import geometamaker
+        from geometamaker import utils
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        resource = geometamaker.describe(datasource_path)
+        resource.write()
+
+        with open(resource.metadata_path, 'r') as file:
+            yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        yaml_dict['foo'] = 'bar'
+        yaml_dict['keywords'] = 'not a list'
+
+        with open(resource.metadata_path, 'w') as file:
+            file.write(utils.yaml_dump(yaml_dict))
+
+        msgs = geometamaker.validate(resource.metadata_path)
+        print(msgs)
+        self.assertIn('2 validation errors', msgs)
+        self.assertIn('foo', msgs)
+        self.assertIn('Extra inputs are not permitted', msgs)
+        self.assertIn('keywords', msgs)
+        self.assertIn('Input should be a valid list', msgs)
+
 
 class ValidationTests(unittest.TestCase):
     """Tests for geometamaker type validation."""
@@ -766,3 +805,15 @@ class ConfigurationTests(unittest.TestCase):
         config = geometamaker.config.Config()
         config.delete()
         self.assertFalse(os.path.exists(config_path))
+
+
+class CLITests(unittest.TestCase):
+    """Tests for geometamaker configuration."""
+
+    def setUp(self):
+        """Override setUp function to create temp workspace directory."""
+        self.workspace_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """Override tearDown function to remove temporary directory."""
+        shutil.rmtree(self.workspace_dir)

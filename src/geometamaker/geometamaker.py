@@ -456,3 +456,23 @@ def validate_dir(directory, recursive=False):
                     'does not appear to be a geometamaker document')
 
     return (yaml_files, messages)
+
+
+def describe_dir(directory, recursive=False):
+    file_list = []
+    if recursive:
+        for path, dirs, files in os.walk(directory):
+            for file in files:
+                file_list.append(os.path.join(path, file))
+    else:
+        file_list.extend(
+            [os.path.join(directory, path) for path in os.listdir(directory)])
+
+    for filepath in file_list:
+        try:
+            resource = describe(filepath)
+        except ValueError as error:
+            LOGGER.debug(error)
+            continue
+        LOGGER.info(f'writing metadata for {filepath}')
+        resource.write()

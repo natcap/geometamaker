@@ -39,7 +39,11 @@ def main(user_args=None):
     handler.setLevel(logging.DEBUG)  # TODO: take user input
 
     if args.subcommand == 'describe':
-        geometamaker.describe(args.filepath).write()
+        if os.path.isdir(args.filepath):
+            geometamaker.describe_dir(
+                args.filepath, recursive=args.recursive)
+        else:
+            geometamaker.describe(args.filepath).write()
         # sys.stdout.write(pprint.pformat(description))
         parser.exit()
 
