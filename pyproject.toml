@@ -30,7 +30,7 @@ classifiers = [
 dynamic = ["version", "dependencies", "optional-dependencies"]
 
 [project.scripts]
-geometamaker = "geometamaker.geometamaker.cli:main"
+geometamaker = "geometamaker.cli:cli"
 
 [build-system]
 requires = ["setuptools >= 40.6.0", "wheel", "setuptools_scm"]
