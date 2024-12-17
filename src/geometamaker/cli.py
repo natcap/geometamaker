@@ -1,9 +1,9 @@
-# import argparse
 import logging
 import os
 import sys
 
 import click
+from pydantic import ValidationError
 
 import geometamaker
 
@@ -32,6 +32,17 @@ def describe(filepath, recursive):
         geometamaker.describe(filepath).write()
 
 
+def echo_validation_error(error, filepath):
+    summary = u'\u2715' + f' {filepath}: {error.error_count()} validation errors'
+    click.secho(summary, fg='bright_red')
+    for e in error.errors():
+        location = ', '.join(e['loc'])
+        msg_string = (f"    {e['msg']}. [input_value={e['input']}, "
+                      f"input_type={type(e['input']).__name__}]")
+        click.secho(location, bold=True)
+        click.secho(msg_string)
+
+
 @click.command()
 @click.argument('filepath')
 @click.option('-r', '--recursive', is_flag=True, default=False)
@@ -40,11 +51,19 @@ def validate(filepath, recursive):
         file_list, message_list = geometamaker.validate_dir(
             filepath, recursive=recursive)
         for filepath, msg in zip(file_list, message_list):
-            click.echo(f'{filepath}: {msg}\n')
+            if isinstance(msg, ValidationError):
+                echo_validation_error(msg, filepath)
+            else:
+                color = 'yellow'
+                icon = u'\u25CB'
+                if not msg:
+                    color = 'bright_green'
+                    icon = u'\u2713'
+                click.secho(f'{icon} {filepath} {msg}', fg=color)
     else:
-        validation_message = geometamaker.validate(filepath)
-        if validation_message:
-            click.echo(validation_message)
+        error = geometamaker.validate(filepath)
+        if error:
+            echo_validation_error(error, filepath)
 
 
 def print_config(ctx, param, value):
@@ -62,7 +81,8 @@ def print_config(ctx, param, value):
 @click.option('--position_name', prompt=True, default='')
 @click.option('--license_title', prompt=True, default='')
 @click.option('--license_path', prompt=True, default='')
-@click.option('-p', '--print', is_flag=True, is_eager=True, callback=print_config, expose_value=False)
+@click.option('-p', '--print', is_flag=True, is_eager=True,
+              callback=print_config, expose_value=False)
 def config(individual_name, email, organization, position_name,
            license_path, license_title):
     contact = geometamaker.models.ContactSchema()
@@ -76,7 +96,6 @@ def config(individual_name, email, organization, position_name,
     license.title = license_title
 
     profile = geometamaker.models.Profile(contact=contact, license=license)
-    # click.echo(f'{profile}')
     config = geometamaker.Config()
     config.save(profile)
     click.echo(f'saved profile information to {config.config_path}')

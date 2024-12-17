@@ -406,7 +406,6 @@ def describe(source_dataset_path, profile=None):
 
 
 def validate(filepath):
-    validation_messages = None
     with fsspec.open(filepath, 'r') as file:
         yaml_string = file.read()
         yaml_dict = yaml.safe_load(yaml_string)
@@ -419,15 +418,7 @@ def validate(filepath):
     try:
         RESOURCE_MODELS[yaml_dict['type']](**yaml_dict)
     except ValidationError as error:
-        error_list = [
-            f'{error.error_count()} validation errors for {filepath}:']
-        for e in error.errors():
-            error_list.append(', '.join(e['loc']))
-            error_list.append(
-                f"  {e['msg']}. [input_value={e['input']}, input_type={type(e['input']).__name__}]")
-        validation_messages = '\n'.join(error_list)
-
-    return validation_messages
+        return error
 
 
 def validate_dir(directory, recursive=False):
@@ -448,11 +439,11 @@ def validate_dir(directory, recursive=False):
         if filepath.endswith('.yml'):
             yaml_files.append(filepath)
             try:
-                msg = validate(filepath)
-                if msg:
-                    messages.append(msg)
+                error = validate(filepath)
+                if error:
+                    messages.append(error)
                 else:
-                    messages.append('valid')
+                    messages.append('')
             except ValueError:
                 messages.append(
                     'does not appear to be a geometamaker document')

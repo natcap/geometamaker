@@ -624,13 +624,21 @@ class GeometamakerTests(unittest.TestCase):
         with open(resource.metadata_path, 'w') as file:
             file.write(utils.yaml_dump(yaml_dict))
 
-        msgs = geometamaker.validate(resource.metadata_path)
-        print(msgs)
-        self.assertIn('2 validation errors', msgs)
-        self.assertIn('foo', msgs)
-        self.assertIn('Extra inputs are not permitted', msgs)
-        self.assertIn('keywords', msgs)
-        self.assertIn('Input should be a valid list', msgs)
+        error = geometamaker.validate(resource.metadata_path)
+        print(error)
+        # self.assertIn('2 validation errors', msg_dict['summary'])
+        # self.assertIn('foo', msg_dict['errors'])
+        # self.assertIn('Extra inputs are not permitted', msg_dict['errors']['foo'])
+        # self.assertIn('keywords', msg_dict['errors'])
+        # self.assertIn('Input should be a valid list', msg_dict['errors']['keywords'])
+        self.assertEqual(error.error_count(), 2)
+        msg_dict = {', '.join(e['loc']): e['msg'] for e in error.errors()}
+        # locations = [e['loc'] for e in error.errors()]
+        # messages = [e['msg'] for e in error.errors()]
+        self.assertIn('foo', msg_dict)
+        self.assertIn('Extra inputs are not permitted', msg_dict['foo'])
+        self.assertIn('keywords', msg_dict)
+        self.assertIn('Input should be a valid list', msg_dict['keywords'])
 
     def test_describe_validate_dir(self):
         """Test describe and validate functions that walk directory tree."""
