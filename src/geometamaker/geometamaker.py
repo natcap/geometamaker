@@ -452,22 +452,26 @@ def validate_dir(directory, recursive=False):
 
 
 def describe_dir(directory, recursive=False):
-    file_list = []
+    file_set = set()
     if recursive:
         for path, dirs, files in os.walk(directory):
             for file in files:
-                file_list.append(os.path.join(path, file))
+                file_set.add(os.path.join(path, file).replace('\\', '/'))
     else:
-        file_list.extend(
-            [os.path.join(directory, path)
+        file_set.update(
+            [os.path.join(directory, path).replace('\\', '/')
                 for path in os.listdir(directory)
                 if os.path.isfile(os.path.join(directory, path))])
 
-    for filepath in file_list:
+    while file_set:
+        filepath = file_set.pop()
         try:
             resource = describe(filepath)
+            # If the resource was a multi-file dataset (e.g ESRI Shapefile),
+            # we only want to desribe it once.
+            file_set.difference_update(resource.sources)
         except ValueError as error:
             LOGGER.debug(error)
             continue
-        LOGGER.info(f'writing metadata for {filepath}')
         resource.write()
+        LOGGER.info(f'{filepath} described')

@@ -10,6 +10,7 @@ import pygeoprocessing
 import shapely
 import yaml
 
+from click.testing import CliRunner
 from osgeo import gdal
 from osgeo import gdal_array
 from osgeo import ogr
@@ -669,6 +670,23 @@ class GeometamakerTests(unittest.TestCase):
             self.workspace_dir, recursive=True)
         self.assertEqual(len(yaml_files), 2)
 
+    def test_describe_dir_with_shapefile(self):
+        """Test describe directory containing a multi-file dataset."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'vector.shp')
+        create_vector(datasource_path, None, 'ESRI Shapefile')
+
+        # Multiple files of the shp can be opened with GDAL, but we only
+        # want to describe the dataset once.
+        with patch.object(
+                geometamaker.geometamaker, 'describe',
+                wraps=geometamaker.geometamaker.describe) as mock_describe:
+            geometamaker.describe_dir(self.workspace_dir)
+            self.assertEqual(mock_describe.call_count, 1)
+            self.assertTrue(os.path.exists(os.path.join(
+                self.workspace_dir, 'vector.shp.yml')))
+
 
 class ValidationTests(unittest.TestCase):
     """Tests for geometamaker type validation."""
@@ -854,3 +872,24 @@ class CLITests(unittest.TestCase):
     def tearDown(self):
         """Override tearDown function to remove temporary directory."""
         shutil.rmtree(self.workspace_dir)
+
+    def test_cli_describe(self):
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ['describe', datasource_path])
+        self.assertEqual(result.exit_code, 0)
+
+    def test_cli_describe_recursive(self):
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ['describe', '-r', self.workspace_dir])
+        self.assertEqual(result.exit_code, 0)
+        

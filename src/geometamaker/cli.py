@@ -7,13 +7,16 @@ from pydantic import ValidationError
 
 import geometamaker
 
-# root_logger = logging.getLogger()
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
 handler = logging.StreamHandler(sys.stdout)
 formatter = logging.Formatter(
     fmt='%(asctime)s %(name)-18s %(levelname)-8s %(message)s',
     datefmt='%m/%d/%Y %H:%M:%S ')
 handler.setFormatter(formatter)
-handler.setLevel(logging.DEBUG)  # TODO: take user input
+handler.setLevel(logging.INFO)  # TODO: take user input
+root_logger.addHandler(handler)
+# import pdb; pdb.set_trace()
 
 
 @click.group()
