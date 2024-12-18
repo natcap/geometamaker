@@ -863,7 +863,7 @@ class ConfigurationTests(unittest.TestCase):
 
 
 class CLITests(unittest.TestCase):
-    """Tests for geometamaker configuration."""
+    """Tests for geometamaker Command-Line Interface."""
 
     def setUp(self):
         """Override setUp function to create temp workspace directory."""
@@ -921,7 +921,8 @@ class CLITests(unittest.TestCase):
 
         runner = CliRunner()
         _ = runner.invoke(cli.cli, ['describe', datasource_path])
-        result = runner.invoke(cli.cli, ['validate', datasource_path])
+        result = runner.invoke(cli.cli, ['validate', f'{datasource_path}.yml'])
+        # print(result)
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
 
@@ -948,28 +949,95 @@ class CLITests(unittest.TestCase):
 
         result = runner.invoke(cli.cli, ['validate', document_path])
         self.assertEqual(result.exit_code, 0)
-        self.assertEqual(result.output, '')
+        self.assertIn('2 validation errors', result.output)
 
-    # def test_cli_describe_recursive(self):
-    #     """CLI: test describe with recursive option."""
-    #     from geometamaker import cli
+    def test_cli_validate_recursive(self):
+        """CLI: test validate with recursive option."""
+        import geometamaker
+        from geometamaker import cli
 
-    #     datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-    #     create_raster(numpy.int16, datasource_path)
+        subdir = os.path.join(self.workspace_dir, 'subdir')
+        os.makedirs(subdir)
+        raster1 = os.path.join(self.workspace_dir, 'raster1.tif')
+        yml1 = os.path.join(self.workspace_dir, 'foo.yml')
+        raster2 = os.path.join(subdir, 'raster2.tif')
+        yml2 = os.path.join(subdir, 'foo.yml')
 
-    #     runner = CliRunner()
-    #     result = runner.invoke(cli.cli, ['describe', '-r', self.workspace_dir])
-    #     self.assertEqual(result.exit_code, 0)
-    #     self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+        create_raster(numpy.int16, raster1)
+        create_raster(numpy.int16, raster2)
+        with open(yml1, 'w') as file:
+            file.write('')
+        with open(yml2, 'w') as file:
+            file.write('')
 
-    # def test_cli_describe_recursive_filepath(self):
-    #     """CLI: test recursive option ignored if filepath is not a directory."""
-    #     from geometamaker import cli
+        geometamaker.describe_dir(self.workspace_dir, recursive=True)
 
-    #     datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-    #     create_raster(numpy.int16, datasource_path)
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['validate', '-r', self.workspace_dir])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn(u'\u2713' + f' {raster1}.yml', result.output)
+        self.assertIn(u'\u2713' + f' {raster2}.yml', result.output)
+        self.assertIn(
+            u'\u25CB' + f' {yml1} does not appear to be a geometamaker document',
+            result.output)
+        self.assertIn(
+            u'\u25CB' + f' {yml2} does not appear to be a geometamaker document',
+            result.output)
 
-    #     runner = CliRunner()
-    #     result = runner.invoke(cli.cli, ['describe', '-r', datasource_path])
-    #     self.assertEqual(result.exit_code, 0)
-    #     self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+    @patch('geometamaker.config.platformdirs.user_config_dir')
+    def test_cli_config_prompts(self, mock_user_config_dir):
+        """CLI: test config inputs can be given via stdin."""
+        mock_user_config_dir.return_value = self.workspace_dir
+        from geometamaker import cli
+        from geometamaker import config
+
+        runner = CliRunner()
+        inputs = {
+            'individual_name': 'name',
+            'email': '',
+            'organization': 'org',
+            'position_name': 'position',
+            'license_title': 'license',
+            'license_path': ''
+        }
+        result = runner.invoke(cli.cli, ['config'],
+                               input='\n'.join(inputs.values()))
+        self.assertEqual(result.exit_code, 0)
+
+        profile = config.Config().profile
+        self.assertEqual(profile.contact.individual_name, inputs['individual_name'])
+        self.assertEqual(profile.contact.email, inputs['email'])
+        self.assertEqual(profile.contact.organization, inputs['organization'])
+        self.assertEqual(profile.contact.position_name, inputs['position_name'])
+        self.assertEqual(profile.license.title, inputs['license_title'])
+        self.assertEqual(profile.license.path, inputs['license_path'])
+
+    @patch('geometamaker.config.platformdirs.user_config_dir')
+    def test_cli_config_print(self, mock_user_config_dir):
+        """CLI: test config print callback."""
+        mock_user_config_dir.return_value = self.workspace_dir
+        from geometamaker import cli
+        from geometamaker import models
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['config', '--print'])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(
+            result.output.rstrip(),
+            str(models.Profile()))
+
+    @patch('geometamaker.config.platformdirs.user_config_dir')
+    def test_cli_config_delete(self, mock_user_config_dir):
+        """CLI: test config delete callback."""
+        mock_user_config_dir.return_value = self.workspace_dir
+        from geometamaker import cli
+
+        runner = CliRunner()
+
+        # Abort when asked to confirm
+        result = runner.invoke(cli.cli, ['config', '--delete'], input='n\n')
+        self.assertEqual(result.exit_code, 1)
+
+        # Confirm wih yes
+        result = runner.invoke(cli.cli, ['config', '--delete'], input='y\n')
+        self.assertEqual(result.exit_code, 0)

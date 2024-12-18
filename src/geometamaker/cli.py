@@ -76,6 +76,17 @@ def print_config(ctx, param, value):
     ctx.exit()
 
 
+def delete_config(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    config = geometamaker.Config()
+    click.confirm(
+        f'Are you sure you want to delete {config.config_path}?',
+        abort=True)
+    config.delete()
+    ctx.exit()
+
+
 @click.command()
 @click.option('--individual_name', prompt=True, default='')
 @click.option('--email', prompt=True, default='')
@@ -85,6 +96,9 @@ def print_config(ctx, param, value):
 @click.option('--license_path', prompt=True, default='')
 @click.option('-p', '--print', is_flag=True, is_eager=True,
               callback=print_config, expose_value=False)
+@click.confirmation_option(
+    '--delete', is_flag=True, is_eager=True,
+    callback=delete_config, expose_value=False)
 def config(individual_name, email, organization, position_name,
            license_path, license_title):
     contact = geometamaker.models.ContactSchema()
