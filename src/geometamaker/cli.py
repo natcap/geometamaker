@@ -16,7 +16,17 @@ formatter = logging.Formatter(
 handler.setFormatter(formatter)
 handler.setLevel(logging.INFO)  # TODO: take user input
 root_logger.addHandler(handler)
-# import pdb; pdb.set_trace()
+
+
+def echo_validation_error(error, filepath):
+    summary = u'\u2715' + f' {filepath}: {error.error_count()} validation errors'
+    click.secho(summary, fg='bright_red')
+    for e in error.errors():
+        location = ', '.join(e['loc'])
+        msg_string = (f"    {e['msg']}. [input_value={e['input']}, "
+                      f"input_type={type(e['input']).__name__}]")
+        click.secho(location, bold=True)
+        click.secho(msg_string)
 
 
 @click.group()
@@ -33,17 +43,6 @@ def describe(filepath, recursive):
             filepath, recursive=recursive)
     else:
         geometamaker.describe(filepath).write()
-
-
-def echo_validation_error(error, filepath):
-    summary = u'\u2715' + f' {filepath}: {error.error_count()} validation errors'
-    click.secho(summary, fg='bright_red')
-    for e in error.errors():
-        location = ', '.join(e['loc'])
-        msg_string = (f"    {e['msg']}. [input_value={e['input']}, "
-                      f"input_type={type(e['input']).__name__}]")
-        click.secho(location, bold=True)
-        click.secho(msg_string)
 
 
 @click.command()

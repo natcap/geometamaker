@@ -874,22 +874,102 @@ class CLITests(unittest.TestCase):
         shutil.rmtree(self.workspace_dir)
 
     def test_cli_describe(self):
+        """CLI: test describe."""
         from geometamaker import cli
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
 
         runner = CliRunner()
-        result = runner.invoke(cli, ['describe', datasource_path])
+        result = runner.invoke(cli.cli, ['describe', datasource_path])
         self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
 
     def test_cli_describe_recursive(self):
+        """CLI: test describe with recursive option."""
         from geometamaker import cli
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
 
         runner = CliRunner()
-        result = runner.invoke(cli, ['describe', '-r', self.workspace_dir])
+        result = runner.invoke(cli.cli, ['describe', '-r', self.workspace_dir])
         self.assertEqual(result.exit_code, 0)
-        
+        self.assertEqual(result.output, '')
+        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+
+    def test_cli_describe_recursive_filepath(self):
+        """CLI: test recursive option ignored if filepath is not a directory."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['describe', '-r', datasource_path])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+
+    def test_cli_validate_valid(self):
+        """CLI: test validate creates no output for valid document."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        _ = runner.invoke(cli.cli, ['describe', datasource_path])
+        result = runner.invoke(cli.cli, ['validate', datasource_path])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+
+    def test_cli_validate_invalid(self):
+        """CLI: test validate generates stdout for invalid document."""
+        from geometamaker import cli
+        from geometamaker import utils
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        _ = runner.invoke(cli.cli, ['describe', datasource_path])
+
+        # Manually modify the metadata doc
+        document_path = f'{datasource_path}.yml'
+        with open(document_path, 'r') as file:
+            yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        yaml_dict['foo'] = 'bar'
+        yaml_dict['keywords'] = 'not a list'
+        with open(document_path, 'w') as file:
+            file.write(utils.yaml_dump(yaml_dict))
+
+        result = runner.invoke(cli.cli, ['validate', document_path])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+
+    # def test_cli_describe_recursive(self):
+    #     """CLI: test describe with recursive option."""
+    #     from geometamaker import cli
+
+    #     datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+    #     create_raster(numpy.int16, datasource_path)
+
+    #     runner = CliRunner()
+    #     result = runner.invoke(cli.cli, ['describe', '-r', self.workspace_dir])
+    #     self.assertEqual(result.exit_code, 0)
+    #     self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+
+    # def test_cli_describe_recursive_filepath(self):
+    #     """CLI: test recursive option ignored if filepath is not a directory."""
+    #     from geometamaker import cli
+
+    #     datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+    #     create_raster(numpy.int16, datasource_path)
+
+    #     runner = CliRunner()
+    #     result = runner.invoke(cli.cli, ['describe', '-r', datasource_path])
+    #     self.assertEqual(result.exit_code, 0)
+    #     self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
