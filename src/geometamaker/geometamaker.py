@@ -9,8 +9,10 @@ import frictionless
 import fsspec
 import numpy
 import pygeoprocessing
+import yaml
 from osgeo import gdal
 from osgeo import osr
+from pydantic import ValidationError
 
 from . import models
 from .config import Config
@@ -350,6 +352,7 @@ def describe(source_dataset_path, profile=None):
     resource_type = detect_file_type(source_dataset_path, protocol)
     description = DESRCIBE_FUNCS[resource_type](
         source_dataset_path, protocol)
+    description['type'] = resource_type
 
     # Load existing metadata file
     try:
@@ -400,3 +403,75 @@ def describe(source_dataset_path, profile=None):
 
     resource = resource.replace(user_profile)
     return resource
+
+
+def validate(filepath):
+    with fsspec.open(filepath, 'r') as file:
+        yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        if not yaml_dict or 'metadata_version' not in yaml_dict \
+                or not yaml_dict['metadata_version'].startswith('geometamaker'):
+            message = (f'{filepath} exists but is not compatible with '
+                       f'geometamaker.')
+            raise ValueError(message)
+
+    try:
+        RESOURCE_MODELS[yaml_dict['type']](**yaml_dict)
+    except ValidationError as error:
+        return error
+
+
+def validate_dir(directory, recursive=False):
+    file_list = []
+    if recursive:
+        for path, dirs, files in os.walk(directory):
+            for file in files:
+                file_list.append(os.path.join(path, file))
+    else:
+        file_list.extend(
+            [os.path.join(directory, path)
+                for path in os.listdir(directory)
+                if os.path.isfile(os.path.join(directory, path))])
+
+    messages = []
+    yaml_files = []
+    for filepath in file_list:
+        if filepath.endswith('.yml'):
+            yaml_files.append(filepath)
+            try:
+                error = validate(filepath)
+                if error:
+                    messages.append(error)
+                else:
+                    messages.append('')
+            except ValueError:
+                messages.append(
+                    'does not appear to be a geometamaker document')
+
+    return (yaml_files, messages)
+
+
+def describe_dir(directory, recursive=False):
+    file_set = set()
+    if recursive:
+        for path, dirs, files in os.walk(directory):
+            for file in files:
+                file_set.add(os.path.join(path, file).replace('\\', '/'))
+    else:
+        file_set.update(
+            [os.path.join(directory, path).replace('\\', '/')
+                for path in os.listdir(directory)
+                if os.path.isfile(os.path.join(directory, path))])
+
+    while file_set:
+        filepath = file_set.pop()
+        try:
+            resource = describe(filepath)
+            # If the resource was a multi-file dataset (e.g ESRI Shapefile),
+            # we only want to desribe it once.
+            file_set.difference_update(resource.sources)
+        except ValueError as error:
+            LOGGER.debug(error)
+            continue
+        resource.write()
+        LOGGER.info(f'{filepath} described')

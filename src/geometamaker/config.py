@@ -58,5 +58,8 @@ class Config(object):
 
     def delete(self):
         """Delete the config file."""
-        LOGGER.info(f'removing {self.config_path}')
-        os.remove(self.config_path)
+        try:
+            os.remove(self.config_path)
+            LOGGER.info(f'removed {self.config_path}')
+        except FileNotFoundError as error:
+            LOGGER.debug(error)
