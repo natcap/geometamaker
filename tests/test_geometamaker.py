@@ -647,9 +647,9 @@ class GeometamakerTests(unittest.TestCase):
 
         subdir = os.path.join(self.workspace_dir, 'subdir')
         os.makedirs(subdir)
-        raster1 = os.path.join(self.workspace_dir, 'raster1.tif')
+        raster1 = os.path.join(self.workspace_dir, 'foo.tif')
         txt1 = os.path.join(self.workspace_dir, 'foo.txt')
-        raster2 = os.path.join(subdir, 'raster2.tif')
+        raster2 = os.path.join(subdir, 'foo.tif')
         txt2 = os.path.join(subdir, 'foo.txt')
 
         create_raster(numpy.int16, raster1)
@@ -674,18 +674,30 @@ class GeometamakerTests(unittest.TestCase):
         """Test describe directory containing a multi-file dataset."""
         import geometamaker
 
-        datasource_path = os.path.join(self.workspace_dir, 'vector.shp')
-        create_vector(datasource_path, None, 'ESRI Shapefile')
+        # Create several files with the same root name. Four of them
+        # will be components of shapefile. One more will be a CSV.
+        # We expect to describe exactly two datasets.
+        root_name = 'foo'
+        vector_path = os.path.join(self.workspace_dir, f'{root_name}.shp')
+        create_vector(vector_path, None, 'ESRI Shapefile')
+        csv_path = os.path.join(self.workspace_dir, f'{root_name}.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
 
-        # Multiple files of the shp can be opened with GDAL, but we only
-        # want to describe the dataset once.
+        file_count = 5
+        describe_count = 2
+        self.assertEqual(len(os.listdir(self.workspace_dir)), file_count)
+
         with patch.object(
                 geometamaker.geometamaker, 'describe',
                 wraps=geometamaker.geometamaker.describe) as mock_describe:
             geometamaker.describe_dir(self.workspace_dir)
-            self.assertEqual(mock_describe.call_count, 1)
-            self.assertTrue(os.path.exists(os.path.join(
-                self.workspace_dir, 'vector.shp.yml')))
+
+        self.assertEqual(mock_describe.call_count, describe_count)
+        self.assertTrue(os.path.exists(os.path.join(
+            self.workspace_dir, f'{root_name}.shp.yml')))
+        self.assertTrue(os.path.exists(os.path.join(
+            self.workspace_dir, f'{root_name}.csv.yml')))
 
 
 class ValidationTests(unittest.TestCase):
@@ -1000,6 +1012,7 @@ class CLITests(unittest.TestCase):
             'license_title': 'license',
             'license_path': ''
         }
+        print(inputs.values())
         result = runner.invoke(cli.cli, ['config'],
                                input='\n'.join(inputs.values()))
         self.assertEqual(result.exit_code, 0)

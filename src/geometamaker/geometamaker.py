@@ -3,6 +3,7 @@ import hashlib
 import logging
 import os
 import requests
+from collections import defaultdict
 from datetime import datetime, timezone
 
 import frictionless
@@ -452,26 +453,45 @@ def validate_dir(directory, recursive=False):
 
 
 def describe_dir(directory, recursive=False):
-    file_set = set()
-    if recursive:
-        for path, dirs, files in os.walk(directory):
-            for file in files:
-                file_set.add(os.path.join(path, file).replace('\\', '/'))
-    else:
-        file_set.update(
-            [os.path.join(directory, path).replace('\\', '/')
-                for path in os.listdir(directory)
-                if os.path.isfile(os.path.join(directory, path))])
+    """Describe all compatible datasets in the directory.
 
-    while file_set:
-        filepath = file_set.pop()
-        try:
-            resource = describe(filepath)
-            # If the resource was a multi-file dataset (e.g ESRI Shapefile),
-            # we only want to desribe it once.
-            file_set.difference_update(resource.sources)
-        except ValueError as error:
-            LOGGER.debug(error)
-            continue
-        resource.write()
-        LOGGER.info(f'{filepath} described')
+    Take special care to only describe multifile datasets,
+    such as ESRI Shapefiles, one time.
+
+    Args:
+        directory (string): path to a directory
+        recursive (bool): whether or not to describe files
+            in all subdirectories
+
+    Returns:
+        None
+
+    """
+    root_set = set()
+    root_ext_map = defaultdict(set)
+    for path, dirs, files in os.walk(directory):
+        for file in files:
+            full_path = os.path.join(path, file)
+            root, ext = os.path.splitext(full_path)
+            # tracking which files share a root name
+            # so we can check if these comprise a shapefile
+            root_ext_map[root].add(ext)
+            root_set.add(root)
+        if not recursive:
+            break
+
+    for root in root_set:
+        extensions = root_ext_map[root]
+        if '.shp' in extensions:
+            # if we're dealing with a shapefile, we do not want to describe any
+            # of these other files with the same root name
+            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf'])
+        for ext in extensions:
+            filepath = f'{root}{ext}'
+            try:
+                resource = describe(filepath)
+            except ValueError as error:
+                LOGGER.debug(error)
+                continue
+            resource.write()
+            LOGGER.info(f'{filepath} described')
