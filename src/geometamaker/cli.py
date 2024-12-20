@@ -29,25 +29,39 @@ def echo_validation_error(error, filepath):
         click.secho(msg_string)
 
 
-@click.group()
-def cli():
-    pass
-
-
-@click.command()
-@click.argument('filepath')
-@click.option('-r', '--recursive', is_flag=True, default=False)
-def describe(filepath, recursive):
+@click.command(
+    help='''Describe properties of a dataset given by FILEPATH and write this
+    metadata to a .yml sidecar file. Or if FILEPATH is a directory, describe
+    all datasets within.''',
+    short_help='Generate metadata for geospatial or tabular data, or zip archives.')
+@click.argument('filepath', type=click.Path(exists=True))
+@click.option('-r', '--recursive', is_flag=True, default=False,
+              help='if FILEPATH is a directory, describe files '
+                   'in all subdirectories')
+@click.option('-nw', '--no-write', is_flag=True, default=False,
+              help='Dump metadata to stdout instead of to a .yml file. '
+                   'This option is ignored if `filepath` is a directory')
+def describe(filepath, recursive, no_write):
     if os.path.isdir(filepath):
         geometamaker.describe_dir(
             filepath, recursive=recursive)
     else:
-        geometamaker.describe(filepath).write()
+        resource = geometamaker.describe(filepath)
+        if no_write:
+            click.echo(geometamaker.utils.yaml_dump(
+                resource.model_dump(exclude=['metadata_path'])))
+        else:
+            resource.write()
 
 
-@click.command()
-@click.argument('filepath')
-@click.option('-r', '--recursive', is_flag=True, default=False)
+@click.command(
+    help='''Validate a .yml metadata document given by FILEPATH.
+    Or if FILEPATH is a directory, validate all documents within.''',
+    short_help='Validate metadata documents for syntax or type errors.')
+@click.argument('filepath', type=click.Path(exists=True))
+@click.option('-r', '--recursive', is_flag=True, default=False,
+              help='if `filepath` is a directory, validate documents '
+                   'in all subdirectories.')
 def validate(filepath, recursive):
     if os.path.isdir(filepath):
         file_list, message_list = geometamaker.validate_dir(
@@ -72,7 +86,7 @@ def print_config(ctx, param, value):
     if not value or ctx.resilient_parsing:
         return
     config = geometamaker.Config()
-    click.echo(f'{config.profile}')
+    click.echo(config)
     ctx.exit()
 
 
@@ -87,17 +101,27 @@ def delete_config(ctx, param, value):
     ctx.exit()
 
 
-@click.command()
-@click.option('--individual_name', prompt=True, default='')
+@click.command(
+    short_help='''Configure GeoMetaMaker with information to apply to all
+    metadata descriptions''',
+    help='''When prompted, enter contact and data-license information
+    that will be stored in a user profile. This information will automatically
+    populate contact and license sections of any metadata described on your
+    system. Press enter to leave any field blank.''')
+@click.option('--individual-name', prompt=True, default='')
 @click.option('--email', prompt=True, default='')
 @click.option('--organization', prompt=True, default='')
-@click.option('--position_name', prompt=True, default='')
-@click.option('--license_title', prompt=True, default='')
-@click.option('--license_path', prompt=True, default='')
+@click.option('--position-name', prompt=True, default='')
+@click.option('--license-title', prompt=True, default='',
+              help='the name of a data license, e.g. "CC-BY-4.0"')
+@click.option('--license-path', prompt=True, default='',
+              help='a url for a data license')
 @click.option('-p', '--print', is_flag=True, is_eager=True,
-              callback=print_config, expose_value=False)
+              callback=print_config, expose_value=False,
+              help='Print your current GeoMetaMaker configuration.')
 @click.option('--delete', is_flag=True, is_eager=True,
-              callback=delete_config, expose_value=False)
+              callback=delete_config, expose_value=False,
+              help='Delete your configuration file.')
 def config(individual_name, email, organization, position_name,
            license_path, license_title):
     contact = geometamaker.models.ContactSchema()
@@ -114,6 +138,11 @@ def config(individual_name, email, organization, position_name,
     config = geometamaker.Config()
     config.save(profile)
     click.echo(f'saved profile information to {config.config_path}')
+
+
+@click.group()
+def cli():
+    pass
 
 
 cli.add_command(describe)
