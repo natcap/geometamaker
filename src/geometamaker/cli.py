@@ -96,9 +96,8 @@ def delete_config(ctx, param, value):
 @click.option('--license_path', prompt=True, default='')
 @click.option('-p', '--print', is_flag=True, is_eager=True,
               callback=print_config, expose_value=False)
-@click.confirmation_option(
-    '--delete', is_flag=True, is_eager=True,
-    callback=delete_config, expose_value=False)
+@click.option('--delete', is_flag=True, is_eager=True,
+              callback=delete_config, expose_value=False)
 def config(individual_name, email, organization, position_name,
            license_path, license_title):
     contact = geometamaker.models.ContactSchema()

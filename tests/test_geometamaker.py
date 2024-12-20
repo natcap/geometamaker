@@ -1012,9 +1012,8 @@ class CLITests(unittest.TestCase):
             'license_title': 'license',
             'license_path': ''
         }
-        print(inputs.values())
         result = runner.invoke(cli.cli, ['config'],
-                               input='\n'.join(inputs.values()))
+                               input='\n'.join(inputs.values()) + '\n')
         self.assertEqual(result.exit_code, 0)
 
         profile = config.Config().profile
