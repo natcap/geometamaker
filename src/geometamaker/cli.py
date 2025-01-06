@@ -30,6 +30,9 @@ handler.setFormatter(formatter)
                    'This option is ignored if `filepath` is a directory')
 def describe(filepath, recursive, no_write):
     if os.path.isdir(filepath):
+        if no_write:
+            click.echo('the -nw, or --no-write, flag is ignored when '
+                       'describing all files in a directory.')
         geometamaker.describe_dir(
             filepath, recursive=recursive)
     else:
