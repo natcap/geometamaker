@@ -7,13 +7,13 @@ from pydantic import ValidationError
 
 import geometamaker
 
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.DEBUG)
-handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter(
+ROOT_LOGGER = logging.getLogger()
+ROOT_LOGGER.setLevel(logging.DEBUG)
+HANDLER = logging.StreamHandler(sys.stdout)
+FORMATTER = logging.Formatter(
     fmt='%(asctime)s %(name)-18s %(levelname)-8s %(message)s',
     datefmt='%m/%d/%Y %H:%M:%S ')
-handler.setFormatter(formatter)
+HANDLER.setFormatter(FORMATTER)
 
 
 @click.command(
@@ -149,8 +149,8 @@ def config(individual_name, email, organization, position_name,
 @click.version_option(message="%(version)s")
 def cli(verbosity):
     log_level = logging.ERROR - verbosity*10
-    handler.setLevel(log_level)
-    root_logger.addHandler(handler)
+    HANDLER.setLevel(log_level)
+    ROOT_LOGGER.addHandler(HANDLER)
 
 
 cli.add_command(describe)
