@@ -143,6 +143,7 @@ def config(individual_name, email, organization, position_name,
               help='''Override the default verbosity of logging. Use "-vvv" for
               debug-level logging. Omit this flag for default,
               info-level logging.''')
+@click.version_option(message="%(version)s")
 def cli(verbosity):
     log_level = logging.ERROR - verbosity*10
     handler.setLevel(log_level)
