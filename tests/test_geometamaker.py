@@ -1029,14 +1029,12 @@ class CLITests(unittest.TestCase):
         """CLI: test config print callback."""
         mock_user_config_dir.return_value = self.workspace_dir
         from geometamaker import cli
-        from geometamaker import models
+        from geometamaker import config
 
         runner = CliRunner()
         result = runner.invoke(cli.cli, ['config', '--print'])
         self.assertEqual(result.exit_code, 0)
-        self.assertEqual(
-            result.output.rstrip(),
-            str(models.Profile()))
+        self.assertEqual(result.output.rstrip(), str(config.Config()))
 
     @patch('geometamaker.config.platformdirs.user_config_dir')
     def test_cli_config_delete(self, mock_user_config_dir):
