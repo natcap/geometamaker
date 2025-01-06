@@ -14,19 +14,6 @@ formatter = logging.Formatter(
     fmt='%(asctime)s %(name)-18s %(levelname)-8s %(message)s',
     datefmt='%m/%d/%Y %H:%M:%S ')
 handler.setFormatter(formatter)
-handler.setLevel(logging.INFO)  # TODO: take user input
-root_logger.addHandler(handler)
-
-
-def echo_validation_error(error, filepath):
-    summary = u'\u2715' + f' {filepath}: {error.error_count()} validation errors'
-    click.secho(summary, fg='bright_red')
-    for e in error.errors():
-        location = ', '.join(e['loc'])
-        msg_string = (f"    {e['msg']}. [input_value={e['input']}, "
-                      f"input_type={type(e['input']).__name__}]")
-        click.secho(location, bold=True)
-        click.secho(msg_string)
 
 
 @click.command(
@@ -52,6 +39,17 @@ def describe(filepath, recursive, no_write):
                 resource.model_dump(exclude=['metadata_path'])))
         else:
             resource.write()
+
+
+def echo_validation_error(error, filepath):
+    summary = u'\u2715' + f' {filepath}: {error.error_count()} validation errors'
+    click.secho(summary, fg='bright_red')
+    for e in error.errors():
+        location = ', '.join(e['loc'])
+        msg_string = (f"    {e['msg']}. [input_value={e['input']}, "
+                      f"input_type={type(e['input']).__name__}]")
+        click.secho(location, bold=True)
+        click.secho(msg_string)
 
 
 @click.command(
@@ -141,8 +139,14 @@ def config(individual_name, email, organization, position_name,
 
 
 @click.group()
-def cli():
-    pass
+@click.option('-v', 'verbosity', count=True, default=2, required=False,
+              help='''Override the default verbosity of logging. Use "-vvv" for
+              debug-level logging. Omit this flag for default,
+              info-level logging.''')
+def cli(verbosity):
+    log_level = logging.ERROR - verbosity*10
+    handler.setLevel(log_level)
+    root_logger.addHandler(handler)
 
 
 cli.add_command(describe)
