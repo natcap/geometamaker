@@ -626,16 +626,9 @@ class GeometamakerTests(unittest.TestCase):
             file.write(utils.yaml_dump(yaml_dict))
 
         error = geometamaker.validate(resource.metadata_path)
-        print(error)
-        # self.assertIn('2 validation errors', msg_dict['summary'])
-        # self.assertIn('foo', msg_dict['errors'])
-        # self.assertIn('Extra inputs are not permitted', msg_dict['errors']['foo'])
-        # self.assertIn('keywords', msg_dict['errors'])
-        # self.assertIn('Input should be a valid list', msg_dict['errors']['keywords'])
+
         self.assertEqual(error.error_count(), 2)
         msg_dict = {', '.join(e['loc']): e['msg'] for e in error.errors()}
-        # locations = [e['loc'] for e in error.errors()]
-        # messages = [e['msg'] for e in error.errors()]
         self.assertIn('foo', msg_dict)
         self.assertIn('Extra inputs are not permitted', msg_dict['foo'])
         self.assertIn('keywords', msg_dict)
