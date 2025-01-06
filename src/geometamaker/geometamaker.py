@@ -407,6 +407,21 @@ def describe(source_dataset_path, profile=None):
 
 
 def validate(filepath):
+    """Validate a YAML metadata document.
+
+    Validation includes type-checking of property values and
+    checking for the presence of required properties.
+
+    Args:
+        directory (string): path to a YAML file
+
+    Returns:
+        pydantic.ValidationError
+
+    Raises:
+        ValueError if the YAML document is not a geometamaker metadata doc.
+
+    """
     with fsspec.open(filepath, 'r') as file:
         yaml_string = file.read()
         yaml_dict = yaml.safe_load(yaml_string)
@@ -423,6 +438,18 @@ def validate(filepath):
 
 
 def validate_dir(directory, recursive=False):
+    """Validate all compatible yml documents in the directory.
+
+    Args:
+        directory (string): path to a directory
+        recursive (bool): whether or not to describe files
+            in all subdirectories
+
+    Returns:
+        tuple (list, list): a list of validation messages and an equal-length
+            list of the filepaths that were validated.
+
+    """
     file_list = []
     if recursive:
         for path, dirs, files in os.walk(directory):
