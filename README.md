@@ -6,9 +6,15 @@ Supported datatypes include:
 * compressed formats supported by `frictionless`
 
 
-See `requirements.txt` for dependencies
+See `requirements.txt` for dependencies.
+
+This library comes with a command-line interface (CLI) called `geometamaker`.
+Many of the examples below show how to use the Python interface, and then
+how to do the same thing, if possible, using the CLI.
 
 ### Creating & adding metadata to file:
+
+##### Python
 
 ```python
 import geometamaker
@@ -38,22 +44,66 @@ resource.set_band_description(
 resource.write()
 ```
 
+##### CLI
+```
+geometamaker describe data/watershed_gura.shp
+```
+The CLI does not provide options for setting metadata properties such as 
+keywords, field or band descriptions, or other properties that require 
+user-input. If you create a metadata document with the CLI, you may wish 
+to add these values manually by editing the 
+`watershed_gura.shp.yml` file in a text editor.
+
 ### Creating metadata for a batch of files:
+
+#### Python
 ```python
 import os
 
 import geometamaker
 
 data_dir = 'C:/Users/dmf/projects/invest/data/invest-sample-data'
-for path, dirs, files in os.walk(data_dir):
-    for file in files:
-        filepath = os.path.join(path, file)
-        print(filepath)
-        try:
-            resource = geometamaker.describe(filepath)
-        except ValueError as err:
-            print(err)
-        resource.write()
+geometamaker.describe_dir(data_dir, recursive=True)
+```
+
+#### CLI
+```
+geometamaker describe -r data/invest-sample-data
+```
+
+### Validating a metadata document:
+If you have manually edited a `.yml` metadata document,
+it is a good idea to validate it for correct syntax, properties, and types.
+
+##### Python
+```python
+import geometamaker
+
+document_path = 'data/watershed_gura.shp.yml'
+error = geometamaker.validate(document_path)
+print(error)
+```
+
+##### CLI
+```
+geometamaker validate data/watershed_gura.shp.yml
+```
+
+### Validating all metadata documents in a directory
+
+##### Python
+```python
+import geometamaker
+
+directory_path = 'data/'
+yaml_files, messages = geometamaker.validate_dir(data)
+for filepath, msg in zip(yaml_files, messages):
+    print(f'{filepath}: {msg}')
+```
+
+##### CLI
+```
+geometamaker validate data
 ```
 
 ### Configuring default values for metadata properties:
@@ -90,6 +140,8 @@ resource = geometamaker.describe(data_path, profile=profile)
 ```
 
 #### Store a Profile in user-configuration
+
+##### Python
 ```python
 import os
 
@@ -110,6 +162,12 @@ data_path = 'data/watershed_gura.shp'
 resource = geometamaker.describe(data_path)
 ```
 
+##### CLI
+```
+geometamaker config
+```
+This will prompt the user to enter their profile information.  
+Also see `geometamaker config --help`.
 
 ### For a complete list of methods:
 https://geometamaker.readthedocs.io/en/latest/api/geometamaker.html

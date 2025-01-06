@@ -10,6 +10,7 @@ import pygeoprocessing
 import shapely
 import yaml
 
+from click.testing import CliRunner
 from osgeo import gdal
 from osgeo import gdal_array
 from osgeo import ogr
@@ -593,6 +594,104 @@ class GeometamakerTests(unittest.TestCase):
         resource = geometamaker.describe(filepath)
         self.assertEqual(resource.path, filepath)
 
+    def test_validate_valid_document(self):
+        """Test validate function returns nothing."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        resource = geometamaker.describe(datasource_path)
+        resource.write()
+
+        msgs = geometamaker.validate(resource.metadata_path)
+        self.assertIsNone(msgs)
+
+    def test_validate_invalid_document(self):
+        """Test validate function returns messages."""
+        import geometamaker
+        from geometamaker import utils
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        resource = geometamaker.describe(datasource_path)
+        resource.write()
+
+        # Manually modify the metadata doc
+        with open(resource.metadata_path, 'r') as file:
+            yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        yaml_dict['foo'] = 'bar'
+        yaml_dict['keywords'] = 'not a list'
+        with open(resource.metadata_path, 'w') as file:
+            file.write(utils.yaml_dump(yaml_dict))
+
+        error = geometamaker.validate(resource.metadata_path)
+
+        self.assertEqual(error.error_count(), 2)
+        msg_dict = {', '.join(e['loc']): e['msg'] for e in error.errors()}
+        self.assertIn('foo', msg_dict)
+        self.assertIn('Extra inputs are not permitted', msg_dict['foo'])
+        self.assertIn('keywords', msg_dict)
+        self.assertIn('Input should be a valid list', msg_dict['keywords'])
+
+    def test_describe_validate_dir(self):
+        """Test describe and validate functions that walk directory tree."""
+        import geometamaker
+
+        subdir = os.path.join(self.workspace_dir, 'subdir')
+        os.makedirs(subdir)
+        raster1 = os.path.join(self.workspace_dir, 'foo.tif')
+        txt1 = os.path.join(self.workspace_dir, 'foo.txt')
+        raster2 = os.path.join(subdir, 'foo.tif')
+        txt2 = os.path.join(subdir, 'foo.txt')
+
+        create_raster(numpy.int16, raster1)
+        create_raster(numpy.int16, raster2)
+        with open(txt1, 'w') as file:
+            file.write('')
+        with open(txt2, 'w') as file:
+            file.write('')
+
+        # Only 1 eligible file to describe in the root dir
+        geometamaker.describe_dir(self.workspace_dir)
+        yaml_files, msgs = geometamaker.validate_dir(self.workspace_dir)
+        self.assertEqual(len(yaml_files), 1)
+
+        # 2 eligible files described with recursive option
+        geometamaker.describe_dir(self.workspace_dir, recursive=True)
+        yaml_files, msgs = geometamaker.validate_dir(
+            self.workspace_dir, recursive=True)
+        self.assertEqual(len(yaml_files), 2)
+
+    def test_describe_dir_with_shapefile(self):
+        """Test describe directory containing a multi-file dataset."""
+        import geometamaker
+
+        # Create several files with the same root name. Four of them
+        # will be components of shapefile. One more will be a CSV.
+        # We expect to describe exactly two datasets.
+        root_name = 'foo'
+        vector_path = os.path.join(self.workspace_dir, f'{root_name}.shp')
+        create_vector(vector_path, None, 'ESRI Shapefile')
+        csv_path = os.path.join(self.workspace_dir, f'{root_name}.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
+
+        file_count = 5
+        describe_count = 2
+        self.assertEqual(len(os.listdir(self.workspace_dir)), file_count)
+
+        with patch.object(
+                geometamaker.geometamaker, 'describe',
+                wraps=geometamaker.geometamaker.describe) as mock_describe:
+            geometamaker.describe_dir(self.workspace_dir)
+
+        self.assertEqual(mock_describe.call_count, describe_count)
+        self.assertTrue(os.path.exists(os.path.join(
+            self.workspace_dir, f'{root_name}.shp.yml')))
+        self.assertTrue(os.path.exists(os.path.join(
+            self.workspace_dir, f'{root_name}.csv.yml')))
+
 
 class ValidationTests(unittest.TestCase):
     """Tests for geometamaker type validation."""
@@ -766,3 +865,182 @@ class ConfigurationTests(unittest.TestCase):
         config = geometamaker.config.Config()
         config.delete()
         self.assertFalse(os.path.exists(config_path))
+
+
+class CLITests(unittest.TestCase):
+    """Tests for geometamaker Command-Line Interface."""
+
+    def setUp(self):
+        """Override setUp function to create temp workspace directory."""
+        self.workspace_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """Override tearDown function to remove temporary directory."""
+        shutil.rmtree(self.workspace_dir)
+
+    def test_cli_describe(self):
+        """CLI: test describe."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['describe', datasource_path])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+
+    def test_cli_describe_recursive(self):
+        """CLI: test describe with recursive option."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['describe', '-r', self.workspace_dir])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+
+    def test_cli_describe_recursive_filepath(self):
+        """CLI: test recursive option ignored if filepath is not a directory."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['describe', '-r', datasource_path])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+
+    def test_cli_validate_valid(self):
+        """CLI: test validate creates no output for valid document."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        _ = runner.invoke(cli.cli, ['describe', datasource_path])
+        result = runner.invoke(cli.cli, ['validate', f'{datasource_path}.yml'])
+        # print(result)
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+
+    def test_cli_validate_invalid(self):
+        """CLI: test validate generates stdout for invalid document."""
+        from geometamaker import cli
+        from geometamaker import utils
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        _ = runner.invoke(cli.cli, ['describe', datasource_path])
+
+        # Manually modify the metadata doc
+        document_path = f'{datasource_path}.yml'
+        with open(document_path, 'r') as file:
+            yaml_string = file.read()
+        yaml_dict = yaml.safe_load(yaml_string)
+        yaml_dict['foo'] = 'bar'
+        yaml_dict['keywords'] = 'not a list'
+        with open(document_path, 'w') as file:
+            file.write(utils.yaml_dump(yaml_dict))
+
+        result = runner.invoke(cli.cli, ['validate', document_path])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn('2 validation errors', result.output)
+
+    def test_cli_validate_recursive(self):
+        """CLI: test validate with recursive option."""
+        import geometamaker
+        from geometamaker import cli
+
+        subdir = os.path.join(self.workspace_dir, 'subdir')
+        os.makedirs(subdir)
+        raster1 = os.path.join(self.workspace_dir, 'raster1.tif')
+        yml1 = os.path.join(self.workspace_dir, 'foo.yml')
+        raster2 = os.path.join(subdir, 'raster2.tif')
+        yml2 = os.path.join(subdir, 'foo.yml')
+
+        create_raster(numpy.int16, raster1)
+        create_raster(numpy.int16, raster2)
+        with open(yml1, 'w') as file:
+            file.write('')
+        with open(yml2, 'w') as file:
+            file.write('')
+
+        geometamaker.describe_dir(self.workspace_dir, recursive=True)
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['validate', '-r', self.workspace_dir])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn(u'\u2713' + f' {raster1}.yml', result.output)
+        self.assertIn(u'\u2713' + f' {raster2}.yml', result.output)
+        self.assertIn(
+            u'\u25CB' + f' {yml1} does not appear to be a geometamaker document',
+            result.output)
+        self.assertIn(
+            u'\u25CB' + f' {yml2} does not appear to be a geometamaker document',
+            result.output)
+
+    @patch('geometamaker.config.platformdirs.user_config_dir')
+    def test_cli_config_prompts(self, mock_user_config_dir):
+        """CLI: test config inputs can be given via stdin."""
+        mock_user_config_dir.return_value = self.workspace_dir
+        from geometamaker import cli
+        from geometamaker import config
+
+        runner = CliRunner()
+        inputs = {
+            'individual_name': 'name',
+            'email': '',
+            'organization': 'org',
+            'position_name': 'position',
+            'license_title': 'license',
+            'license_url': ''
+        }
+        result = runner.invoke(cli.cli, ['config'],
+                               input='\n'.join(inputs.values()) + '\n')
+        self.assertEqual(result.exit_code, 0)
+
+        profile = config.Config().profile
+        self.assertEqual(profile.contact.individual_name, inputs['individual_name'])
+        self.assertEqual(profile.contact.email, inputs['email'])
+        self.assertEqual(profile.contact.organization, inputs['organization'])
+        self.assertEqual(profile.contact.position_name, inputs['position_name'])
+        self.assertEqual(profile.license.title, inputs['license_title'])
+        self.assertEqual(profile.license.path, inputs['license_url'])
+
+    @patch('geometamaker.config.platformdirs.user_config_dir')
+    def test_cli_config_print(self, mock_user_config_dir):
+        """CLI: test config print callback."""
+        mock_user_config_dir.return_value = self.workspace_dir
+        from geometamaker import cli
+        from geometamaker import config
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['config', '--print'])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output.rstrip(), str(config.Config()))
+
+    @patch('geometamaker.config.platformdirs.user_config_dir')
+    def test_cli_config_delete(self, mock_user_config_dir):
+        """CLI: test config delete callback."""
+        mock_user_config_dir.return_value = self.workspace_dir
+        from geometamaker import cli
+
+        runner = CliRunner()
+
+        # Abort when asked to confirm
+        result = runner.invoke(cli.cli, ['config', '--delete'], input='n\n')
+        self.assertEqual(result.exit_code, 1)
+
+        # Confirm wih yes
+        result = runner.invoke(cli.cli, ['config', '--delete'], input='y\n')
+        self.assertEqual(result.exit_code, 0)
