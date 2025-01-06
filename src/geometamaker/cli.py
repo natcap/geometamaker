@@ -115,7 +115,7 @@ def delete_config(ctx, param, value):
 @click.option('--position-name', prompt=True, default='')
 @click.option('--license-title', prompt=True, default='',
               help='the name of a data license, e.g. "CC-BY-4.0"')
-@click.option('--license-path', prompt=True, default='',
+@click.option('--license-url', prompt=True, default='',
               help='a url for a data license')
 @click.option('-p', '--print', is_flag=True, is_eager=True,
               callback=print_config, expose_value=False,
@@ -124,7 +124,7 @@ def delete_config(ctx, param, value):
               callback=delete_config, expose_value=False,
               help='Delete your configuration file.')
 def config(individual_name, email, organization, position_name,
-           license_path, license_title):
+           license_url, license_title):
     contact = geometamaker.models.ContactSchema()
     contact.individual_name = individual_name
     contact.email = email
@@ -132,7 +132,7 @@ def config(individual_name, email, organization, position_name,
     contact.position_name = position_name
 
     license = geometamaker.models.LicenseSchema()
-    license.path = license_path
+    license.path = license_url
     license.title = license_title
 
     profile = geometamaker.models.Profile(contact=contact, license=license)

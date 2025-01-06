@@ -1003,7 +1003,7 @@ class CLITests(unittest.TestCase):
             'organization': 'org',
             'position_name': 'position',
             'license_title': 'license',
-            'license_path': ''
+            'license_url': ''
         }
         result = runner.invoke(cli.cli, ['config'],
                                input='\n'.join(inputs.values()) + '\n')
@@ -1015,7 +1015,7 @@ class CLITests(unittest.TestCase):
         self.assertEqual(profile.contact.organization, inputs['organization'])
         self.assertEqual(profile.contact.position_name, inputs['position_name'])
         self.assertEqual(profile.license.title, inputs['license_title'])
-        self.assertEqual(profile.license.path, inputs['license_path'])
+        self.assertEqual(profile.license.path, inputs['license_url'])
 
     @patch('geometamaker.config.platformdirs.user_config_dir')
     def test_cli_config_print(self, mock_user_config_dir):
