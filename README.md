@@ -57,7 +57,6 @@ to add these values manually by editing the
 ### Creating metadata for a batch of files:
 
 #### Python
-
 ```python
 import os
 
@@ -70,6 +69,41 @@ geometamaker.describe_dir(data_dir, recursive=True)
 #### CLI
 ```
 geometamaker describe -r data/invest-sample-data
+```
+
+### Validating a metadata document:
+If you have manually edited a `.yml` metadata document,
+it is a good idea to validate it for correct syntax, properties, and types.
+
+##### Python
+```python
+import geometamaker
+
+document_path = 'data/watershed_gura.shp.yml'
+error = geometamaker.validate(document_path)
+print(error)
+```
+
+##### CLI
+```
+geometamaker validate data/watershed_gura.shp.yml
+```
+
+### Validating all metadata documents in a directory
+
+##### Python
+```python
+import geometamaker
+
+directory_path = 'data/'
+yaml_files, messages = geometamaker.validate_dir(data)
+for filepath, msg in zip(yaml_files, messages):
+    print(f'{filepath}: {msg}')
+```
+
+##### CLI
+```
+geometamaker validate data
 ```
 
 ### Configuring default values for metadata properties:
@@ -133,7 +167,7 @@ resource = geometamaker.describe(data_path)
 geometamaker config
 ```
 This will prompt the user to enter their profile information.  
-Also see `geometamaker config --help`
+Also see `geometamaker config --help`.
 
 ### For a complete list of methods:
 https://geometamaker.readthedocs.io/en/latest/api/geometamaker.html

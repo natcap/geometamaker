@@ -446,8 +446,8 @@ def validate_dir(directory, recursive=False):
             in all subdirectories
 
     Returns:
-        tuple (list, list): a list of validation messages and an equal-length
-            list of the filepaths that were validated.
+        tuple (list, list): a list of the filepaths that were validated and
+            an equal-length list of the validation messages.
 
     """
     file_list = []
