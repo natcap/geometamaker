@@ -255,7 +255,7 @@ class Resource(BaseMetadata):
     """
 
     # A version string we can use to identify geometamaker compliant documents
-    metadata_version: str = ''
+    geometamaker_version: str = ''
     metadata_path: str = ''
 
     # These are populated geometamaker.describe()
@@ -289,7 +289,7 @@ class Resource(BaseMetadata):
 
     def model_post_init(self, __context):
         self.metadata_path = f'{self.path}.yml'
-        self.metadata_version: str = f'geometamaker.{geometamaker.__version__}'
+        self.geometamaker_version: str = geometamaker.__version__
         self.path = self.path.replace('\\', '/')
         self.sources = [x.replace('\\', '/') for x in self.sources]
 
