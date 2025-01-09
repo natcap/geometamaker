@@ -26,4 +26,5 @@ def yaml_dump(data):
     return yaml.dump(
         data,
         allow_unicode=True,
+        sort_keys=False,
         Dumper=_SafeDumper)

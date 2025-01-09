@@ -28,7 +28,7 @@ PROTOCOLS = [
     'https',
 ]
 
-DT_FMT = '%Y-%m-%d %H:%M:%S'
+DT_FMT = '%Y-%m-%d %H:%M:%S %Z'
 
 
 # TODO: In the future we can remove these exception managers in favor of the
@@ -179,6 +179,10 @@ def describe_file(source_dataset_path, scheme):
         f'{description["bytes"]}{description["last_modified"]}\
         {description["path"]}'.encode('ascii'))
     description['uid'] = f'sizetimestamp:{hash_func.hexdigest()}'
+
+    # We don't have a use for including these attributes in our metadata:
+    description.pop('mediatype', None)
+    description.pop('name', None)
     return description
 
 
@@ -196,7 +200,7 @@ def describe_archive(source_dataset_path, scheme):
     description = describe_file(source_dataset_path, scheme)
     # innerpath is from frictionless and not useful because
     # it does not include all the files contained in the zip
-    del description['innerpath']
+    description.pop('innerpath', None)
 
     ZFS = fsspec.get_filesystem_class('zip')
     zfs = ZFS(source_dataset_path)
@@ -269,7 +273,8 @@ def describe_raster(source_dataset_path, scheme):
     description['data_model'] = models.RasterSchema(
         bands=bands,
         pixel_size=info['pixel_size'],
-        raster_size=info['raster_size'])
+        raster_size={'width': info['raster_size'][0],
+                     'height': info['raster_size'][1]})
     # Some values of raster info are numpy types, which the
     # yaml dumper doesn't know how to represent.
     bbox = models.BoundingBox(*[float(x) for x in info['bounding_box']])
@@ -425,8 +430,8 @@ def validate(filepath):
     with fsspec.open(filepath, 'r') as file:
         yaml_string = file.read()
         yaml_dict = yaml.safe_load(yaml_string)
-        if not yaml_dict or 'metadata_version' not in yaml_dict \
-                or not yaml_dict['metadata_version'].startswith('geometamaker'):
+        if not yaml_dict or ('metadata_version' not in yaml_dict
+                             and 'geometamaker_version' not in yaml_dict):
             message = (f'{filepath} exists but is not compatible with '
                        f'geometamaker.')
             raise ValueError(message)
