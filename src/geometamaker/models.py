@@ -102,7 +102,7 @@ class RasterSchema(Parent):
 
     bands: List[BandSchema]
     pixel_size: list
-    raster_size: dict | list
+    raster_size: Union[dict, list]
 
     def model_post_init(self, __context):
         # Migrate from previous model where we stored this as a list
