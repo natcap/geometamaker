@@ -263,7 +263,6 @@ class Resource(BaseMetadata):
     encoding: str = ''
     format: str = ''
     uid: str = ''
-    mediatype: str = ''
     name: str = ''
     path: str = ''
     scheme: str = ''
@@ -312,14 +311,22 @@ class Resource(BaseMetadata):
         with fsspec.open(filepath, 'r') as file:
             yaml_string = file.read()
         yaml_dict = yaml.safe_load(yaml_string)
-        if 'metadata_version' not in yaml_dict \
-                or not yaml_dict['metadata_version'].startswith('geometamaker'):
+        if not yaml_dict or ('metadata_version' not in yaml_dict
+                             and 'geometamaker_version' not in yaml_dict):
             message = (f'{filepath} exists but is not compatible with '
                        f'geometamaker.')
             raise ValueError(message)
-        # delete this property so that geometamaker can initialize it itself
-        # with the current version info.
-        del yaml_dict['metadata_version']
+
+        deprecated_attrs = ['metadata_version', 'mediatype']
+        for attr in deprecated_attrs:
+            if attr in yaml_dict:
+                warnings.warn(
+                    f'"{attr}" exists in {filepath} but is no longer part of '
+                    f'the geometamaker specification. "{attr}" will be '
+                    f'removed from this document. In the future, presence '
+                    f' of "{attr}" will raise a ValidationError',
+                    category=FutureWarning)
+                del yaml_dict[attr]
 
         # migrate from 'schema' to 'data_model', if needed.
         if 'schema' in yaml_dict:

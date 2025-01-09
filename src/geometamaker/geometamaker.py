@@ -179,6 +179,9 @@ def describe_file(source_dataset_path, scheme):
         f'{description["bytes"]}{description["last_modified"]}\
         {description["path"]}'.encode('ascii'))
     description['uid'] = f'sizetimestamp:{hash_func.hexdigest()}'
+
+    # We don't have a use for including this attribute in our metadata:
+    description.pop('mediatype', None)
     return description
 
 
@@ -196,7 +199,7 @@ def describe_archive(source_dataset_path, scheme):
     description = describe_file(source_dataset_path, scheme)
     # innerpath is from frictionless and not useful because
     # it does not include all the files contained in the zip
-    del description['innerpath']
+    description.pop('innerpath', None)
 
     ZFS = fsspec.get_filesystem_class('zip')
     zfs = ZFS(source_dataset_path)
@@ -425,8 +428,8 @@ def validate(filepath):
     with fsspec.open(filepath, 'r') as file:
         yaml_string = file.read()
         yaml_dict = yaml.safe_load(yaml_string)
-        if not yaml_dict or 'metadata_version' not in yaml_dict \
-                or not yaml_dict['metadata_version'].startswith('geometamaker'):
+        if not yaml_dict or ('metadata_version' not in yaml_dict
+                             and 'geometamaker_version' not in yaml_dict):
             message = (f'{filepath} exists but is not compatible with '
                        f'geometamaker.')
             raise ValueError(message)
