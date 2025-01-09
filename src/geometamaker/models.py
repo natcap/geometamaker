@@ -263,7 +263,6 @@ class Resource(BaseMetadata):
     encoding: str = ''
     format: str = ''
     uid: str = ''
-    name: str = ''
     path: str = ''
     scheme: str = ''
     type: str = ''
@@ -317,7 +316,7 @@ class Resource(BaseMetadata):
                        f'geometamaker.')
             raise ValueError(message)
 
-        deprecated_attrs = ['metadata_version', 'mediatype']
+        deprecated_attrs = ['metadata_version', 'mediatype', 'name']
         for attr in deprecated_attrs:
             if attr in yaml_dict:
                 warnings.warn(

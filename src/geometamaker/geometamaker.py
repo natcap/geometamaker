@@ -180,8 +180,9 @@ def describe_file(source_dataset_path, scheme):
         {description["path"]}'.encode('ascii'))
     description['uid'] = f'sizetimestamp:{hash_func.hexdigest()}'
 
-    # We don't have a use for including this attribute in our metadata:
+    # We don't have a use for including these attributes in our metadata:
     description.pop('mediatype', None)
+    description.pop('name', None)
     return description
 
 
