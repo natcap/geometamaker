@@ -28,7 +28,7 @@ PROTOCOLS = [
     'https',
 ]
 
-DT_FMT = '%Y-%m-%d %H:%M:%S'
+DT_FMT = '%Y-%m-%d %H:%M:%S %Z'
 
 
 # TODO: In the future we can remove these exception managers in favor of the
