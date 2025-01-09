@@ -102,7 +102,13 @@ class RasterSchema(Parent):
 
     bands: List[BandSchema]
     pixel_size: list
-    raster_size: list
+    raster_size: dict | list
+
+    def model_post_init(self, __context):
+        # Migrate from previous model where we stored this as a list
+        if isinstance(self.raster_size, list):
+            self.raster_size = {'width': self.raster_size[0],
+                                'height': self.raster_size[1]}
 
 
 class BaseMetadata(Parent):

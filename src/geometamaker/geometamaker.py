@@ -273,7 +273,8 @@ def describe_raster(source_dataset_path, scheme):
     description['data_model'] = models.RasterSchema(
         bands=bands,
         pixel_size=info['pixel_size'],
-        raster_size=info['raster_size'])
+        raster_size={'width': info['raster_size'][0],
+                     'height': info['raster_size'][1]})
     # Some values of raster info are numpy types, which the
     # yaml dumper doesn't know how to represent.
     bbox = models.BoundingBox(*[float(x) for x in info['bounding_box']])
