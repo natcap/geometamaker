@@ -48,7 +48,7 @@ def echo_validation_error(error, filepath):
     summary = u'\u2715' + f' {filepath}: {error.error_count()} validation errors'
     click.secho(summary, fg='bright_red')
     for e in error.errors():
-        location = ', '.join(e['loc'])
+        location = '.'.join([str(loc) for loc in e['loc']])
         msg_string = (f"    {e['msg']}. [input_value={e['input']}, "
                       f"input_type={type(e['input']).__name__}]")
         click.secho(location, bold=True)
