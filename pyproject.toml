@@ -10,7 +10,7 @@ maintainers = [
 keywords = ["gis", "geospatial", "metadata"]
 classifiers = [
     "Intended Audience :: Developers",
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Natural Language :: English",
     "Operating System :: MacOS :: MacOS X",
@@ -22,13 +22,17 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "License :: OSI Approved :: BSD License",
+    "License :: OSI Approved :: Apache Software License",
     "Topic :: Scientific/Engineering :: GIS"
 ]
 # the version is provided dynamically by setuptools_scm
 # `dependencies` and `optional-dependencies` are provided by setuptools
 # using the corresponding setup args `install_requires` and `extras_require`
 dynamic = ["version", "dependencies", "optional-dependencies"]
+
+[tool.setuptools_scm]
+version_scheme = "post-release"
+local_scheme = "node-and-date"
 
 [project.scripts]
 geometamaker = "geometamaker.cli:cli"
