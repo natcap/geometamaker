@@ -91,7 +91,7 @@ class BandSchema(Parent):
     index: int
     gdal_type: str
     numpy_type: str
-    nodata: Union[int, float]
+    nodata: Union[int, float, None]
     description: str = ''
     title: str = ''
     units: str = ''

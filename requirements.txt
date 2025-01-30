@@ -6,7 +6,7 @@ aiohttp
 click
 fsspec
 GDAL
-frictionless>=5.18.0
+frictionless>=5.10.0
 numpy
 platformdirs
 Pydantic>=2.0
