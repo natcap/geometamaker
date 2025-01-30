@@ -242,7 +242,7 @@ class Profile(BaseMetadata):
             target_path (str): path to a yaml file to be written
 
         """
-        with open(target_path, 'w') as file:
+        with open(target_path, 'w', encoding='utf-8') as file:
             file.write(utils.yaml_dump(self.model_dump()))
 
 
@@ -523,7 +523,7 @@ class Resource(BaseMetadata):
             target_path = os.path.join(
                 workspace, os.path.basename(self.metadata_path))
 
-        with open(target_path, 'w') as file:
+        with open(target_path, 'w', encoding='utf-8') as file:
             file.write(utils.yaml_dump(
                 self.model_dump(exclude=['metadata_path'])))
 
