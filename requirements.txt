@@ -6,10 +6,10 @@ aiohttp
 click
 fsspec
 GDAL
-frictionless
+frictionless>=5.18.0
 numpy
 platformdirs
-Pydantic
+Pydantic>=2.0
 pygeoprocessing>=2.4.5
 pyyaml
 requests
