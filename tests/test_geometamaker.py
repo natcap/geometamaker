@@ -57,7 +57,7 @@ def create_vector(target_filepath, field_map=None, driver='GEOJSON'):
 def create_raster(
         numpy_dtype, target_path,
         pixel_size=(1, 1), projection_epsg=4326,
-        origin=(0, 0), n_bands=2):
+        origin=(0, 0), n_bands=2, define_nodata=True):
     driver_name, creation_options = DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
     raster_driver = gdal.GetDriverByName(driver_name)
     ny, nx = (2, 2)
@@ -76,11 +76,13 @@ def create_raster(
         raster.SetProjection(projection_wkt)
 
     base_array = numpy.full((2, 2), 1, dtype=numpy_dtype)
+
     target_nodata = pygeoprocessing.choose_nodata(numpy_dtype)
 
     for i in range(n_bands):
         band = raster.GetRasterBand(i + 1)
-        band.SetNoDataValue(target_nodata)
+        if define_nodata:
+            band.SetNoDataValue(target_nodata)
         band.WriteArray(base_array)
     band = None
     raster = None
@@ -273,6 +275,17 @@ class GeometamakerTests(unittest.TestCase):
 
         resource = geometamaker.describe(datasource_path)
         self.assertEqual(resource.spatial.crs, 'unknown')
+
+    def test_describe_raster_no_nodata(self):
+        """Test for a raster that has no nodata value."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path,
+                      projection_epsg=None, define_nodata=False)
+
+        resource = geometamaker.describe(datasource_path)
+        self.assertIsNone(resource.data_model.bands[0].nodata)
 
     def test_describe_zip(self):
         """Test metadata for a zipfile includes list of contents."""
