@@ -676,6 +676,22 @@ class GeometamakerTests(unittest.TestCase):
             self.workspace_dir, recursive=True)
         self.assertEqual(len(yaml_files), 2)
 
+    def test_validate_dir_handles_exception(self):
+        """Test validate_dir function handles yaml exceptions."""
+        import geometamaker
+
+        yaml_path = os.path.join(self.workspace_dir, 'foo.yml')
+        with open(yaml_path, 'w') as file:
+            # An example from a yaml file containing some jinja templating.
+            # This should raise a yaml.scanner.ScannerError:
+            # while scanning for the next token
+            # found character '%' that cannot start any token
+            file.write('{% set name = "simplejson" %}')
+
+        yaml_files, msgs = geometamaker.validate_dir(self.workspace_dir)
+        self.assertEqual(len(yaml_files), 1)
+        self.assertEqual(msgs[0], 'is not a readable yaml document')
+
     def test_describe_dir_with_shapefile(self):
         """Test describe directory containing a multi-file dataset."""
         import geometamaker
