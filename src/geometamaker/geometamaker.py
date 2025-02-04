@@ -471,15 +471,17 @@ def validate_dir(directory, recursive=False):
     for filepath in file_list:
         if filepath.endswith('.yml'):
             yaml_files.append(filepath)
+            msg = ''
             try:
                 error = validate(filepath)
                 if error:
-                    messages.append(error)
-                else:
-                    messages.append('')
+                    msg = error
             except ValueError:
-                messages.append(
-                    'does not appear to be a geometamaker document')
+                msg = 'does not appear to be a geometamaker document'
+            except yaml.YAMLError as exc:
+                LOGGER.debug(exc)
+                msg = 'is not a readable yaml document'
+            messages.append(msg)
 
     return (yaml_files, messages)
 
