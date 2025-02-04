@@ -2,6 +2,9 @@ Release History
 ===============
 
 .. Unreleased Changes
+
+0.1.1 (2025-02-04)
+------------------
 * Fixed a bug where rasters without a defined nodata value could not be
   described. https://github.com/natcap/geometamaker/issues/70
 * All YAML documents will be written as UTF-8 encoded files.
