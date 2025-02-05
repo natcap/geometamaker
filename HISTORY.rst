@@ -3,6 +3,10 @@ Release History
 
 .. Unreleased Changes
 
+0.1.2 (2025-02-05)
+------------------
+* Declared dependencies in ``pyproject.toml`` to facilitate pip installs.
+
 0.1.1 (2025-02-04)
 ------------------
 * Fixed a bug where rasters without a defined nodata value could not be
