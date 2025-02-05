@@ -30,6 +30,9 @@ classifiers = [
 # using the corresponding setup args `install_requires` and `extras_require`
 dynamic = ["version", "dependencies", "optional-dependencies"]
 
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
 [tool.setuptools_scm]
 version_scheme = "post-release"
 local_scheme = "node-and-date"
