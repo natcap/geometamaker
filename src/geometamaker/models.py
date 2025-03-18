@@ -19,7 +19,9 @@ LOGGER = logging.getLogger(__name__)
 class Parent(BaseModel):
     """Parent class on which to configure validation."""
 
-    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    model_config = ConfigDict(validate_assignment=True,
+                              extra='forbid',
+                              use_attribute_docstrings=True)
 
 
 # dataclass allows positional args, BaseModel does not.
@@ -95,6 +97,7 @@ class BandSchema(Parent):
     description: str = ''
     title: str = ''
     units: str = ''
+    """unit of measurement for the pixel values."""
 
 
 class RasterSchema(Parent):
