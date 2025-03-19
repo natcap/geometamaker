@@ -16,3 +16,4 @@ dependencies:
     - pygeoprocessing>=2.4.2
     - pyyaml
     - sphinx_rtd_theme
+    - autodoc_pydantic
