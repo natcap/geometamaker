@@ -21,6 +21,9 @@ from pydantic import ValidationError
 REGRESSION_DATA = os.path.join(
     os.path.dirname(__file__), 'data')
 
+# A remote file we can use for testing
+REMOTE_FILEPATH = 'https://storage.googleapis.com/releases.naturalcapitalproject.org/invest/3.14.2/data/CoastalBlueCarbon.zip'
+
 # This is the complete list of types, but some are
 # exceedingly rare and do not match easily to python types
 # so I'm not sure if we need to support them all.
@@ -603,7 +606,7 @@ class GeometamakerTests(unittest.TestCase):
         """Test describe on a file at a public url."""
         import geometamaker
 
-        filepath = 'https://storage.googleapis.com/releases.naturalcapitalproject.org/invest/3.14.2/data/CoastalBlueCarbon.zip'
+        filepath = REMOTE_FILEPATH
         resource = geometamaker.describe(filepath)
         self.assertEqual(resource.path, filepath)
 
@@ -945,6 +948,35 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+
+    def test_cli_describe_remote_file(self):
+        """CLI: test describe on a remote file at a URL."""
+        from geometamaker import cli
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.cli, ['describe', '--no-write', REMOTE_FILEPATH])
+        self.assertEqual(result.exit_code, 0)
+        # one of many things expected to print to stdout:
+        self.assertIn('last_modified', result.output)
+
+        result = runner.invoke(cli.cli, ['describe', REMOTE_FILEPATH])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn('Try using the --no-write flag', result.output)
+
+    def test_cli_describe_file_does_not_exist(self):
+        """CLI: test describe on files that do not exist."""
+        from geometamaker import cli
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['describe', 'foo.tif'])
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn('does not exist', result.output)
+
+        result = runner.invoke(
+            cli.cli, ['describe', '--no-write', 'https://foo.tif'])
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn('does not exist', result.output)
 
     def test_cli_validate_valid(self):
         """CLI: test validate creates no output for valid document."""

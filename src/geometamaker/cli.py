@@ -3,6 +3,7 @@ import os
 import sys
 
 import click
+import fsspec
 from pydantic import ValidationError
 
 import geometamaker
@@ -16,16 +17,68 @@ FORMATTER = logging.Formatter(
 HANDLER.setFormatter(FORMATTER)
 
 
+# The recommended approach to allowing multiple ParamTypes
+# https://github.com/pallets/click/issues/1729
+class _ParamUnion(click.ParamType):
+    def __init__(self, types, report_all_errors=True):
+        """Union of click.ParamTypes.
+
+        Args:
+            types (list): List of click.ParamTypes to try to convert the value.
+            report_all_errors (bool): If True, all errors will be reported.
+                If False, only the last error will be reported.
+
+        """
+        self.types = types
+        self.report_all_errors = report_all_errors
+
+    def convert(self, value, param, ctx):
+        errors = []
+        for type in self.types:
+            try:
+                return type.convert(value, param, ctx)
+            except click.BadParameter as e:
+                errors.append(e)
+                continue
+
+        if self.report_all_errors:
+            self.fail(errors)
+        else:
+            # If errors from different types are expected to
+            # be very similar, just report the last one.
+            self.fail(errors.pop())
+
+
+# https://click.palletsprojects.com/en/stable/parameters/#how-to-implement-custom-types
+class _URL(click.ParamType):
+    """A type that asserts a URL exists."""
+
+    name = "url"
+
+    def convert(self, value, param, ctx):
+        of = fsspec.open(value)
+        if not of.fs.exists(value):
+            self.fail(f'{value} does not exist', param, ctx)
+
+        return value
+
+
 @click.command(
     help='''Describe properties of a dataset given by FILEPATH and write this
     metadata to a .yml sidecar file. Or if FILEPATH is a directory, describe
     all datasets within.''',
     short_help='Generate metadata for geospatial or tabular data, or zip archives.')
-@click.argument('filepath', type=click.Path(exists=True))
-@click.option('-r', '--recursive', is_flag=True, default=False,
+@click.argument('filepath',
+                type=_ParamUnion([click.Path(exists=True), _URL()],
+                                 report_all_errors=False))
+@click.option('-r', '--recursive',
+              is_flag=True,
+              default=False,
               help='if FILEPATH is a directory, describe files '
                    'in all subdirectories')
-@click.option('-nw', '--no-write', is_flag=True, default=False,
+@click.option('-nw', '--no-write',
+              is_flag=True,
+              default=False,
               help='Dump metadata to stdout instead of to a .yml file. '
                    'This option is ignored if `filepath` is a directory')
 def describe(filepath, recursive, no_write):
@@ -41,7 +94,14 @@ def describe(filepath, recursive, no_write):
             click.echo(geometamaker.utils.yaml_dump(
                 resource.model_dump(exclude=['metadata_path'])))
         else:
-            resource.write()
+            try:
+                resource.write()
+            except OSError:
+                click.echo(
+                    f'geometamaker could not write to {resource.metadata_path}\n'
+                    'Try using the --no-write flag to print metadata to '
+                    'stdout instead:')
+                click.echo(f'    geometamaker describe --no-write {filepath}')
 
 
 def echo_validation_error(error, filepath):
@@ -59,8 +119,11 @@ def echo_validation_error(error, filepath):
     help='''Validate a .yml metadata document given by FILEPATH.
     Or if FILEPATH is a directory, validate all documents within.''',
     short_help='Validate metadata documents for syntax or type errors.')
-@click.argument('filepath', type=click.Path(exists=True))
-@click.option('-r', '--recursive', is_flag=True, default=False,
+@click.argument('filepath',
+                type=click.Path(exists=True))
+@click.option('-r', '--recursive',
+              is_flag=True,
+              default=False,
               help='if `filepath` is a directory, validate documents '
                    'in all subdirectories.')
 def validate(filepath, recursive):
