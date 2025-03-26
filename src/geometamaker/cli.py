@@ -34,9 +34,9 @@ class _ParamUnion(click.ParamType):
 
     def convert(self, value, param, ctx):
         errors = []
-        for type in self.types:
+        for type_ in self.types:
             try:
-                return type.convert(value, param, ctx)
+                return type_.convert(value, param, ctx)
             except click.BadParameter as e:
                 errors.append(e)
                 continue
