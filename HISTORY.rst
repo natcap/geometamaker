@@ -2,6 +2,9 @@ Release History
 ===============
 
 .. Unreleased Changes
+---------------------
+* Allow CLI to ``describe`` remote datasets.
+  https://github.com/natcap/geometamaker/issues/78
 
 0.1.2 (2025-02-05)
 ------------------
