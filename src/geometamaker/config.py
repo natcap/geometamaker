@@ -33,9 +33,8 @@ class Config(object):
 
         try:
             self.profile = models.Profile.load(self.config_path)
-        except FileNotFoundError as err:
-            LOGGER.debug('config file does not exist', exc_info=err)
-            pass
+        except FileNotFoundError:
+            LOGGER.debug(f'config file does not exist at {self.config_path}')
         # an invalid profile should raise a ValidationError
         except ValidationError as err:
             LOGGER.warning('', exc_info=err)

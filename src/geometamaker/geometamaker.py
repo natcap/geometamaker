@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from . import models
 from .config import Config
 
+logging.getLogger('chardet').setLevel(logging.INFO)  # DEBUG is just too noisy
 
 LOGGER = logging.getLogger(__name__)
 
