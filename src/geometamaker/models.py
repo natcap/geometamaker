@@ -41,12 +41,15 @@ class SpatialSchema(Parent):
     """Class for keeping track of spatial info."""
 
     bounding_box: BoundingBox
+    """Spatial extent [xmin, ymin, xmax, ymax]."""
     crs: str
+    """Coordinate Reference System."""
     crs_units: str
+    """Units of measure for coordinates in the CRS."""
 
 
 class ContactSchema(Parent):
-    """Class for keeping track of contact info."""
+    """Class for storing contact information of data author."""
 
     email: str = ''
     organization: str = ''
@@ -55,15 +58,13 @@ class ContactSchema(Parent):
 
 
 class LicenseSchema(Parent):
-    """Class for storing license info."""
+    """Class for storing data license information."""
 
-    # https://datapackage.org/profiles/2.0/dataresource.json
-    # This profile also includes `name`, described as:
-    # "MUST be an Open Definition license identifier",
-    # see http://licenses.opendefinition.org/"
-    # I don't think that's useful to us yet.
+    # Loosely follows https://datapackage.org/profiles/2.0/dataresource.json
     path: str = ''
+    """URL that describes the license."""
     title: str = ''
+    """Name of a license, such as one from http://licenses.opendefinition.org/"""
 
 
 class FieldSchema(Parent):
@@ -71,10 +72,15 @@ class FieldSchema(Parent):
 
     # https://datapackage.org/standard/table-schema/
     name: str
+    """The name of the field being described. Do not edit."""
     type: str
+    """Datatype of the content of the field. Do not edit."""
     description: str = ''
+    """A description of the field."""
     title: str = ''
+    """A human-readable title for the field."""
     units: str = ''
+    """Unit of measurement for values in the field."""
 
 
 class TableSchema(Parent):
@@ -82,30 +88,50 @@ class TableSchema(Parent):
 
     # https://datapackage.org/standard/table-schema/
     fields: List[FieldSchema]
+    """A list of ``FieldSchema`` objects."""
     missingValues: list = Field(default_factory=list)
+    """A list of values that represent missing data."""
     primaryKey: list = Field(default_factory=list)
+    """A field or list of fields that uniquely identifies each row in the table."""
     foreignKeys: list = Field(default_factory=list)
+    """A field or list of fields that can be used to join another table.
+
+    See https://datapackage.org/standard/table-schema/#foreignKeys
+    """
 
 
 class BandSchema(Parent):
     """Class for metadata for a raster band."""
 
     index: int
+    """The index of the band of a GDAL raster, starting at 1. Do not edit."""
     gdal_type: str
+    """The GDAL data type of the band. Do not edit."""
     numpy_type: str
+    """The numpy data type of the band. Do not edit."""
     nodata: Union[int, float, None]
+    """The pixel value that represents no data in the band. Do not edit."""
     description: str = ''
+    """A description of the band."""
     title: str = ''
+    """A human-readable title for the band."""
     units: str = ''
-    """unit of measurement for the pixel values."""
+    """Unit of measurement for the pixel values."""
 
 
 class RasterSchema(Parent):
     """Class for metadata for raster bands."""
 
     bands: List[BandSchema]
+    """A list of ``BandSchema`` objects."""
     pixel_size: list
+    """The width and height of a pixel measured in ``SpatialSchema.crs_units``.
+
+    Do not edit."""
     raster_size: Union[dict, list]
+    """The width and height of the raster measured in number of pixels.
+
+    Do not edit."""
 
     def model_post_init(self, __context):
         # Migrate from previous model where we stored this as a list
