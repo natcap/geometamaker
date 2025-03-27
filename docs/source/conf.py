@@ -27,6 +27,7 @@ extensions = [
     'sphinx.ext.napoleon',  # support google style docstrings
     'sphinx.ext.autosummary',
     'sphinxcontrib.autodoc_pydantic',
+    'myst_parser',
 ]
 
 templates_path = ['_templates']

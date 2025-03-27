@@ -5,6 +5,10 @@
 
 GeoMetaMaker
 ========================================
+.. toctree::
+   :maxdepth: 1
+
+   basic_usage
 
 .. toctree::
    :maxdepth: 1
