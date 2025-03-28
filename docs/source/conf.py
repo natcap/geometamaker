@@ -26,6 +26,8 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',  # support google style docstrings
     'sphinx.ext.autosummary',
+    'sphinxcontrib.autodoc_pydantic',
+    'myst_parser',
 ]
 
 templates_path = ['_templates']
@@ -45,6 +47,29 @@ html_static_path = ['_static']
 # need to be so picky.
 nitpicky = False
 autoclass_content = 'both'
+
+autodoc_pydantic_model_show_json = False
+autodoc_pydantic_model_show_config_summary = False
+autodoc_pydantic_model_show_field_summary = False
+
+
+def setup(app):
+    app.connect('autodoc-process-docstring',
+                process_module_specific_docstrings)
+
+
+def process_module_specific_docstrings(app, what, name, obj, options, lines):
+    """Strip inherited __init__ docstring from Pydantic models.
+
+    Remove the __init__ docstring content because
+    Pydantic models generate their own __init__ from the parent.
+    So `autodoc_inherit_docstrings = False` will not do the job.
+
+    """
+    if what == "pydantic_model":
+        if hasattr(obj, "__init__") and obj.__init__.__doc__:
+            obj.__init__.__doc__ = None
+
 
 DOCS_SOURCE_DIR = os.path.dirname(__file__)
 sphinx.ext.apidoc.main([
