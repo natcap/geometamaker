@@ -9,6 +9,7 @@ GeoMetaMaker
    :maxdepth: 1
 
    basic_usage
+   metadata_resources
 
 .. toctree::
    :maxdepth: 1
