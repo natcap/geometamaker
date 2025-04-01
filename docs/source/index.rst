@@ -4,7 +4,15 @@
    contain the root `toctree` directive.
 
 GeoMetaMaker
-========================================
+============
+
+Release: |release|
+
+GeoMetaMaker is a Python library for creating human and machine-readable
+metadata for geospatial, tabular, and other data formats.
+
+GeoMetaMaker is developed by the `Natural Capital Project <https://naturalcapitalproject.stanford.edu>`_.
+
 .. toctree::
    :maxdepth: 1
 
