@@ -104,13 +104,13 @@ class BandSchema(Parent):
     """Class for metadata for a raster band."""
 
     index: int
-    """The index of the band of a GDAL raster, starting at 1. Do not edit."""
+    """The index of the band of a GDAL raster, starting at 1."""
     gdal_type: str
-    """The GDAL data type of the band. Do not edit."""
+    """The GDAL data type of the band."""
     numpy_type: str
-    """The numpy data type of the band. Do not edit."""
+    """The numpy data type of the band."""
     nodata: Union[int, float, None]
-    """The pixel value that represents no data in the band. Do not edit."""
+    """The pixel value that represents no data in the band."""
     description: str = ''
     """A description of the band."""
     title: str = ''
