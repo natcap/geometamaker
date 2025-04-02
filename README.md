@@ -1,12 +1,18 @@
-A Python library for creating human and machine-readable metadata for geospatial data.
+## Introduction
+
+GeoMetaMaker is a Python library for creating human and machine-readable
+metadata for geospatial, tabular, and other data formats.
 
 Supported datatypes include:
 * everything supported by GDAL
 * tabular formats supported by `frictionless`
 * compressed formats supported by `frictionless`
 
+## Installation
 
-See `requirements.txt` for dependencies.
+`mamba install -c conda-forge geometamaker`
+
+## Basic Usage
 
 This library comes with a command-line interface (CLI) called `geometamaker`.
 Many of the examples below show how to use the Python interface, and then
@@ -43,6 +49,8 @@ resource.set_band_description(
 
 resource.write()
 ```
+For a complete list of methods and attributes:
+https://geometamaker.readthedocs.io/en/latest/index.html
 
 ##### CLI
 ```
@@ -168,6 +176,3 @@ geometamaker config
 ```
 This will prompt the user to enter their profile information.  
 Also see `geometamaker config --help`.
-
-### For a complete list of methods:
-https://geometamaker.readthedocs.io/en/latest/api/geometamaker.html

@@ -16,6 +16,7 @@ GeoMetaMaker is developed by the `Natural Capital Project <https://naturalcapita
 .. toctree::
    :maxdepth: 1
 
+   installation
    basic_usage
    metadata_resources
 
