@@ -18,7 +18,7 @@ Dependencies
 ------------
 
 Dependencies for ``geometamaker`` are listed in ``requirements.txt`` and
-included here for your reference.  Your package manager should, under most
+included here for your reference. Your package manager should, under most
 circumstances, handle the dependency resolution for you.
 
 .. include:: ../../requirements.txt
