@@ -570,9 +570,6 @@ class Resource(BaseMetadata):
             file.write(utils.yaml_dump(
                 self.model_dump(exclude=['metadata_path'])))
 
-    def to_string(self):
-        pass
-
 
 class TableResource(Resource):
     """Class for metadata for a table resource."""
