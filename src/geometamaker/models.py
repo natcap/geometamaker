@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 import os
 import warnings
-from typing import List, Union
+from typing import Union
 
 import fsspec
 import yaml
@@ -87,13 +87,13 @@ class TableSchema(Parent):
     """Class for metadata for tables."""
 
     # https://datapackage.org/standard/table-schema/
-    fields: List[FieldSchema]
+    fields: list[FieldSchema]
     """A list of ``FieldSchema`` objects."""
     missingValues: list = Field(default_factory=list)
     """A list of values that represent missing data."""
-    primaryKey: list = Field(default_factory=list)
+    primaryKey: list[str] = Field(default_factory=list)
     """A field or list of fields that uniquely identifies each row in the table."""
-    foreignKeys: list = Field(default_factory=list)
+    foreignKeys: list[str] = Field(default_factory=list)
     """A field or list of fields that can be used to join another table.
 
     See https://datapackage.org/standard/table-schema/#foreignKeys
@@ -122,9 +122,9 @@ class BandSchema(Parent):
 class RasterSchema(Parent):
     """Class for metadata for raster bands."""
 
-    bands: List[BandSchema]
+    bands: list[BandSchema]
     """A list of ``BandSchema`` objects."""
-    pixel_size: list
+    pixel_size: tuple[Union[int, float], Union[int, float]]
     """The width and height of a pixel measured in ``SpatialSchema.crs_units``."""
     raster_size: Union[dict, list]
     """The width and height of the raster measured in number of pixels."""
@@ -291,7 +291,7 @@ class Resource(BaseMetadata):
     geometamaker_version: str = ''
     metadata_path: str = ''
 
-    # These are populated geometamaker.describe()
+    # These are populated by geometamaker.describe()
     bytes: int = 0
     """File size of the resource in bytes."""
     encoding: str = ''
@@ -308,7 +308,7 @@ class Resource(BaseMetadata):
     """The type of resource being described."""
     last_modified: str = ''
     """Last modified time of the file at ``path``."""
-    sources: list = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
     """A list of files which comprise the dataset or resource."""
 
     # These are not populated by geometamaker.describe(),
@@ -321,11 +321,11 @@ class Resource(BaseMetadata):
     """A digital object identifier for the resource."""
     edition: str = ''
     """A string representing the edition, or version, of the resource."""
-    keywords: list = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
     """A list of keywords that describe the subject-matter of the resource."""
     lineage: str = ''
     """A text description of how the resource was created."""
-    placenames: list = Field(default_factory=list)
+    placenames: list[str] = Field(default_factory=list)
     """A list of geographic places associated with the resource."""
     purpose: str = ''
     """The author's stated purpose for the resource."""
