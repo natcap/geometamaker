@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 import os
 import warnings
-from typing import List, Union
+from typing import Union
 
 import fsspec
 import yaml
@@ -19,7 +19,9 @@ LOGGER = logging.getLogger(__name__)
 class Parent(BaseModel):
     """Parent class on which to configure validation."""
 
-    model_config = ConfigDict(validate_assignment=True, extra='forbid')
+    model_config = ConfigDict(validate_assignment=True,
+                              extra='forbid',
+                              use_attribute_docstrings=True)
 
 
 # dataclass allows positional args, BaseModel does not.
@@ -39,12 +41,15 @@ class SpatialSchema(Parent):
     """Class for keeping track of spatial info."""
 
     bounding_box: BoundingBox
+    """Spatial extent [xmin, ymin, xmax, ymax]."""
     crs: str
+    """Coordinate Reference System."""
     crs_units: str
+    """Units of measure for coordinates in the CRS."""
 
 
 class ContactSchema(Parent):
-    """Class for keeping track of contact info."""
+    """Class for storing contact information of data author."""
 
     email: str = ''
     organization: str = ''
@@ -53,15 +58,13 @@ class ContactSchema(Parent):
 
 
 class LicenseSchema(Parent):
-    """Class for storing license info."""
+    """Class for storing data license information."""
 
-    # https://datapackage.org/profiles/2.0/dataresource.json
-    # This profile also includes `name`, described as:
-    # "MUST be an Open Definition license identifier",
-    # see http://licenses.opendefinition.org/"
-    # I don't think that's useful to us yet.
+    # Loosely follows https://datapackage.org/profiles/2.0/dataresource.json
     path: str = ''
+    """URL that describes the license."""
     title: str = ''
+    """Name of a license, such as one from http://licenses.opendefinition.org/"""
 
 
 class FieldSchema(Parent):
@@ -69,40 +72,62 @@ class FieldSchema(Parent):
 
     # https://datapackage.org/standard/table-schema/
     name: str
+    """The name used to uniquely identify the field."""
     type: str
+    """Datatype of the content of the field."""
     description: str = ''
+    """A description of the field."""
     title: str = ''
+    """A human-readable title for the field."""
     units: str = ''
+    """Unit of measurement for values in the field."""
 
 
 class TableSchema(Parent):
     """Class for metadata for tables."""
 
     # https://datapackage.org/standard/table-schema/
-    fields: List[FieldSchema]
+    fields: list[FieldSchema]
+    """A list of ``FieldSchema`` objects."""
     missingValues: list = Field(default_factory=list)
-    primaryKey: list = Field(default_factory=list)
-    foreignKeys: list = Field(default_factory=list)
+    """A list of values that represent missing data."""
+    primaryKey: list[str] = Field(default_factory=list)
+    """A field or list of fields that uniquely identifies each row in the table."""
+    foreignKeys: list[str] = Field(default_factory=list)
+    """A field or list of fields that can be used to join another table.
+
+    See https://datapackage.org/standard/table-schema/#foreignKeys
+    """
 
 
 class BandSchema(Parent):
     """Class for metadata for a raster band."""
 
     index: int
+    """The index of the band of a GDAL raster, starting at 1."""
     gdal_type: str
+    """The GDAL data type of the band."""
     numpy_type: str
+    """The numpy data type of the band."""
     nodata: Union[int, float, None]
+    """The pixel value that represents no data in the band."""
     description: str = ''
+    """A description of the band."""
     title: str = ''
+    """A human-readable title for the band."""
     units: str = ''
+    """Unit of measurement for the pixel values."""
 
 
 class RasterSchema(Parent):
     """Class for metadata for raster bands."""
 
-    bands: List[BandSchema]
-    pixel_size: list
+    bands: list[BandSchema]
+    """A list of ``BandSchema`` objects."""
+    pixel_size: tuple[Union[int, float], Union[int, float]]
+    """The width and height of a pixel measured in ``SpatialSchema.crs_units``."""
     raster_size: Union[dict, list]
+    """The width and height of the raster measured in number of pixels."""
 
     def model_post_init(self, __context):
         # Migrate from previous model where we stored this as a list
@@ -114,10 +139,10 @@ class RasterSchema(Parent):
 class BaseMetadata(Parent):
     """A class for the things shared by Resource and Profile."""
 
-    # These default to None in order to facilitate the logic
-    # in ``replace`` where we only replace values that are not None.
     contact: Union[ContactSchema, None] = Field(default_factory=ContactSchema)
+    """Contact information for the data author."""
     license: Union[LicenseSchema, None] = Field(default_factory=LicenseSchema)
+    """Data license information."""
 
     def set_contact(self, organization=None, individual_name=None,
                     position_name=None, email=None):
@@ -215,9 +240,11 @@ class Profile(BaseMetadata):
     """
 
     # For a Profile, default these to None so that they do not replace
-    # values in a Resource
+    # values in a Resource during ``BaseMetadata.replace``.
     contact: Union[ContactSchema, None] = None
+    """Contact information for the data author."""
     license: Union[LicenseSchema, None] = None
+    """Data license information."""
 
     @classmethod
     def load(cls, filepath):
@@ -264,32 +291,48 @@ class Resource(BaseMetadata):
     geometamaker_version: str = ''
     metadata_path: str = ''
 
-    # These are populated geometamaker.describe()
+    # These are populated by geometamaker.describe()
     bytes: int = 0
+    """File size of the resource in bytes."""
     encoding: str = ''
+    """File encoding of the resource."""
     format: str = ''
+    """File format of the resource."""
     uid: str = ''
+    """Unique identifier for the resource."""
     path: str = ''
+    """Path to the resource being described."""
     scheme: str = ''
+    """File protocol for opening the resource."""
     type: str = ''
+    """The type of resource being described."""
     last_modified: str = ''
-    # DataPackage includes `sources` as a list of source files
-    # with some amount of metadata for each item. For our
-    # use-case, I think a list of filenames is good enough.
-    sources: list = Field(default_factory=list)
+    """Last modified time of the file at ``path``."""
+    sources: list[str] = Field(default_factory=list)
+    """A list of files which comprise the dataset or resource."""
 
     # These are not populated by geometamaker.describe(),
     # and should have setters & getters
     citation: str = ''
+    """A citation for the resource."""
     description: str = ''
+    """A text description of the resource."""
     doi: str = ''
+    """A digital object identifier for the resource."""
     edition: str = ''
-    keywords: list = Field(default_factory=list)
+    """A string representing the edition, or version, of the resource."""
+    keywords: list[str] = Field(default_factory=list)
+    """A list of keywords that describe the subject-matter of the resource."""
     lineage: str = ''
-    placenames: list = Field(default_factory=list)
+    """A text description of how the resource was created."""
+    placenames: list[str] = Field(default_factory=list)
+    """A list of geographic places associated with the resource."""
     purpose: str = ''
+    """The author's stated purpose for the resource."""
     title: str = ''
+    """The title of the resource."""
     url: str = ''
+    """A URL where the resource is available."""
 
     def model_post_init(self, __context):
         self.metadata_path = f'{self.path}.yml'
@@ -527,14 +570,12 @@ class Resource(BaseMetadata):
             file.write(utils.yaml_dump(
                 self.model_dump(exclude=['metadata_path'])))
 
-    def to_string(self):
-        pass
-
 
 class TableResource(Resource):
     """Class for metadata for a table resource."""
 
     data_model: TableSchema = Field(default_factory=TableSchema)
+    """A ``models.TableSchema`` object for describing fields."""
 
     def _get_field(self, name):
         """Get an attribute by its name property.
@@ -602,20 +643,25 @@ class ArchiveResource(Resource):
     """Class for metadata for an archive resource."""
 
     compression: str
+    """The compression method used to create the archive."""
 
 
 class VectorResource(TableResource):
     """Class for metadata for a vector resource."""
 
     n_features: int
+    """Number of features in the layer."""
     spatial: SpatialSchema
+    """An object for describing spatial properties of a GDAL dataset."""
 
 
 class RasterResource(Resource):
     """Class for metadata for a raster resource."""
 
     data_model: RasterSchema
+    """An object for describing raster properties and bands."""
     spatial: SpatialSchema
+    """An object for describing spatial properties of a GDAL dataset."""
 
     def set_band_description(self, band_number, title=None,
                              description=None, units=None):

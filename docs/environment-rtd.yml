@@ -9,6 +9,7 @@ channels:
     - conda-forge
 dependencies:
     - python=3.10
+    - pip
     - frictionless
     - fsspec
     - gdal>=3
@@ -16,3 +17,6 @@ dependencies:
     - pygeoprocessing>=2.4.2
     - pyyaml
     - sphinx_rtd_theme
+    - myst-parser
+    - pip:
+        - autodoc_pydantic

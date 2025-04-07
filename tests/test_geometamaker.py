@@ -97,9 +97,13 @@ class GeometamakerTests(unittest.TestCase):
     def setUp(self):
         """Override setUp function to create temp workspace directory."""
         self.workspace_dir = tempfile.mkdtemp()
+        self.patcher = patch('geometamaker.config.platformdirs.user_config_dir')
+        self.mock_user_config_dir = self.patcher.start()
+        self.mock_user_config_dir.return_value = self.workspace_dir
 
     def tearDown(self):
         """Override tearDown function to remove temporary directory."""
+        self.patcher.stop()
         shutil.rmtree(self.workspace_dir)
 
     def test_file_does_not_exist(self):
@@ -561,6 +565,7 @@ class GeometamakerTests(unittest.TestCase):
         resource.set_contact(individual_name='alice')
         resource.write()
 
+        # Describe the same dataset, with new profile info
         profile = geometamaker.Profile()
         profile.set_contact(individual_name='bob')
         new_resource = geometamaker.describe(datasource_path, profile=profile)
@@ -569,6 +574,24 @@ class GeometamakerTests(unittest.TestCase):
             new_resource.get_title(), title)
         self.assertEqual(
             new_resource.contact.individual_name, 'bob')
+
+    def test_preexisting_metadata_profile_not_overwritten(self):
+        """Test doc with contact info is not overwritten by blank profile."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+        resource = geometamaker.describe(datasource_path)
+        resource.set_contact(individual_name='alice')
+        resource.write()
+
+        # mocking should mean there is no config, but just to be certain
+        config = geometamaker.Config()
+        config.delete()
+
+        new_resource = geometamaker.describe(datasource_path)
+        self.assertEqual(
+            new_resource.contact.individual_name, 'alice')
 
     def test_preexisting_incompatible_doc(self):
         """Test when yaml file not created by geometamaker already exists."""
