@@ -886,8 +886,10 @@ class ConfigurationTests(unittest.TestCase):
         """Test default profile is instantiated if config file is missing."""
         import geometamaker
         config = geometamaker.Config('foo/path')
-        self.assertEqual(config.profile.contact, None)
-        self.assertEqual(config.profile.license, None)
+        self.assertEqual(
+            config.profile.contact, geometamaker.models.ContactSchema())
+        self.assertEqual(
+            config.profile.license, geometamaker.models.LicenseSchema())
 
     @patch('geometamaker.config.platformdirs.user_config_dir')
     def test_invalid_config(self, mock_user_config_dir):
@@ -902,8 +904,10 @@ class ConfigurationTests(unittest.TestCase):
             file.write(yaml.dump({'bad': 'data'}))
 
         config = geometamaker.config.Config()
-        self.assertEqual(config.profile.contact, None)
-        self.assertEqual(config.profile.license, None)
+        self.assertEqual(
+            config.profile.contact, geometamaker.models.ContactSchema())
+        self.assertEqual(
+            config.profile.license, geometamaker.models.LicenseSchema())
 
     @patch('geometamaker.config.platformdirs.user_config_dir')
     def test_delete_config(self, mock_user_config_dir):
