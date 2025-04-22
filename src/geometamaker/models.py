@@ -17,6 +17,24 @@ from . import utils
 LOGGER = logging.getLogger(__name__)
 
 
+def _deep_update_dict(self_dict, other_dict):
+    """Update values in self_dict.
+
+    Only keys that exist in ``self_dict`` will exist in the
+    returned dict. Only values that are not empty in ``other_dict``
+    will be used to replace values in ``self_dict``.
+
+    """
+    for k, v in other_dict.items():
+        if k in self_dict:
+            if isinstance(v, collections.abc.Mapping):
+                self_dict[k] = _deep_update_dict(self_dict[k], v)
+            else:
+                if v not in (None, ''):
+                    self_dict[k] = v
+    return self_dict
+
+
 class Parent(BaseModel):
     """Parent class on which to configure validation."""
 
@@ -225,16 +243,6 @@ class BaseMetadata(Parent):
             TypeError if ``other`` is not an instance of BaseMetadata.
 
         """
-        def _deep_update_dict(self_dict, other_dict):
-            for k, v in other_dict.items():
-                if k in self_dict:
-                    if isinstance(v, collections.abc.Mapping):
-                        self_dict[k] = _deep_update_dict(self_dict[k], v)
-                    else:
-                        if v not in (None, ''):
-                            self_dict[k] = v
-            return self_dict
-
         if isinstance(other, BaseMetadata):
             updated_dict = _deep_update_dict(
                 self.model_dump(), other.model_dump())

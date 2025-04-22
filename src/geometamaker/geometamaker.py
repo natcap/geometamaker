@@ -375,7 +375,6 @@ def describe(source_dataset_path, profile=None):
                     eband = existing_resource.get_band_description(band.index)
                 except IndexError:
                     continue
-                    # TODO: rewrite this as __eq__ of BandSchema?
                 if (band.numpy_type, band.gdal_type, band.nodata) == (
                         eband.numpy_type, eband.gdal_type, eband.nodata):
                     resource.set_band_description(
@@ -389,7 +388,6 @@ def describe(source_dataset_path, profile=None):
                     efield = existing_resource.get_field_description(field.name)
                 except KeyError:
                     continue
-                    # TODO: rewrite this as __eq__ of FieldSchema?
                 if field.type == efield.type:
                     resource.set_field_description(
                         field.name,
@@ -399,7 +397,6 @@ def describe(source_dataset_path, profile=None):
         resource = existing_resource.replace(resource)
 
     # Common path: metadata file does not already exist
-    # Or less common, ValueError if it exists but is incompatible
     except FileNotFoundError:
         pass
 
