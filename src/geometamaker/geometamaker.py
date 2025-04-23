@@ -263,14 +263,27 @@ def describe_raster(source_dataset_path, scheme):
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     info = pygeoprocessing.get_raster_info(source_dataset_path)
+    raster = gdal.OpenEx(source_dataset_path)
     bands = []
     for i in range(info['n_bands']):
         b = i + 1
+        band = raster.GetRasterBand(b)
+        band_stats = None
+        stats = band.GetStatistics(True, False)
+        # https://gdal.org/en/stable/user/raster_data_model.html#raster-band
+        # This metadata item is described by GDAL, but not calculated by GDAL.
+        valid_percent = band.GetMetadataItem('STATISTICS_VALID_PERCENT')
+        if stats:
+            band_stats = models.BandStatistics(*stats, valid_percent)
         bands.append(models.BandSchema(
             index=b,
             gdal_type=gdal.GetDataTypeName(info['datatype']),
             numpy_type=numpy.dtype(info['numpy_type']).name,
-            nodata=info['nodata'][i]))
+            nodata=info['nodata'][i],
+            statistics=band_stats))
+        band = None
+    raster = None
+
     description['data_model'] = models.RasterSchema(
         bands=bands,
         pixel_size=info['pixel_size'],

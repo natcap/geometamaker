@@ -238,7 +238,7 @@ class GeometamakerTests(unittest.TestCase):
         resource.write()
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
 
-    def test_raster_attributes(self):
+    def test_describe_raster_band_description(self):
         """Test adding extra attribute metadata to raster."""
         import geometamaker
 
@@ -293,6 +293,39 @@ class GeometamakerTests(unittest.TestCase):
 
         resource = geometamaker.describe(datasource_path)
         self.assertIsNone(resource.data_model.bands[0].nodata)
+
+    def test_describe_raster_band_no_statistics(self):
+        """Test band statistics not included if not pre-calculated."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        # This raster does not have statistics calculated
+        create_raster(numpy.int16, datasource_path, n_bands=2)
+
+        resource = geometamaker.describe(datasource_path)
+        self.assertEqual(
+            resource.data_model.bands[0].statistics, None)
+        self.assertEqual(
+            resource.data_model.bands[1].statistics, None)
+
+    def test_describe_raster_band_with_statistics(self):
+        """Test band statistics will be included if they already exist."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path, n_bands=1)
+        raster = gdal.OpenEx(datasource_path)
+        band = raster.GetRasterBand(1)
+        approx_ok = False
+        stats_list = band.ComputeStatistics(approx_ok)
+        band.SetStatistics(*stats_list)
+        band.SetMetadataItem('STATISTICS_VALID_PERCENT', '100.0')
+        band = raster = None
+
+        resource = geometamaker.describe(datasource_path)
+        self.assertEqual(
+            resource.data_model.bands[0].statistics.as_tuple(),
+            (1.0, 1.0, 1.0, 0.0, 100.0))
 
     def test_describe_zip(self):
         """Test metadata for a zipfile includes list of contents."""

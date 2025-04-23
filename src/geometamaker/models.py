@@ -56,6 +56,21 @@ class BoundingBox:
     ymax: float
 
 
+@dataclass(frozen=True)
+class BandStatistics:
+    """Class for statistics of a raster band."""
+
+    minimum: float
+    maximum: float
+    mean: float
+    std_dev: float
+    percent_valid: Union[float, None] = None
+
+    def as_tuple(self):
+        """Return the attribute values as a tuple."""
+        return tuple(self.__dict__.values())
+
+
 class SpatialSchema(Parent):
     """Class for keeping track of spatial info."""
 
@@ -136,6 +151,8 @@ class BandSchema(Parent):
     """A human-readable title for the band."""
     units: str = ''
     """Unit of measurement for the pixel values."""
+    statistics: Union[BandStatistics, None] = None
+    """Summary statistics for the raster band, if available."""
 
 
 class RasterSchema(Parent):
