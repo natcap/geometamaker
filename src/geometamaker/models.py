@@ -1,4 +1,5 @@
 from __future__ import annotations
+import collections
 import logging
 import os
 import warnings
@@ -14,6 +15,24 @@ from . import utils
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _deep_update_dict(self_dict, other_dict):
+    """Update values in self_dict.
+
+    Only keys that exist in ``self_dict`` will exist in the
+    returned dict. Only values that are not empty in ``other_dict``
+    will be used to replace values in ``self_dict``.
+
+    """
+    for k, v in other_dict.items():
+        if k in self_dict:
+            if isinstance(v, collections.abc.Mapping):
+                self_dict[k] = _deep_update_dict(self_dict[k], v)
+            else:
+                if v not in (None, ''):
+                    self_dict[k] = v
+    return self_dict
 
 
 class Parent(BaseModel):
@@ -139,9 +158,9 @@ class RasterSchema(Parent):
 class BaseMetadata(Parent):
     """A class for the things shared by Resource and Profile."""
 
-    contact: Union[ContactSchema, None] = Field(default_factory=ContactSchema)
+    contact: ContactSchema = Field(default_factory=ContactSchema)
     """Contact information for the data author."""
-    license: Union[LicenseSchema, None] = Field(default_factory=LicenseSchema)
+    license: LicenseSchema = Field(default_factory=LicenseSchema)
     """Data license information."""
 
     def set_contact(self, organization=None, individual_name=None,
@@ -211,8 +230,8 @@ class BaseMetadata(Parent):
         """Replace attribute values with those from another instance.
 
         Only attributes that exist in ``self`` will exist in the
-        returned instance. Only attribute values that are not None will be used
-        to replace existing attribute values in ``self``.
+        returned instance. Only attribute values that are not empty
+        in ``other`` will be used to replace values in ``self``.
 
         Args:
             other (BaseMetadata)
@@ -225,8 +244,8 @@ class BaseMetadata(Parent):
 
         """
         if isinstance(other, BaseMetadata):
-            updated_dict = self.model_dump() | {
-                k: v for k, v in other.__dict__.items() if v is not None}
+            updated_dict = _deep_update_dict(
+                self.model_dump(), other.model_dump())
             return self.__class__(**updated_dict)
         raise TypeError(f'{type(other)} is not an instance of BaseMetadata')
 
@@ -238,13 +257,6 @@ class Profile(BaseMetadata):
     to more than one resource, such as ``contact`` and ``license``.
 
     """
-
-    # For a Profile, default these to None so that they do not replace
-    # values in a Resource during ``BaseMetadata.replace``.
-    contact: Union[ContactSchema, None] = None
-    """Contact information for the data author."""
-    license: Union[LicenseSchema, None] = None
-    """Data license information."""
 
     @classmethod
     def load(cls, filepath):
