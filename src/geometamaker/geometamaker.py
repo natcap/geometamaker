@@ -337,7 +337,7 @@ def describe_table(source_dataset_path, scheme):
     return description
 
 
-DESRCIBE_FUNCS = {
+DESCRIBE_FUNCS = {
     'archive': describe_archive,
     'table': describe_table,
     'vector': describe_vector,
@@ -388,7 +388,7 @@ def describe(source_dataset_path, profile=None):
             f'Cannot describe {source_dataset_path}. {protocol} '
             f'is not one of the suppored file protocols: {PROTOCOLS}')
     resource_type = detect_file_type(source_dataset_path, protocol)
-    description = DESRCIBE_FUNCS[resource_type](
+    description = DESCRIBE_FUNCS[resource_type](
         source_dataset_path, protocol)
     description['type'] = resource_type
     resource = RESOURCE_MODELS[resource_type](**description)
