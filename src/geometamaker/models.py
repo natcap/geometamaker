@@ -654,7 +654,7 @@ class TableResource(Resource):
 class ArchiveResource(Resource):
     """Class for metadata for an archive resource."""
 
-    compression: str
+    compression: str = ''
     """The compression method used to create the archive."""
 
 

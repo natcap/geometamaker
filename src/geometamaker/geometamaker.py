@@ -15,6 +15,7 @@ from osgeo import gdal
 from osgeo import osr
 from pydantic import ValidationError
 import tarfile
+import zipfile
 
 from . import models
 from .config import Config
@@ -200,38 +201,42 @@ def describe_archive(source_dataset_path, scheme):
 
     """
     def _list_tgz_contents(path):
-        """List contents of a .tgz or .tar.gz archive."""
-        if path.endswith("gz"):
-            mode = 'r:gz'
-            compression = "tar gzip"
-        else:
-            mode = 'r:'
-            compression = "tar"
-
+        """List contents of a .tar, .tgz, or .tar.gz archive."""
         file_list = []
         with fsspec.open(path, 'rb') as fobj:
             try:
-                with tarfile.open(fileobj=fobj, mode=mode) as tar:
-                    file_list = tar.getnames()
+                with tarfile.open(fileobj=fobj, mode='r:*') as tar:
+                    file_list = [member.name for member in
+                                 tar.getmembers() if member.isfile()]
             except tarfile.ReadError:
-                raise ValueError(f"{path} is not a valid .tar, .tgz, or .tar.gz file")
-        return file_list, compression
+                raise ValueError(
+                    f"{path} is not a valid .tar, .tgz, or .tar.gz file")
+        return file_list
+
+    def _list_zip_contents(path):
+        """List contents of a zip archive"""
+        file_list = []
+        ZFS = fsspec.get_filesystem_class('zip')
+        zfs = ZFS(path)
+        file_list = []
+        for dirpath, _, files in zfs.walk(zfs.root_marker):
+            for f in files:
+                file_list.append(os.path.join(dirpath, f))
+        return file_list
 
     description = describe_file(source_dataset_path, scheme)
     # innerpath is from frictionless and not useful because
     # it does not include all the files contained in the zip
     description.pop('innerpath', None)
 
-    if source_dataset_path.endswith(('.zip')):
-        ZFS = fsspec.get_filesystem_class('zip')
-        zfs = ZFS(source_dataset_path)
-        file_list = []
-        for dirpath, _, files in zfs.walk(zfs.root_marker):
-            for f in files:
-                file_list.append(os.path.join(dirpath, f))
+    if zipfile.is_zipfile(source_dataset_path):
+        file_list = _list_zip_contents(source_dataset_path)
+
     elif tarfile.is_tarfile(source_dataset_path):
-        file_list, compression = _list_tgz_contents(source_dataset_path)
-        description["compression"] = compression
+        file_list = _list_tgz_contents(source_dataset_path)
+        # 'compression' attr not auto-added by frictionless.describe for tgz
+        if source_dataset_path.endswith((".tgz", ".tar.gz")):
+            description["compression"] = "tar gz"
     else:
         raise ValueError(f"Unsupported archive format: {source_dataset_path}")
 
