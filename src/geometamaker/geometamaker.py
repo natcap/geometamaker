@@ -14,6 +14,7 @@ import yaml
 from osgeo import gdal
 from osgeo import osr
 from pydantic import ValidationError
+import tarfile
 
 from . import models
 from .config import Config
@@ -126,7 +127,7 @@ def detect_file_type(filepath, scheme):
     info = frictionless.list(filepath)[0]
     if info.type == 'table':
         return 'table'
-    if info.compression:
+    if info.compression or filepath.endswith((".tgz", ".tar.gz", ".tar")):
         return 'archive'
     # GDAL considers CSV a vector, so check against frictionless first.
     try:
@@ -198,17 +199,36 @@ def describe_archive(source_dataset_path, scheme):
         dict
 
     """
+    # There is possibly a cleaner way to do this with libarchive, but only supports local files
+    def _list_tgz_contents(path):
+        """List contents of a .tgz or .tar.gz archive."""
+        file_list = []
+        with fsspec.open(path, 'rb') as fobj:
+            try:
+                with tarfile.open(fileobj=fobj, mode='r:gz') as tar:
+                    file_list = tar.getnames()
+            except tarfile.ReadError:
+                raise ValueError(f"{path} is not a valid .tgz or .tar.gz file")
+        return file_list
+
     description = describe_file(source_dataset_path, scheme)
     # innerpath is from frictionless and not useful because
     # it does not include all the files contained in the zip
     description.pop('innerpath', None)
 
-    ZFS = fsspec.get_filesystem_class('zip')
-    zfs = ZFS(source_dataset_path)
-    file_list = []
-    for dirpath, _, files in zfs.walk(zfs.root_marker):
-        for f in files:
+    if source_dataset_path.endswith(('.zip')):
+        ZFS = fsspec.get_filesystem_class('zip')
+        zfs = ZFS(source_dataset_path)
+        file_list = []
+        for dirpath, _, files in zfs.walk(zfs.root_marker):
+            for f in files:
             file_list.append(os.path.join(dirpath, f))
+    elif source_dataset_path.endswith(('.tar.gz', '.tgz')):
+        file_list = _list_tgz_contents(source_dataset_path)
+        description["compression"] = "tar gzip"
+    else:
+        raise ValueError(f"Unsupported archive format: {source_dataset_path}")
+
     description['sources'] = file_list
     return description
 
@@ -306,7 +326,7 @@ def describe_table(source_dataset_path, scheme):
     return description
 
 
-DESRCIBE_FUNCS = {
+DESCRIBE_FUNCS = {
     'archive': describe_archive,
     'table': describe_table,
     'vector': describe_vector,
@@ -357,48 +377,56 @@ def describe(source_dataset_path, profile=None):
             f'Cannot describe {source_dataset_path}. {protocol} '
             f'is not one of the suppored file protocols: {PROTOCOLS}')
     resource_type = detect_file_type(source_dataset_path, protocol)
-    description = DESRCIBE_FUNCS[resource_type](
+    description = DESCRIBE_FUNCS[resource_type](
         source_dataset_path, protocol)
     description['type'] = resource_type
-    resource = RESOURCE_MODELS[resource_type](**description)
 
     # Load existing metadata file
     try:
-        # For the data model, use heuristic to decide if the new resource
-        # should inherit values from the existing resource.
-        # After that, take all non-empty values from the new resource
-        # and update the existing resource.
         existing_resource = RESOURCE_MODELS[resource_type].load(metadata_path)
-        if resource_type == 'raster':
-            for band in resource.data_model.bands:
-                try:
-                    eband = existing_resource.get_band_description(band.index)
-                except IndexError:
-                    continue
-                if (band.numpy_type, band.gdal_type, band.nodata) == (
-                        eband.numpy_type, eband.gdal_type, eband.nodata):
-                    resource.set_band_description(
-                        band.index,
-                        title=eband.title,
-                        description=eband.description,
-                        units=eband.units)
-        if resource_type in ('vector', 'table'):
-            for field in resource.data_model.fields:
-                try:
-                    efield = existing_resource.get_field_description(field.name)
-                except KeyError:
-                    continue
-                if field.type == efield.type:
-                    resource.set_field_description(
-                        field.name,
-                        title=efield.title,
-                        description=efield.description,
-                        units=efield.units)
-        resource = existing_resource.replace(resource)
+        if 'data_model' in description:
+            if isinstance(description['data_model'], models.RasterSchema):
+                # If existing band metadata still matches data_model of the file
+                # carry over existing metadata because it could include
+                # human-defined properties.
+                new_bands = []
+                for band in description['data_model'].bands:
+                    try:
+                        eband = existing_resource.get_band_description(band.index)
+                        # TODO: rewrite this as __eq__ of BandSchema?
+                        if (band.numpy_type, band.gdal_type, band.nodata) == (
+                                eband.numpy_type, eband.gdal_type, eband.nodata):
+                            updated_dict = band.model_dump() | eband.model_dump()
+                            band = models.BandSchema(**updated_dict)
+                    except IndexError:
+                        pass
+                    new_bands.append(band)
+                description['data_model'].bands = new_bands
+            if isinstance(description['data_model'], models.TableSchema):
+                # If existing field metadata still matches data_model of the file
+                # carry over existing metadata because it could include
+                # human-defined properties.
+                new_fields = []
+                for field in description['data_model'].fields:
+                    try:
+                        efield = existing_resource.get_field_description(
+                            field.name)
+                        # TODO: rewrite this as __eq__ of FieldSchema?
+                        if field.type == efield.type:
+                            updated_dict = field.model_dump() | efield.model_dump()
+                            field = models.FieldSchema(**updated_dict)
+                    except KeyError:
+                        pass
+                    new_fields.append(field)
+                description['data_model'].fields = new_fields
+        # overwrite properties that are intrinsic to the dataset
+        updated_dict = existing_resource.model_dump() | description
+        resource = RESOURCE_MODELS[resource_type](**updated_dict)
 
     # Common path: metadata file does not already exist
+    # Or less common, ValueError if it exists but is incompatible
     except FileNotFoundError:
-        pass
+        resource = RESOURCE_MODELS[resource_type](**description)
 
     resource = resource.replace(user_profile)
     return resource
