@@ -15,7 +15,6 @@ from osgeo import gdal
 from osgeo import osr
 from pydantic import ValidationError
 import tarfile
-import zipfile
 
 from . import models
 from .config import Config
@@ -128,6 +127,7 @@ def detect_file_type(filepath, scheme):
     info = frictionless.list(filepath)[0]
     if info.type == 'table':
         return 'table'
+    # Frictionless doesn't recognize .tgz same as .tar.gz, so check w/ tarfile
     if info.compression or tarfile.is_tarfile(filepath):
         return 'archive'
     # GDAL considers CSV a vector, so check against frictionless first.
@@ -231,12 +231,12 @@ def describe_archive(source_dataset_path, scheme):
 
     if description.get("compression") == "zip":
         file_list = _list_zip_contents(source_dataset_path)
-
-    elif tarfile.is_tarfile(source_dataset_path):
+    elif description.get("format") in ["tgz", "tar"]:
         file_list = _list_tgz_contents(source_dataset_path)
-        # 'compression' attr not auto-added by frictionless.describe for tgz
+        # 'compression' attr not auto-added by frictionless.describe for .tgz
+        # (but IS added for .tar.gz)
         if source_dataset_path.endswith((".tgz", ".tar.gz")):
-            description["compression"] = "tar gzip"
+            description["compression"] = "gz"
     else:
         raise ValueError(f"Unsupported archive format: {source_dataset_path}")
 

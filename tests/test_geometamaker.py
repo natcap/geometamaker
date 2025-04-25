@@ -23,6 +23,7 @@ REGRESSION_DATA = os.path.join(
 
 # A remote file we can use for testing
 REMOTE_FILEPATH = 'https://storage.googleapis.com/releases.naturalcapitalproject.org/invest/3.14.2/data/CoastalBlueCarbon.zip'
+REMOTE_TARGZ = 'https://storage.googleapis.com/releases.naturalcapitalproject.org/invest/3.15.0/natcap_invest-3.15.0.tar.gz'
 
 # This is the complete list of types, but some are
 # exceedingly rare and do not match easily to python types
@@ -335,7 +336,7 @@ class GeometamakerTests(unittest.TestCase):
         resource = geometamaker.describe(tgz_path)
         self.assertEqual(resource.sources, [os.path.basename(raster_path),
                                             os.path.basename(vector_path)])
-        self.assertEqual(resource.compression, "tar gzip")
+        self.assertEqual(resource.compression, "gz")
 
     def test_set_description(self):
         """Test set and get a description for a resource."""
@@ -652,6 +653,14 @@ class GeometamakerTests(unittest.TestCase):
         filepath = REMOTE_FILEPATH
         resource = geometamaker.describe(filepath)
         self.assertEqual(resource.path, filepath)
+
+    def test_describe_remote_targz(self):
+        """Test describe on a .tar.gz file at a public url."""
+        import geometamaker
+
+        filepath = REMOTE_TARGZ
+        resource = geometamaker.describe(filepath)
+        self.assertEqual(resource.path, REMOTE_TARGZ)
 
     def test_validate_valid_document(self):
         """Test validate function returns nothing."""
