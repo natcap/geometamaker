@@ -5,6 +5,8 @@ Release History
 ---------------------
 * Allow CLI to ``describe`` remote datasets.
   https://github.com/natcap/geometamaker/issues/78
+* Add support for describing tar gzip files in the same manner as zip
+  archives. https://github.com/natcap/geometamaker/issues/26
 
 0.1.2 (2025-02-05)
 ------------------
