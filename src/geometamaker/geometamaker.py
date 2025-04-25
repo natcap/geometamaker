@@ -199,17 +199,23 @@ def describe_archive(source_dataset_path, scheme):
         dict
 
     """
-    # There is possibly a cleaner way to do this with libarchive, but only supports local files
     def _list_tgz_contents(path):
         """List contents of a .tgz or .tar.gz archive."""
+        if path.endswith("gz"):
+            mode = 'r:gz'
+            compression = "tar gzip"
+        else:
+            mode = 'r:'
+            compression = "tar"
+
         file_list = []
         with fsspec.open(path, 'rb') as fobj:
             try:
-                with tarfile.open(fileobj=fobj, mode='r:gz') as tar:
+                with tarfile.open(fileobj=fobj, mode=mode) as tar:
                     file_list = tar.getnames()
             except tarfile.ReadError:
-                raise ValueError(f"{path} is not a valid .tgz or .tar.gz file")
-        return file_list
+                raise ValueError(f"{path} is not a valid .tar, .tgz, or .tar.gz file")
+        return file_list, compression
 
     description = describe_file(source_dataset_path, scheme)
     # innerpath is from frictionless and not useful because
@@ -222,10 +228,10 @@ def describe_archive(source_dataset_path, scheme):
         file_list = []
         for dirpath, _, files in zfs.walk(zfs.root_marker):
             for f in files:
-            file_list.append(os.path.join(dirpath, f))
-    elif source_dataset_path.endswith(('.tar.gz', '.tgz')):
-        file_list = _list_tgz_contents(source_dataset_path)
-        description["compression"] = "tar gzip"
+                file_list.append(os.path.join(dirpath, f))
+    elif tarfile.is_tarfile(source_dataset_path):
+        file_list, compression = _list_tgz_contents(source_dataset_path)
+        description["compression"] = compression
     else:
         raise ValueError(f"Unsupported archive format: {source_dataset_path}")
 
