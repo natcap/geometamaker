@@ -128,7 +128,7 @@ def detect_file_type(filepath, scheme):
     info = frictionless.list(filepath)[0]
     if info.type == 'table':
         return 'table'
-    if info.compression or filepath.endswith((".tgz", ".tar.gz", ".tar")):
+    if info.compression or tarfile.is_tarfile(filepath):
         return 'archive'
     # GDAL considers CSV a vector, so check against frictionless first.
     try:
@@ -236,7 +236,7 @@ def describe_archive(source_dataset_path, scheme):
         file_list = _list_tgz_contents(source_dataset_path)
         # 'compression' attr not auto-added by frictionless.describe for tgz
         if source_dataset_path.endswith((".tgz", ".tar.gz")):
-            description["compression"] = "tar gz"
+            description["compression"] = "tar gzip"
     else:
         raise ValueError(f"Unsupported archive format: {source_dataset_path}")
 
