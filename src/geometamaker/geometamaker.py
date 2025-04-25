@@ -229,7 +229,7 @@ def describe_archive(source_dataset_path, scheme):
     # it does not include all the files contained in the zip
     description.pop('innerpath', None)
 
-    if zipfile.is_zipfile(source_dataset_path):
+    if description.get("compression") == "zip":
         file_list = _list_zip_contents(source_dataset_path)
 
     elif tarfile.is_tarfile(source_dataset_path):
