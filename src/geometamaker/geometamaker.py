@@ -125,9 +125,10 @@ def detect_file_type(filepath, scheme):
     # Frictionless supports a wide range of formats. The quickest way to
     # determine if a file is recognized as a table or archive is to call list.
     info = frictionless.list(filepath)[0]
+    # Frictionless doesn't recognize .tgz compression, so check format
     if info.type == 'table':
         return 'table'
-    if info.format in ["zip", "tar", "tgz"]:
+    if info.compression or info.format == "tgz":
         return 'archive'
     # GDAL considers CSV a vector, so check against frictionless first.
     try:
