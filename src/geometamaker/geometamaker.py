@@ -127,8 +127,7 @@ def detect_file_type(filepath, scheme):
     info = frictionless.list(filepath)[0]
     if info.type == 'table':
         return 'table'
-    # Frictionless doesn't recognize .tgz compression, so check format
-    if info.compression or info.format == "tgz":
+    if info.format in ["zip", "tar", "tgz"]:
         return 'archive'
     # GDAL considers CSV a vector, so check against frictionless first.
     try:
@@ -204,13 +203,9 @@ def describe_archive(source_dataset_path, scheme):
         """List contents of a .tar, .tgz, or .tar.gz archive."""
         file_list = []
         with fsspec.open(path, 'rb') as fobj:
-            try:
-                with tarfile.open(fileobj=fobj, mode='r:*') as tar:
-                    file_list = [member.name for member in
-                                 tar.getmembers() if member.isfile()]
-            except tarfile.ReadError:
-                raise ValueError(
-                    f"{path} is not a valid .tar, .tgz, or .tar.gz file")
+            with tarfile.open(fileobj=fobj, mode='r:*') as tar:
+                file_list = [member.name for member in tar.getmembers()
+                             if member.isfile()]
         return file_list
 
     def _list_zip_contents(path):
@@ -218,7 +213,6 @@ def describe_archive(source_dataset_path, scheme):
         file_list = []
         ZFS = fsspec.get_filesystem_class('zip')
         zfs = ZFS(path)
-        file_list = []
         for dirpath, _, files in zfs.walk(zfs.root_marker):
             for f in files:
                 file_list.append(os.path.join(dirpath, f))
@@ -235,7 +229,7 @@ def describe_archive(source_dataset_path, scheme):
         file_list = _list_tgz_contents(source_dataset_path)
         # 'compression' attr not auto-added by frictionless.describe for .tgz
         # (but IS added for .tar.gz)
-        if source_dataset_path.endswith((".tgz", ".tar.gz")):
+        if source_dataset_path.endswith((".tgz")):
             description["compression"] = "gz"
     else:
         raise ValueError(f"Unsupported archive format: {source_dataset_path}")
