@@ -153,6 +153,7 @@ class BandSchema(Parent):
     """Unit of measurement for the pixel values."""
     statistics: Union[BandStatistics, None] = None
     """Summary statistics for the raster band, if available."""
+    gdal_metadata: dict = {}
 
 
 class RasterSchema(Parent):
@@ -164,6 +165,7 @@ class RasterSchema(Parent):
     """The width and height of a pixel measured in ``SpatialSchema.crs_units``."""
     raster_size: Union[dict, list]
     """The width and height of the raster measured in number of pixels."""
+    gdal_metadata: dict = {}
 
     def model_post_init(self, __context):
         # Migrate from previous model where we stored this as a list
@@ -682,6 +684,7 @@ class VectorResource(TableResource):
     """Number of features in the layer."""
     spatial: SpatialSchema
     """An object for describing spatial properties of a GDAL dataset."""
+    gdal_metadata: dict = {}  # TODO: we really ought to have a Layer data_model
 
 
 class RasterResource(Resource):

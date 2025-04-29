@@ -229,6 +229,7 @@ def describe_vector(source_dataset_path, scheme):
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     vector = gdal.OpenEx(source_dataset_path, gdal.OF_VECTOR)
     layer = vector.GetLayer()
+    description['gdal_metadata'] = layer.GetMetadata() | vector.GetMetadata()
     fields = []
     description['n_features'] = layer.GetFeatureCount()
     for fld in layer.schema:
@@ -264,6 +265,7 @@ def describe_raster(source_dataset_path, scheme):
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     info = pygeoprocessing.get_raster_info(source_dataset_path)
     raster = gdal.OpenEx(source_dataset_path)
+    raster_gdal_metadata = raster.GetMetadata()
     bands = []
     for i in range(info['n_bands']):
         b = i + 1
@@ -275,12 +277,14 @@ def describe_raster(source_dataset_path, scheme):
         valid_percent = band.GetMetadataItem('STATISTICS_VALID_PERCENT')
         if stats:
             band_stats = models.BandStatistics(*stats, valid_percent)
+        band_gdal_metadata = band.GetMetadata()
         bands.append(models.BandSchema(
             index=b,
             gdal_type=gdal.GetDataTypeName(info['datatype']),
             numpy_type=numpy.dtype(info['numpy_type']).name,
             nodata=info['nodata'][i],
-            statistics=band_stats))
+            statistics=band_stats,
+            gdal_metadata=band_gdal_metadata))
         band = None
     raster = None
 
@@ -288,7 +292,8 @@ def describe_raster(source_dataset_path, scheme):
         bands=bands,
         pixel_size=info['pixel_size'],
         raster_size={'width': info['raster_size'][0],
-                     'height': info['raster_size'][1]})
+                     'height': info['raster_size'][1]},
+        gdal_metadata=raster_gdal_metadata)
     # Some values of raster info are numpy types, which the
     # yaml dumper doesn't know how to represent.
     bbox = models.BoundingBox(*[float(x) for x in info['bounding_box']])
@@ -525,7 +530,7 @@ def describe_dir(directory, recursive=False):
         if '.shp' in extensions:
             # if we're dealing with a shapefile, we do not want to describe any
             # of these other files with the same root name
-            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf'])
+            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', 'cpg'])
         for ext in extensions:
             filepath = f'{root}{ext}'
             try:
