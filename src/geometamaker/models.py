@@ -1,6 +1,7 @@
 from __future__ import annotations
 import collections
 import logging
+import numbers
 import os
 import warnings
 from typing import Union
@@ -30,7 +31,7 @@ def _deep_update_dict(self_dict, other_dict):
             if isinstance(v, collections.abc.Mapping):
                 self_dict[k] = _deep_update_dict(self_dict[k], v)
             else:
-                if v not in (None, ''):
+                if v is not None and (v or isinstance(v, numbers.Number)):
                     self_dict[k] = v
     return self_dict
 
