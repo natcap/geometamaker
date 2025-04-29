@@ -317,6 +317,26 @@ class GeometamakerTests(unittest.TestCase):
         resource = geometamaker.describe(zip_filepath)
         self.assertEqual(resource.sources, [a_name, b_name.replace('\\', '/')])
 
+    def test_describe_tgz(self):
+        """Test metadata for .tgz includes correct sources and compression"""
+        import tarfile
+        import geometamaker
+
+        tgz_path = os.path.join(self.workspace_dir, "test_tgz.tgz")
+        raster_path = os.path.join(self.workspace_dir, "temp.tif")
+        vector_path = os.path.join(self.workspace_dir, "temp.geojson")
+        create_raster(numpy.int8, raster_path)
+        create_vector(vector_path)
+
+        with tarfile.open(tgz_path, 'w:gz') as tar:
+            for file_path in [raster_path, vector_path]:
+                tar.add(file_path, arcname=os.path.basename(file_path))
+
+        resource = geometamaker.describe(tgz_path)
+        self.assertEqual(resource.sources, [os.path.basename(raster_path),
+                                            os.path.basename(vector_path)])
+        self.assertEqual(resource.compression, "gz")
+
     def test_set_description(self):
         """Test set and get a description for a resource."""
 
