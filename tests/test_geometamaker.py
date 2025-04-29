@@ -497,22 +497,28 @@ class GeometamakerTests(unittest.TestCase):
         import geometamaker
 
         title = 'Title'
-        keyword = 'foo'
+        places_list = ['Here']
         band_name = 'The Band'
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path)
         resource = geometamaker.describe(datasource_path)
         resource.set_title(title)
         resource.set_band_description(1, title=band_name)
+        resource.placenames = places_list
         resource.write()
 
+        keyword = 'foo'
         new_resource = geometamaker.describe(datasource_path)
         new_resource.set_keywords([keyword])
 
+        # Attributes retained from the original resource
         self.assertEqual(
             new_resource.get_title(), title)
         self.assertEqual(
             new_resource.get_band_description(1).title, band_name)
+        self.assertEqual(
+            new_resource.placenames, places_list)
+        # And attributes added to the new resource
         self.assertEqual(
             new_resource.get_keywords(), [keyword])
 

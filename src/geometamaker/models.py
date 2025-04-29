@@ -30,7 +30,7 @@ def _deep_update_dict(self_dict, other_dict):
             if isinstance(v, collections.abc.Mapping):
                 self_dict[k] = _deep_update_dict(self_dict[k], v)
             else:
-                if v not in (None, ''):
+                if v is not None and v:
                     self_dict[k] = v
     return self_dict
 
