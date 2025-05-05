@@ -14,6 +14,7 @@ import yaml
 from osgeo import gdal
 from osgeo import osr
 from pydantic import ValidationError
+import tarfile
 
 from . import models
 from .config import Config
@@ -126,7 +127,8 @@ def detect_file_type(filepath, scheme):
     info = frictionless.list(filepath)[0]
     if info.type == 'table':
         return 'table'
-    if info.compression:
+    # Frictionless doesn't recognize .tgz compression (but does recognize .tar.gz)
+    if info.compression or info.format == "tgz":
         return 'archive'
     # GDAL considers CSV a vector, so check against frictionless first.
     try:
@@ -198,17 +200,41 @@ def describe_archive(source_dataset_path, scheme):
         dict
 
     """
+    def _list_tgz_contents(path):
+        """List contents of a .tar, .tgz, or .tar.gz archive."""
+        file_list = []
+        with fsspec.open(path, 'rb') as fobj:
+            with tarfile.open(fileobj=fobj, mode='r:*') as tar:
+                file_list = [member.name for member in tar.getmembers()
+                             if member.isfile()]
+        return file_list
+
+    def _list_zip_contents(path):
+        """List contents of a zip archive"""
+        file_list = []
+        ZFS = fsspec.get_filesystem_class('zip')
+        zfs = ZFS(path)
+        for dirpath, _, files in zfs.walk(zfs.root_marker):
+            for f in files:
+                file_list.append(os.path.join(dirpath, f))
+        return file_list
+
     description = describe_file(source_dataset_path, scheme)
     # innerpath is from frictionless and not useful because
     # it does not include all the files contained in the zip
     description.pop('innerpath', None)
 
-    ZFS = fsspec.get_filesystem_class('zip')
-    zfs = ZFS(source_dataset_path)
-    file_list = []
-    for dirpath, _, files in zfs.walk(zfs.root_marker):
-        for f in files:
-            file_list.append(os.path.join(dirpath, f))
+    if description.get("compression") == "zip":
+        file_list = _list_zip_contents(source_dataset_path)
+    elif description.get("format") in ["tgz", "tar"]:
+        file_list = _list_tgz_contents(source_dataset_path)
+        # 'compression' attr not auto-added by frictionless.describe for .tgz
+        # (but IS added for .tar.gz)
+        if source_dataset_path.endswith((".tgz")):
+            description["compression"] = "gz"
+    else:
+        raise ValueError(f"Unsupported archive format: {source_dataset_path}")
+
     description['sources'] = file_list
     return description
 
@@ -324,7 +350,7 @@ def describe_table(source_dataset_path, scheme):
     return description
 
 
-DESRCIBE_FUNCS = {
+DESCRIBE_FUNCS = {
     'archive': describe_archive,
     'table': describe_table,
     'vector': describe_vector,
@@ -375,7 +401,7 @@ def describe(source_dataset_path, profile=None):
             f'Cannot describe {source_dataset_path}. {protocol} '
             f'is not one of the suppored file protocols: {PROTOCOLS}')
     resource_type = detect_file_type(source_dataset_path, protocol)
-    description = DESRCIBE_FUNCS[resource_type](
+    description = DESCRIBE_FUNCS[resource_type](
         source_dataset_path, protocol)
     description['type'] = resource_type
     resource = RESOURCE_MODELS[resource_type](**description)
