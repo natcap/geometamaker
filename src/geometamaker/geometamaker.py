@@ -296,20 +296,13 @@ def describe_raster(source_dataset_path, scheme):
     for i in range(info['n_bands']):
         b = i + 1
         band = raster.GetRasterBand(b)
-        band_stats = None
-        stats = band.GetStatistics(True, False)
-        # https://gdal.org/en/stable/user/raster_data_model.html#raster-band
-        # This metadata item is described by GDAL, but not calculated by GDAL.
-        valid_percent = band.GetMetadataItem('STATISTICS_VALID_PERCENT')
-        if stats:
-            band_stats = models.BandStatistics(*stats, valid_percent)
         band_gdal_metadata = band.GetMetadata()
+
         bands.append(models.BandSchema(
             index=b,
             gdal_type=gdal.GetDataTypeName(info['datatype']),
             numpy_type=numpy.dtype(info['numpy_type']).name,
             nodata=info['nodata'][i],
-            statistics=band_stats,
             gdal_metadata=band_gdal_metadata))
         band = None
     raster = None

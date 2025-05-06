@@ -57,21 +57,6 @@ class BoundingBox:
     ymax: float
 
 
-@dataclass(frozen=True)
-class BandStatistics:
-    """Class for statistics of a raster band."""
-
-    minimum: float
-    maximum: float
-    mean: float
-    std_dev: float
-    percent_valid: Union[float, None] = None
-
-    def as_tuple(self):
-        """Return the attribute values as a tuple."""
-        return tuple(self.__dict__.values())
-
-
 class SpatialSchema(Parent):
     """Class for keeping track of spatial info."""
 
@@ -152,9 +137,8 @@ class BandSchema(Parent):
     """A human-readable title for the band."""
     units: str = ''
     """Unit of measurement for the pixel values."""
-    statistics: Union[BandStatistics, None] = None
-    """Summary statistics for the raster band, if available."""
     gdal_metadata: dict = {}
+    """Metadata key:value pairs stored in the GDAL band object."""
 
 
 class RasterSchema(Parent):
@@ -167,12 +151,19 @@ class RasterSchema(Parent):
     raster_size: Union[dict, list]
     """The width and height of the raster measured in number of pixels."""
     gdal_metadata: dict = {}
+    """Metadata key:value pairs stored in the GDAL raster object."""
 
     def model_post_init(self, __context):
         # Migrate from previous model where we stored this as a list
         if isinstance(self.raster_size, list):
             self.raster_size = {'width': self.raster_size[0],
                                 'height': self.raster_size[1]}
+
+
+class LayerSchema(Parent):
+
+    data_model: TableSchema = Field(default_factory=TableSchema)
+    gdal_metadata: dict = {}
 
 
 class BaseMetadata(Parent):
@@ -678,14 +669,16 @@ class ArchiveResource(Resource):
     """The compression method used to create the archive."""
 
 
-class VectorResource(TableResource):
+class VectorResource(Resource):
     """Class for metadata for a vector resource."""
 
+    layers: list[LayerSchema]
+    """An object for describing layer properties and fields."""
     n_features: int
     """Number of features in the layer."""
     spatial: SpatialSchema
     """An object for describing spatial properties of a GDAL dataset."""
-    gdal_metadata: dict = {}  # TODO: we really ought to have a Layer data_model
+    gdal_metadata: dict = {}
 
 
 class RasterResource(Resource):
