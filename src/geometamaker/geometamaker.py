@@ -255,14 +255,16 @@ def describe_vector(source_dataset_path, scheme):
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     vector = gdal.OpenEx(source_dataset_path, gdal.OF_VECTOR)
     layer = vector.GetLayer()
-    description['gdal_metadata'] = layer.GetMetadata() | vector.GetMetadata()
+    description['gdal_metadata'] = vector.GetMetadata()
     fields = []
     description['n_features'] = layer.GetFeatureCount()
     for fld in layer.schema:
         fields.append(
             models.FieldSchema(name=fld.name, type=fld.GetTypeName()))
+    description['layers'] = models.LayerSchema(
+        data_model=models.TableSchema(fields=fields),
+        gdal_metadata=layer.GetMetadata())
     vector = layer = None
-    description['data_model'] = models.TableSchema(fields=fields)
 
     info = pygeoprocessing.get_vector_info(source_dataset_path)
     bbox = models.BoundingBox(*info['bounding_box'])
