@@ -338,7 +338,6 @@ class GeometamakerTests(unittest.TestCase):
         create_vector(vector_path)
         vector = gdal.OpenEx(vector_path)
         layer = vector.GetLayer()
-        # Right now, geometamaker only supports vectors with one layer
         vector.SetMetadataItem('a', 'b')
         layer.SetMetadataItem('c', 'd')
         layer = vector = None
@@ -346,7 +345,11 @@ class GeometamakerTests(unittest.TestCase):
         resource = geometamaker.describe(vector_path)
         self.assertEqual(
             resource.data_model.gdal_metadata,
-            {'a': 'b', 'c': 'd'})
+            {'a': 'b'})
+        # Right now, geometamaker only supports vectors with one layer
+        self.assertEqual(
+            resource.data_model.layers[0].gdal_metadata,
+            {'c': 'd'})
 
     def test_describe_zip(self):
         """Test metadata for a zipfile includes list of contents."""

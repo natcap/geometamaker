@@ -162,7 +162,16 @@ class RasterSchema(Parent):
 
 class LayerSchema(Parent):
 
-    data_model: TableSchema = Field(default_factory=TableSchema)
+    name: str
+    table: TableSchema = Field(default_factory=TableSchema)
+    gdal_metadata: dict = {}
+    n_features: int
+    """Number of features in the layer."""
+
+
+class VectorSchema(Parent):
+
+    layers: list[LayerSchema]
     gdal_metadata: dict = {}
 
 
@@ -669,16 +678,16 @@ class ArchiveResource(Resource):
     """The compression method used to create the archive."""
 
 
-class VectorResource(Resource):
+class VectorResource(TableResource):
     """Class for metadata for a vector resource."""
 
-    layers: list[LayerSchema]
-    """An object for describing layer properties and fields."""
-    n_features: int
-    """Number of features in the layer."""
+    data_model: VectorSchema
+    """An object for describing vector properties and layers."""
+    # n_features: int
+    # """Number of features in the layer."""
     spatial: SpatialSchema
     """An object for describing spatial properties of a GDAL dataset."""
-    gdal_metadata: dict = {}
+    # gdal_metadata: dict = {}
 
 
 class RasterResource(Resource):
