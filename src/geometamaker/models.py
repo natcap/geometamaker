@@ -119,6 +119,67 @@ class TableSchema(Parent):
     See https://datapackage.org/standard/table-schema/#foreignKeys
     """
 
+    def _get_field(self, name):
+        """Get an attribute by its name property.
+
+        Args:
+            name (string): to match the value of the 'name' key in a dict
+
+        Returns:
+            tuple of (list index of the matching attribute, the attribute
+                dict)
+
+        Raises:
+            KeyError if no attributes exist in the resource or if the named
+                attribute does not exist.
+
+        """
+        if len(self.fields) == 0:
+            raise KeyError(
+                f'{self} has no fields')
+        for idx, field in enumerate(self.fields):
+            if field.name == name:
+                return idx, field
+        raise KeyError(
+            f'{self} has no field named {name}')
+
+    def set_field_description(self, name, title=None, description=None,
+                              units=None, type=None):
+        """Define metadata for a tabular field.
+
+        Args:
+            name (str): name and unique identifier of the field
+            title (str): title for the field
+            description (str): description of the field
+            units (str): unit of measurement for the field's values
+            type (str): datatype of values in the field
+
+        """
+        idx, field = self._get_field(name)
+
+        if title is not None:
+            field.title = title
+        if description is not None:
+            field.description = description
+        if units is not None:
+            field.units = units
+        if type is not None:
+            field.type = type
+
+        self.fields[idx] = field
+
+    def get_field_description(self, name):
+        """Get the attribute metadata for a field.
+
+        Args:
+            name (str): name and unique identifier of the field
+
+        Returns:
+            FieldSchema
+        """
+        idx, field = self._get_field(name)
+        return field
+
 
 class BandSchema(Parent):
     """Class for metadata for a raster band."""
@@ -161,10 +222,14 @@ class RasterSchema(Parent):
 
 
 class LayerSchema(Parent):
+    """Class for metadata for a GDAL vector's layer."""
 
     name: str
+    """The layer name."""
     table: TableSchema = Field(default_factory=TableSchema)
+    """A ``models.TableSchema`` object for describing fields in a layer's table."""
     gdal_metadata: dict = {}
+    """Metadata key:value pairs stored in the GDAL layer object."""
     n_features: int
     """Number of features in the layer."""
 
@@ -172,7 +237,12 @@ class LayerSchema(Parent):
 class VectorSchema(Parent):
 
     layers: list[LayerSchema]
+    """A list of layers in the vector.
+
+    Geometamaker currently only supports vectors with one layer.
+    """
     gdal_metadata: dict = {}
+    """Metadata key:value pairs stored in the GDAL vector object."""
 
 
 class BaseMetadata(Parent):
@@ -609,29 +679,19 @@ class TableResource(Resource):
     data_model: TableSchema = Field(default_factory=TableSchema)
     """A ``models.TableSchema`` object for describing fields."""
 
-    def _get_field(self, name):
-        """Get an attribute by its name property.
+    def _get_fields(self):
+        return self.data_model.fields
+
+    def get_field_description(self, name):
+        """Get the attribute metadata for a field.
 
         Args:
-            name (string): to match the value of the 'name' key in a dict
+            name (str): name and unique identifier of the field
 
         Returns:
-            tuple of (list index of the matching attribute, the attribute
-                dict)
-
-        Raises:
-            KeyError if no attributes exist in the resource or if the named
-                attribute does not exist.
-
+            FieldSchema
         """
-        if len(self.data_model.fields) == 0:
-            raise KeyError(
-                f'{self.data_model} has no fields')
-        for idx, field in enumerate(self.data_model.fields):
-            if field.name == name:
-                return idx, field
-        raise KeyError(
-            f'{self.data_model} has no field named {name}')
+        return self.data_model.get_field_description(name)
 
     def set_field_description(self, name, title=None, description=None,
                               units=None, type=None):
@@ -645,18 +705,27 @@ class TableResource(Resource):
             type (str): datatype of values in the field
 
         """
-        idx, field = self._get_field(name)
+        self.data_model.set_field_description(
+            name, title, description, units, type)
 
-        if title is not None:
-            field.title = title
-        if description is not None:
-            field.description = description
-        if units is not None:
-            field.units = units
-        if type is not None:
-            field.type = type
 
-        self.data_model.fields[idx] = field
+class ArchiveResource(Resource):
+    """Class for metadata for an archive resource."""
+
+    compression: str = ''
+    """The compression method used to create the archive."""
+
+
+class VectorResource(Resource):
+    """Class for metadata for a vector resource."""
+
+    data_model: VectorSchema
+    """An object for describing vector properties and layers."""
+    spatial: SpatialSchema
+    """An object for describing spatial properties of a GDAL dataset."""
+
+    def _get_fields(self):
+        return self.data_model.layers[0].table.fields
 
     def get_field_description(self, name):
         """Get the attribute metadata for a field.
@@ -667,27 +736,22 @@ class TableResource(Resource):
         Returns:
             FieldSchema
         """
-        idx, field = self._get_field(name)
-        return field
+        return self.data_model.layers[0].table.get_field_description(name)
 
+    def set_field_description(self, name, title=None, description=None,
+                              units=None, type=None):
+        """Define metadata for a tabular field.
 
-class ArchiveResource(Resource):
-    """Class for metadata for an archive resource."""
+        Args:
+            name (str): name and unique identifier of the field
+            title (str): title for the field
+            description (str): description of the field
+            units (str): unit of measurement for the field's values
+            type (str): datatype of values in the field
 
-    compression: str = ''
-    """The compression method used to create the archive."""
-
-
-class VectorResource(TableResource):
-    """Class for metadata for a vector resource."""
-
-    data_model: VectorSchema
-    """An object for describing vector properties and layers."""
-    # n_features: int
-    # """Number of features in the layer."""
-    spatial: SpatialSchema
-    """An object for describing spatial properties of a GDAL dataset."""
-    # gdal_metadata: dict = {}
+        """
+        self.data_model.layers[0].table.set_field_description(
+            name, title, description, units, type)
 
 
 class RasterResource(Resource):

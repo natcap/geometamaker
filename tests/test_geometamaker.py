@@ -218,7 +218,7 @@ class GeometamakerTests(unittest.TestCase):
         create_vector(datasource_path, None)
 
         resource = geometamaker.describe(datasource_path)
-        self.assertEqual(len(resource.data_model.fields), 0)
+        self.assertEqual(len(resource.data_model.layers[0].table.fields), 0)
 
     def test_describe_raster(self):
         """Test metadata for basic raster."""
@@ -334,9 +334,10 @@ class GeometamakerTests(unittest.TestCase):
         """Test vector metadata will be included if they already exist."""
         import geometamaker
 
-        vector_path = os.path.join(self.workspace_dir, "temp.geojson")
-        create_vector(vector_path)
-        vector = gdal.OpenEx(vector_path)
+        # Not all GDAL vector formats can store metadata, gpkg can.
+        vector_path = os.path.join(self.workspace_dir, "temp.gpkg")
+        create_vector(vector_path, driver='GPKG')
+        vector = gdal.OpenEx(vector_path, gdal.OF_UPDATE)
         layer = vector.GetLayer()
         vector.SetMetadataItem('a', 'b')
         layer.SetMetadataItem('c', 'd')

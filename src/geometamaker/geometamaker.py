@@ -255,8 +255,6 @@ def describe_vector(source_dataset_path, scheme):
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     vector = gdal.OpenEx(source_dataset_path, gdal.OF_VECTOR)
     layer = vector.GetLayer()
-    # description['gdal_metadata'] = vector.GetMetadata()
-    # description['n_features'] = layer.GetFeatureCount()
     fields = []
     for fld in layer.schema:
         fields.append(
@@ -427,7 +425,7 @@ def describe(source_dataset_path, profile=None):
                         description=eband.description,
                         units=eband.units)
         if resource_type in ('vector', 'table'):
-            for field in resource.data_model.fields:
+            for field in resource._get_fields():
                 try:
                     efield = existing_resource.get_field_description(field.name)
                 except KeyError:
