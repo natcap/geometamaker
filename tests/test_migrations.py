@@ -39,6 +39,5 @@ class MigrationTests(unittest.TestCase):
 
         vector_path = os.path.join(
             os.path.dirname(__file__), 'data/0.1.2/vector.geojson')
-        # with self.assertRaises(FileNotFoundError):
-        resource = geometamaker.describe(vector_path)
-
+        with self.assertWarns(FutureWarning):
+            _ = geometamaker.describe(vector_path)
