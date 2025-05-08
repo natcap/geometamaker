@@ -5,7 +5,7 @@ for metadata are subject to change. But we still want to maintain
 backwards-compatibility for users with metadata created by earlier
 versions. In practice, compatibility is achieved with the
 `geometamaker.models.Resource.load` method, which is reponsible for
-loading existing metadata documents during `describe` or `validate`.
+loading existing metadata documents during `describe`.
 
 This test suite, along with data in `tests/data/<version>`
 should be used to test that migrations work as expected.
