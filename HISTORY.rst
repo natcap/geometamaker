@@ -1,12 +1,21 @@
 Release History
 ===============
 
-.. Unreleased Changes
----------------------
+Unreleased Changes
+------------------
 * Allow CLI to ``describe`` remote datasets.
   https://github.com/natcap/geometamaker/issues/78
 * Add support for describing tar gzip files in the same manner as zip
   archives. https://github.com/natcap/geometamaker/issues/26
+* Metadata documents for raster and vector datasets now include metadata
+  key:value pairs that are defined on the GDAL raster, band, vector, and
+  layer objects. https://github.com/natcap/geometamaker/issues/68
+* Vector metadata documents now include a 'data_model.layers' section
+  for properties of the dataset that are specific to the layer.
+  Existing metadata documents can be migrated to this new schema by
+  calling ``describe`` on the vector dataset. GeoMetaMaker still only
+  supports describing metadata for the first layer in a vector dataset.
+  https://github.com/natcap/geometamaker/issues/28
 
 0.1.2 (2025-02-05)
 ------------------
