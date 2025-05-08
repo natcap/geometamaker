@@ -8,7 +8,7 @@ from typing import Union
 
 import fsspec
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.dataclasses import dataclass
 
 import geometamaker
@@ -487,7 +487,28 @@ class Resource(BaseMetadata):
                 category=FutureWarning)
             yaml_dict['data_model'] = yaml_dict['schema']
             del yaml_dict['schema']
-        return cls(**yaml_dict)
+
+        try:
+            return cls(**yaml_dict)
+        except ValidationError as pyd_error:
+            for e in pyd_error.errors():
+                if set({'type': 'missing',
+                        'loc': ('data_model', 'layers'),
+                        'msg': 'Field required'}.items()).issubset(e.items()):
+                    warnings.warn(
+                        "A vector 'data_model' must include 'layers'. "
+                        "In the future, the absence of a 'layers' attribute "
+                        "will raise a ValidationError",
+                        category=FutureWarning)
+                    layer = {
+                        'name': '',
+                        'table': yaml_dict['data_model'],
+                        'n_features': yaml_dict['n_features']
+                    }
+                    del yaml_dict['data_model']
+                    del yaml_dict['n_features']
+                    yaml_dict['data_model'] = {'layers': [layer]}
+                    return cls(**yaml_dict)
 
     def set_title(self, title):
         """Add a title for the dataset.
