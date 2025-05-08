@@ -1,0 +1,63 @@
+contact:
+  email: ''
+  organization: ''
+  individual_name: ''
+  position_name: ''
+license:
+  path: ''
+  title: ''
+geometamaker_version: 0.1.2.post2+g8f5982e
+bytes: 313
+encoding: utf-8
+format: geojson
+uid: sizetimestamp:71714053714e8427aa89465bd39689ac5724a7264e48d8d65caabd51e7164cec
+path: tests/data/0.1.2/vector.geojson
+scheme: file
+type: vector
+last_modified: 2025-05-07 20:06:56 UTC
+sources:
+- tests/data/0.1.2/vector.geojson
+citation: ''
+description: ''
+doi: ''
+edition: ''
+keywords: []
+lineage: ''
+placenames: []
+purpose: ''
+title: ''
+url: ''
+data_model:
+  fields:
+  - name: field_0
+    type: Integer
+    description: ''
+    title: ''
+    units: ''
+  - name: field_12
+    type: Integer
+    description: ''
+    title: ''
+    units: ''
+  - name: field_2
+    type: Real
+    description: ''
+    title: ''
+    units: ''
+  - name: field_4
+    type: String
+    description: ''
+    title: ''
+    units: ''
+  missingValues: []
+  primaryKey: []
+  foreignKeys: []
+n_features: 1
+spatial:
+  bounding_box:
+    xmin: 1.0
+    ymin: -1.0
+    xmax: 1.0
+    ymax: -1.0
+  crs: EPSG:3116
+  crs_units: metre
