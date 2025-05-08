@@ -472,9 +472,7 @@ class Resource(BaseMetadata):
         except ValidationError as validation_error:
             for e in validation_error.errors():
                 # Migrate vector metadata that pre-dates 'layers'
-                if set({'type': 'missing',
-                        'loc': ('data_model', 'layers'),
-                        'msg': 'Field required'}.items()).issubset(e.items()):
+                if e['type'] == 'missing' and e['loc'] == ('data_model', 'layers'):
                     warnings.warn(
                         "A vector 'data_model' must include 'layers'. "
                         "In the future, the absence of a 'layers' attribute "
