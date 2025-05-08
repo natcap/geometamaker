@@ -467,31 +467,11 @@ class Resource(BaseMetadata):
                        f'geometamaker.')
             raise ValueError(message)
 
-        deprecated_attrs = ['metadata_version', 'mediatype', 'name']
-        for attr in deprecated_attrs:
-            if attr in yaml_dict:
-                warnings.warn(
-                    f'"{attr}" exists in {filepath} but is no longer part of '
-                    f'the geometamaker specification. "{attr}" will be '
-                    f'removed from this document. In the future, presence '
-                    f' of "{attr}" will raise a ValidationError',
-                    category=FutureWarning)
-                del yaml_dict[attr]
-
-        # migrate from 'schema' to 'data_model', if needed.
-        if 'schema' in yaml_dict:
-            warnings.warn(
-                "'schema' has been replaced with 'data_model' as an attribute "
-                "name. In the future, the presence of a 'schema' attribute "
-                "will raise a ValidationError",
-                category=FutureWarning)
-            yaml_dict['data_model'] = yaml_dict['schema']
-            del yaml_dict['schema']
-
         try:
             return cls(**yaml_dict)
-        except ValidationError as pyd_error:
-            for e in pyd_error.errors():
+        except ValidationError as validation_error:
+            for e in validation_error.errors():
+                # Migrate vector metadata that pre-dates 'layers'
                 if set({'type': 'missing',
                         'loc': ('data_model', 'layers'),
                         'msg': 'Field required'}.items()).issubset(e.items()):
@@ -500,6 +480,8 @@ class Resource(BaseMetadata):
                         "In the future, the absence of a 'layers' attribute "
                         "will raise a ValidationError",
                         category=FutureWarning)
+                    # In the context of `describe`, these layer attributes will
+                    # be updated on the resource after this document is loaded.
                     layer = {
                         'name': '',
                         'table': yaml_dict['data_model'],
@@ -509,6 +491,7 @@ class Resource(BaseMetadata):
                     del yaml_dict['n_features']
                     yaml_dict['data_model'] = {'layers': [layer]}
                     return cls(**yaml_dict)
+            raise validation_error
 
     def set_title(self, title):
         """Add a title for the dataset.
