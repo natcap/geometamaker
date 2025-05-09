@@ -218,7 +218,7 @@ class GeometamakerTests(unittest.TestCase):
         create_vector(datasource_path, None)
 
         resource = geometamaker.describe(datasource_path)
-        self.assertEqual(len(resource.data_model.fields), 0)
+        self.assertEqual(len(resource.data_model.layers[0].table.fields), 0)
 
     def test_describe_raster(self):
         """Test metadata for basic raster."""
@@ -238,7 +238,7 @@ class GeometamakerTests(unittest.TestCase):
         resource.write()
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
 
-    def test_raster_attributes(self):
+    def test_describe_raster_band_description(self):
         """Test adding extra attribute metadata to raster."""
         import geometamaker
 
@@ -293,6 +293,64 @@ class GeometamakerTests(unittest.TestCase):
 
         resource = geometamaker.describe(datasource_path)
         self.assertIsNone(resource.data_model.bands[0].nodata)
+
+    def test_describe_raster_band_with_statistics(self):
+        """Test band statistics will be included if they already exist."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path, n_bands=1)
+        raster = gdal.OpenEx(datasource_path)
+        band = raster.GetRasterBand(1)
+        _ = band.ComputeStatistics(0)
+        band = raster = None
+
+        resource = geometamaker.describe(datasource_path)
+        self.assertEqual(
+            resource.data_model.bands[0].gdal_metadata,
+            {'STATISTICS_MINIMUM': '1',
+             'STATISTICS_MAXIMUM': '1',
+             'STATISTICS_MEAN': '1',
+             'STATISTICS_STDDEV': '0',
+             'STATISTICS_VALID_PERCENT': '100'})
+
+    def test_describe_raster_with_gdal_metadata(self):
+        """Test raster metadata will be included if they already exist."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path, n_bands=1)
+        raster = gdal.OpenEx(datasource_path)
+        raster.SetMetadataItem('FOO', 'BAR')
+        raster = None
+
+        resource = geometamaker.describe(datasource_path)
+        self.assertEqual(
+            resource.data_model.gdal_metadata,
+            {'AREA_OR_POINT': 'Area',  # This exists by default
+             'FOO': 'BAR'})
+
+    def test_describe_vector_with_gdal_metadata(self):
+        """Test vector metadata will be included if they already exist."""
+        import geometamaker
+
+        # Not all GDAL vector formats can store metadata, gpkg can.
+        vector_path = os.path.join(self.workspace_dir, "temp.gpkg")
+        create_vector(vector_path, driver='GPKG')
+        vector = gdal.OpenEx(vector_path, gdal.OF_UPDATE)
+        layer = vector.GetLayer()
+        vector.SetMetadataItem('a', 'b')
+        layer.SetMetadataItem('c', 'd')
+        layer = vector = None
+
+        resource = geometamaker.describe(vector_path)
+        self.assertEqual(
+            resource.data_model.gdal_metadata,
+            {'a': 'b'})
+        # Right now, geometamaker only supports vectors with one layer
+        self.assertEqual(
+            resource.data_model.layers[0].gdal_metadata,
+            {'c': 'd'})
 
     def test_describe_zip(self):
         """Test metadata for a zipfile includes list of contents."""

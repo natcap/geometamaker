@@ -256,12 +256,18 @@ def describe_vector(source_dataset_path, scheme):
     vector = gdal.OpenEx(source_dataset_path, gdal.OF_VECTOR)
     layer = vector.GetLayer()
     fields = []
-    description['n_features'] = layer.GetFeatureCount()
     for fld in layer.schema:
         fields.append(
             models.FieldSchema(name=fld.name, type=fld.GetTypeName()))
+    layer_schema = models.LayerSchema(
+        name=layer.GetName(),
+        n_features=layer.GetFeatureCount(),
+        table=models.TableSchema(fields=fields),
+        gdal_metadata=layer.GetMetadata())
+    description['data_model'] = models.VectorSchema(
+        layers=[layer_schema],
+        gdal_metadata=vector.GetMetadata())
     vector = layer = None
-    description['data_model'] = models.TableSchema(fields=fields)
 
     info = pygeoprocessing.get_vector_info(source_dataset_path)
     bbox = models.BoundingBox(*info['bounding_box'])
@@ -289,19 +295,29 @@ def describe_raster(source_dataset_path, scheme):
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     info = pygeoprocessing.get_raster_info(source_dataset_path)
+    raster = gdal.OpenEx(source_dataset_path)
+    raster_gdal_metadata = raster.GetMetadata()
     bands = []
     for i in range(info['n_bands']):
         b = i + 1
+        band = raster.GetRasterBand(b)
+        band_gdal_metadata = band.GetMetadata()
+
         bands.append(models.BandSchema(
             index=b,
             gdal_type=gdal.GetDataTypeName(info['datatype']),
             numpy_type=numpy.dtype(info['numpy_type']).name,
-            nodata=info['nodata'][i]))
+            nodata=info['nodata'][i],
+            gdal_metadata=band_gdal_metadata))
+        band = None
+    raster = None
+
     description['data_model'] = models.RasterSchema(
         bands=bands,
         pixel_size=info['pixel_size'],
         raster_size={'width': info['raster_size'][0],
-                     'height': info['raster_size'][1]})
+                     'height': info['raster_size'][1]},
+        gdal_metadata=raster_gdal_metadata)
     # Some values of raster info are numpy types, which the
     # yaml dumper doesn't know how to represent.
     bbox = models.BoundingBox(*[float(x) for x in info['bounding_box']])
@@ -409,7 +425,7 @@ def describe(source_dataset_path, profile=None):
                         description=eband.description,
                         units=eband.units)
         if resource_type in ('vector', 'table'):
-            for field in resource.data_model.fields:
+            for field in resource._get_fields():
                 try:
                     efield = existing_resource.get_field_description(field.name)
                 except KeyError:
@@ -538,7 +554,7 @@ def describe_dir(directory, recursive=False):
         if '.shp' in extensions:
             # if we're dealing with a shapefile, we do not want to describe any
             # of these other files with the same root name
-            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf'])
+            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', 'cpg'])
         for ext in extensions:
             filepath = f'{root}{ext}'
             try:

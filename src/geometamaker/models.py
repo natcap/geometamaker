@@ -8,7 +8,7 @@ from typing import Union
 
 import fsspec
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.dataclasses import dataclass
 
 import geometamaker
@@ -119,6 +119,67 @@ class TableSchema(Parent):
     See https://datapackage.org/standard/table-schema/#foreignKeys
     """
 
+    def _get_field(self, name):
+        """Get an attribute by its name property.
+
+        Args:
+            name (string): to match the value of the 'name' key in a dict
+
+        Returns:
+            tuple of (list index of the matching attribute, the attribute
+                dict)
+
+        Raises:
+            KeyError if no attributes exist in the resource or if the named
+                attribute does not exist.
+
+        """
+        if len(self.fields) == 0:
+            raise KeyError(
+                f'{self} has no fields')
+        for idx, field in enumerate(self.fields):
+            if field.name == name:
+                return idx, field
+        raise KeyError(
+            f'{self} has no field named {name}')
+
+    def set_field_description(self, name, title=None, description=None,
+                              units=None, type=None):
+        """Define metadata for a tabular field.
+
+        Args:
+            name (str): name and unique identifier of the field
+            title (str): title for the field
+            description (str): description of the field
+            units (str): unit of measurement for the field's values
+            type (str): datatype of values in the field
+
+        """
+        idx, field = self._get_field(name)
+
+        if title is not None:
+            field.title = title
+        if description is not None:
+            field.description = description
+        if units is not None:
+            field.units = units
+        if type is not None:
+            field.type = type
+
+        self.fields[idx] = field
+
+    def get_field_description(self, name):
+        """Get the attribute metadata for a field.
+
+        Args:
+            name (str): name and unique identifier of the field
+
+        Returns:
+            FieldSchema
+        """
+        idx, field = self._get_field(name)
+        return field
+
 
 class BandSchema(Parent):
     """Class for metadata for a raster band."""
@@ -137,6 +198,8 @@ class BandSchema(Parent):
     """A human-readable title for the band."""
     units: str = ''
     """Unit of measurement for the pixel values."""
+    gdal_metadata: dict = {}
+    """Metadata key:value pairs stored in the GDAL band object."""
 
 
 class RasterSchema(Parent):
@@ -148,12 +211,38 @@ class RasterSchema(Parent):
     """The width and height of a pixel measured in ``SpatialSchema.crs_units``."""
     raster_size: Union[dict, list]
     """The width and height of the raster measured in number of pixels."""
+    gdal_metadata: dict = {}
+    """Metadata key:value pairs stored in the GDAL raster object."""
 
     def model_post_init(self, __context):
         # Migrate from previous model where we stored this as a list
         if isinstance(self.raster_size, list):
             self.raster_size = {'width': self.raster_size[0],
                                 'height': self.raster_size[1]}
+
+
+class LayerSchema(Parent):
+    """Class for metadata for a GDAL vector's layer."""
+
+    name: str
+    """The layer name."""
+    table: TableSchema = Field(default_factory=TableSchema)
+    """A ``models.TableSchema`` object for describing fields in a layer's table."""
+    gdal_metadata: dict = {}
+    """Metadata key:value pairs stored in the GDAL layer object."""
+    n_features: int
+    """Number of features in the layer."""
+
+
+class VectorSchema(Parent):
+
+    layers: list[LayerSchema]
+    """A list of layers in the vector.
+
+    Geometamaker currently only supports vectors with one layer.
+    """
+    gdal_metadata: dict = {}
+    """Metadata key:value pairs stored in the GDAL vector object."""
 
 
 class BaseMetadata(Parent):
@@ -378,27 +467,29 @@ class Resource(BaseMetadata):
                        f'geometamaker.')
             raise ValueError(message)
 
-        deprecated_attrs = ['metadata_version', 'mediatype', 'name']
-        for attr in deprecated_attrs:
-            if attr in yaml_dict:
-                warnings.warn(
-                    f'"{attr}" exists in {filepath} but is no longer part of '
-                    f'the geometamaker specification. "{attr}" will be '
-                    f'removed from this document. In the future, presence '
-                    f' of "{attr}" will raise a ValidationError',
-                    category=FutureWarning)
-                del yaml_dict[attr]
-
-        # migrate from 'schema' to 'data_model', if needed.
-        if 'schema' in yaml_dict:
-            warnings.warn(
-                "'schema' has been replaced with 'data_model' as an attribute "
-                "name. In the future, the presence of a 'schema' attribute "
-                "will raise a ValidationError",
-                category=FutureWarning)
-            yaml_dict['data_model'] = yaml_dict['schema']
-            del yaml_dict['schema']
-        return cls(**yaml_dict)
+        try:
+            return cls(**yaml_dict)
+        except ValidationError as validation_error:
+            for e in validation_error.errors():
+                # Migrate vector metadata that pre-dates 'layers'
+                if e['type'] == 'missing' and e['loc'] == ('data_model', 'layers'):
+                    warnings.warn(
+                        "A vector 'data_model' must include 'layers'. "
+                        "In the future, the absence of a 'layers' attribute "
+                        "will raise a ValidationError",
+                        category=FutureWarning)
+                    # In the context of `describe`, these layer attributes will
+                    # be updated on the resource after this document is loaded.
+                    layer = {
+                        'name': '',
+                        'table': yaml_dict['data_model'],
+                        'n_features': yaml_dict['n_features']
+                    }
+                    del yaml_dict['data_model']
+                    del yaml_dict['n_features']
+                    yaml_dict['data_model'] = {'layers': [layer]}
+                    return cls(**yaml_dict)
+            raise validation_error
 
     def set_title(self, title):
         """Add a title for the dataset.
@@ -590,29 +681,19 @@ class TableResource(Resource):
     data_model: TableSchema = Field(default_factory=TableSchema)
     """A ``models.TableSchema`` object for describing fields."""
 
-    def _get_field(self, name):
-        """Get an attribute by its name property.
+    def _get_fields(self):
+        return self.data_model.fields
+
+    def get_field_description(self, name):
+        """Get the attribute metadata for a field.
 
         Args:
-            name (string): to match the value of the 'name' key in a dict
+            name (str): name and unique identifier of the field
 
         Returns:
-            tuple of (list index of the matching attribute, the attribute
-                dict)
-
-        Raises:
-            KeyError if no attributes exist in the resource or if the named
-                attribute does not exist.
-
+            FieldSchema
         """
-        if len(self.data_model.fields) == 0:
-            raise KeyError(
-                f'{self.data_model} has no fields')
-        for idx, field in enumerate(self.data_model.fields):
-            if field.name == name:
-                return idx, field
-        raise KeyError(
-            f'{self.data_model} has no field named {name}')
+        return self.data_model.get_field_description(name)
 
     def set_field_description(self, name, title=None, description=None,
                               units=None, type=None):
@@ -626,18 +707,27 @@ class TableResource(Resource):
             type (str): datatype of values in the field
 
         """
-        idx, field = self._get_field(name)
+        self.data_model.set_field_description(
+            name, title, description, units, type)
 
-        if title is not None:
-            field.title = title
-        if description is not None:
-            field.description = description
-        if units is not None:
-            field.units = units
-        if type is not None:
-            field.type = type
 
-        self.data_model.fields[idx] = field
+class ArchiveResource(Resource):
+    """Class for metadata for an archive resource."""
+
+    compression: str = ''
+    """The compression method used to create the archive."""
+
+
+class VectorResource(Resource):
+    """Class for metadata for a vector resource."""
+
+    data_model: VectorSchema
+    """An object for describing vector properties and layers."""
+    spatial: SpatialSchema
+    """An object for describing spatial properties of a GDAL dataset."""
+
+    def _get_fields(self):
+        return self.data_model.layers[0].table.fields
 
     def get_field_description(self, name):
         """Get the attribute metadata for a field.
@@ -648,24 +738,22 @@ class TableResource(Resource):
         Returns:
             FieldSchema
         """
-        idx, field = self._get_field(name)
-        return field
+        return self.data_model.layers[0].table.get_field_description(name)
 
+    def set_field_description(self, name, title=None, description=None,
+                              units=None, type=None):
+        """Define metadata for a tabular field.
 
-class ArchiveResource(Resource):
-    """Class for metadata for an archive resource."""
+        Args:
+            name (str): name and unique identifier of the field
+            title (str): title for the field
+            description (str): description of the field
+            units (str): unit of measurement for the field's values
+            type (str): datatype of values in the field
 
-    compression: str = ''
-    """The compression method used to create the archive."""
-
-
-class VectorResource(TableResource):
-    """Class for metadata for a vector resource."""
-
-    n_features: int
-    """Number of features in the layer."""
-    spatial: SpatialSchema
-    """An object for describing spatial properties of a GDAL dataset."""
+        """
+        self.data_model.layers[0].table.set_field_description(
+            name, title, description, units, type)
 
 
 class RasterResource(Resource):
