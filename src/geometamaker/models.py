@@ -718,6 +718,30 @@ class ArchiveResource(Resource):
     """The compression method used to create the archive."""
 
 
+class ResourcesSchema(Parent):
+    """Class for keeping track of collections resource info."""
+
+    # name: str = ''
+    # """The name used to uniquely identify the field."""
+    # type: str = ''
+    # """The type of resource being described."""
+    path: str = ''
+    """Path to the resource being described."""
+    # src: str = ''
+    # scheme: str = ''
+    # """File protocol for opening the resource."""
+    # format: str = ''
+    # """File format of the resource."""
+    description: str = ''
+    """A text description of the resource."""
+
+
+class CollectionResource(Resource):
+    """Class for metadata for a collection resource."""
+
+    resources: list[ResourcesSchema] = Field(default_factory=list)
+
+
 class VectorResource(Resource):
     """Class for metadata for a vector resource."""
 
