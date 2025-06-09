@@ -355,15 +355,9 @@ def describe_collection(directory, depth=5, target_yml_path=None,
 
     Describe all the files within a directory as members of a "collection".
     The resulting metadata resource should include a list of all the files
-    included in the collection, along with their:
-    - name (e.g. lu_table_1)
-    - type (e.g., table)
-    - path (relative to ``directory``)
-    - description (e.g., "table with land codes and descriptions")
-    - scheme (e.g., file)
-    - format (e.g., csv)
+    included in the collection along with a description (or placeholder)
 
-    This is distinct from ``describe_dir``, which
+    This is distinct from ``describe_all``, which
     creates individual metadata files for each supported file in a directory.
 
     Args:
@@ -378,7 +372,7 @@ def describe_collection(directory, depth=5, target_yml_path=None,
             any files you do not want included in the output metadata yml.
         exclude_hidden (bool): whether to exclude hidden files (files that
             start with ".")
-        describe_files (bool): whether to ``describe_dir`` and create individual
+        describe_files (bool): whether to ``describe_all`` and create individual
             metadata files for each supported resource in the collection. Using this
             will also add an additional attribute ``collection`` (which refers back
             to the collection metadata yaml) to any sidecar metadata created 
@@ -528,7 +522,7 @@ def describe_collection(directory, depth=5, target_yml_path=None,
     resource.write()
 
     if describe_files:
-        describe_dir(directory)
+        describe_all(directory)
 
     return resource
 
@@ -706,9 +700,8 @@ def validate_dir(directory, recursive=False):
     return (yaml_files, messages)
 
 
-def describe_dir(directory, recursive=False):
-    #TODO: add depth option or add option to input a list of files into describe_dir
-    #TODO: change ``describe_dir`` to ``describe_all``
+def describe_all(directory, recursive=False):
+    #TODO: add depth option or add option to input a list of files into describe_all
     """Describe all compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
