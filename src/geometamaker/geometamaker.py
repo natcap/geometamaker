@@ -706,7 +706,7 @@ def describe_all(directory, depth=1):
             filepath = f'{root}{ext}'
             try:
                 resource = describe(filepath)
-            except ValueError as error:
+            except (ValueError, frictionless.FrictionlessException) as error:
                 LOGGER.debug(error)
                 continue
             resource.write()
