@@ -14,6 +14,7 @@ import pygeoprocessing
 import yaml
 from osgeo import gdal
 from osgeo import osr
+from pathlib import Path
 from pydantic import ValidationError
 import tarfile
 
@@ -104,6 +105,58 @@ def _wkt_to_epsg_units_string(wkt_string):
         LOGGER.warning(
             f'{wkt_string} cannot be interpreted as a coordinate reference system')
     return crs_string, units_string
+
+
+def _list_files_with_depth(directory, depth=1, exclude_hidden=True):
+    """List files in directory up to depth"""
+    directory = Path(directory).resolve()
+    file_list = []
+
+    for path in directory.rglob("*"):
+        # relative_path = path.relative_to(directory)
+        current_depth = len(path.parts)
+        if current_depth > depth:
+            continue
+        if exclude_hidden and any(part.startswith('.') for part in path.parts):
+            continue
+        file_list.append(str(path))
+    return sorted(file_list)
+
+
+def _group_files_by_root(file_list):
+    """Get set of files (roots) and extensions by filename"""
+    root_set = set()
+    root_ext_map = defaultdict(set)
+    for filepath in file_list:
+        root, ext = os.path.splitext(filepath)
+        # tracking which files share a root name
+        # so we can check if these comprise a shapefile
+        root_ext_map[root].add(ext)
+        root_set.add(root)
+    return root_ext_map, sorted(list(root_set))
+
+
+def _get_collection_size_time_uid(directory):
+    """Get size of directory (in bytes) and datetime dir was last modified"""
+    total_bytes = 0
+    latest_mtime = 0
+
+    for root, _, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            stat = os.stat(file_path)
+            total_bytes += stat.st_size
+            latest_mtime = max(latest_mtime, stat.st_mtime)
+
+    last_modified = datetime.fromtimestamp(latest_mtime, tz=timezone.utc)
+    last_modified_str = last_modified.strftime('%Y-%m-%d %H:%M:%S %Z')
+
+    hash_func = hashlib.sha256()
+    hash_func.update(
+        f'{total_bytes}{last_modified_str}{directory}'.encode('utf-8'))
+    uid = f'sizetimestamp:{hash_func.hexdigest()}'
+
+    return total_bytes, last_modified_str, uid
 
 
 def detect_file_type(filepath, scheme):
@@ -348,7 +401,7 @@ def describe_table(source_dataset_path, scheme):
     return description
 
 
-def describe_collection(directory, depth=5, target_yml_path=None,
+def describe_collection(directory, depth=1, target_yml_path=None,
                         exclude_regex=None, exclude_hidden=True,
                         describe_files=False):
     """Create a single metadata document to describe a collection of files.
@@ -377,76 +430,21 @@ def describe_collection(directory, depth=5, target_yml_path=None,
             will also add an additional attribute ``collection`` (which refers back
             to the collection metadata yaml) to any sidecar metadata created 
     """
-    def _list_files_with_depth(directory, depth=1, exclude_hidden=False):
-        """
-        List supported files in `directory` up to `depth` nested directories.
-
-        Depth is defined such that:
-        - root level = 1
-        - immediate subdirectories = 2
-        - sub-subdirectories = 3, etc.
-
-        Args:
-            directory (str): Root directory to start the search from.
-            max_depth (int, optional): Maximum depth to search (1 = top-level only)
-            exclude_hidden (bool): If True, excludes hidden files and folders.
-
-
-        Returns:
-            List[str]: Relative paths to valid files up to max_depth.
-        """
-        print("starting _list_files_with_depth with params:", directory, depth)
-        if not os.path.exists(directory):
-            raise
-        file_list = []
-        root_path = os.path.abspath(directory)
-
-        for current_path, dirs, files in os.walk(root_path):
-            # Exclude hidden directories
-            dirs[:] = [d for d in dirs if not d.startswith('.') and exclude_hidden]
-
-            # Compute depth (root = 1)
-            rel_dir = os.path.relpath(current_path, root_path)
-            current_depth = 1 if rel_dir == '.' else rel_dir.count(os.sep) + 1
-            # current_depth = rel_path.count(os.sep)
-            if current_depth > depth:
-                dirs[:] = []  # stop descending
-                continue
-            # Add directory (skip root itself)
-            if rel_dir != '.' and not (exclude_hidden and os.path.basename(current_path).startswith('.')):
-                file_list.append(rel_dir)
-
-            for f in files:
-                if exclude_hidden and f.startswith('.'):
-                    continue
-                file_list.append(os.path.relpath(os.path.join(current_path, f),
-                                                 directory))
-
-        return file_list
 
     if not target_yml_path:
         target_yml_path = directory + "_datapackage.yml"
 
     file_list = _list_files_with_depth(directory, depth, exclude_hidden)
-    print(file_list, 'file_list')
 
     # remove excluded files based on regex
     if exclude_regex:
-        file_list = [f for f in file_list if not re.match(exclude_regex,
-                                                          os.path.basename(f))]
+        file_list = [f for f in file_list if not re.match(exclude_regex, f)]
+    # exclude sidecar ymls
+    file_list = [f for f in file_list if not f.endswith(".yml")]
 
-    root_set = set()
-    root_ext_map = defaultdict(set)
-    for filepath in file_list:
-        root, ext = os.path.splitext(filepath)
-        # tracking which files share a root name
-        # so we can check if these comprise a shapefile
-        root_ext_map[root].add(ext)
-        root_set.add(root)
+    root_ext_map, root_list = _group_files_by_root(file_list)
 
     resources = []
-
-    root_list = sorted(list(root_set))
 
     for root in root_list:
         extensions = root_ext_map[root]
@@ -455,66 +453,44 @@ def describe_collection(directory, depth=5, target_yml_path=None,
             # of these other files with the same root name
             extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', 'cpg'])
         for ext in extensions:
-            print(root, 'is root', ext,"is ext")
             filepath = os.path.join(directory, f'{root}{ext}')
+            if ext and os.path.exists(filepath + '.yml'):
+                metadata_yml = f'{root}{ext}' + '.yml'
+            else:
+                metadata_yml = ''
             try:
-                print("trying to desc this resource:", filepath)
                 this_desc = describe(filepath)
                 this_resource = models.ResourcesSchema(
-                    # name=this_desc.name or '',
-                    path=os.path.relpath(this_desc.path, directory),
-                    # src=this_desc.src or '',
-                    description=this_desc.description
-                    # scheme=this_desc.scheme,
-                    # format=this_desc.format
+                    path=f'{root}{ext}',
+                    description=this_desc.description,
+                    metadata=metadata_yml
                 )
-            except ValueError: # if file type isn't supported by geometamaker, e.g. pdf
+            except (ValueError, frictionless.FrictionlessException):
+                # if file type isn't supported by geometamaker, e.g. pdf
+                # or if trying to describe a dir
                 this_resource = models.ResourcesSchema(
                     path=f'{root}{ext}',
-                    description=''
+                    description='',
+                    metadata=metadata_yml
                 )
-            except KeyError: # if trying to describe a dir
-                print("there was a key error..")
-                this_resource = models.ResourcesSchema(
-                    path=f'{root}{ext}',
-                    description=''
-                )
+
             resources.append(this_resource)
-            LOGGER.info(f'{filepath} described')
 
-    # sources = []
-    total_bytes = 0
-    latest_mtime = 0
-
-    for root, _, files in os.walk(directory):
-        for file in files:
-            file_path = os.path.join(root, file)
-            # rel_path = os.path.relpath(file_path, directory)
-            # sources.append(rel_path)
-
-            stat = os.stat(file_path)
-            total_bytes += stat.st_size
-            latest_mtime = max(latest_mtime, stat.st_mtime)
-
-    last_modified = datetime.fromtimestamp(latest_mtime, tz=timezone.utc)
-    last_modified_str = last_modified.strftime('%Y-%m-%d %H:%M:%S %Z')
-
-    hash_func = hashlib.sha256()
-    hash_func.update(
-        f'{total_bytes}{last_modified_str}{directory}'.encode('utf-8'))
-    uid = f'sizetimestamp:{hash_func.hexdigest()}'
+    total_bytes, last_modified, uid = _get_collection_size_time_uid(directory)
 
     resource = models.CollectionResource(
         path=directory,
-        type='collection', #TODO: change this after class name changed?
+        type='collection',
         format='directory',
         scheme='file',
         bytes=total_bytes,
-        last_modified=last_modified_str,
-        # sources=sorted(sources),
+        last_modified=last_modified,
         resources=resources,
         uid=uid
     )
+
+    # del resource['sources']
+    # del resource['encoding']
 
     # Add profile metadata
     config = Config()
@@ -522,7 +498,7 @@ def describe_collection(directory, depth=5, target_yml_path=None,
     resource.write()
 
     if describe_files:
-        describe_all(directory)
+        describe_all(directory, depth=depth)
 
     return resource
 
@@ -700,34 +676,25 @@ def validate_dir(directory, recursive=False):
     return (yaml_files, messages)
 
 
-def describe_all(directory, recursive=False):
+def describe_all(directory, depth=1):
     #TODO: add depth option or add option to input a list of files into describe_all
-    """Describe all compatible datasets in the directory.
+    """Describe compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
     such as ESRI Shapefiles, one time.
 
     Args:
         directory (string): path to a directory
-        recursive (bool): whether or not to describe files
-            in all subdirectories
-
+        depth (int): maximum number of subdirectory levels to traverse when
+            walking through a directory. A value of 0 limits the walk to the
+            top-level directory only. A value of 1 allows descending into
+            immediate subdirectories, and so on. 
     Returns:
         None
 
     """
-    root_set = set()
-    root_ext_map = defaultdict(set)
-    for path, dirs, files in os.walk(directory):
-        for file in files:
-            full_path = os.path.join(path, file)
-            root, ext = os.path.splitext(full_path)
-            # tracking which files share a root name
-            # so we can check if these comprise a shapefile
-            root_ext_map[root].add(ext)
-            root_set.add(root)
-        if not recursive:
-            break
+    file_list = _list_files_with_depth(directory, depth, True)
+    root_ext_map, root_set = _group_files_by_root(file_list)
 
     for root in root_set:
         extensions = root_ext_map[root]
