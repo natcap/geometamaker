@@ -720,20 +720,12 @@ class ArchiveResource(Resource):
 
 class ResourcesSchema(Parent):
     """Class for keeping track of collections resource info."""
-
-    # name: str = ''
-    # """The name used to uniquely identify the field."""
-    # type: str = ''
-    # """The type of resource being described."""
     path: str = ''
     """Path to the resource being described."""
-    # src: str = ''
-    # scheme: str = ''
-    # """File protocol for opening the resource."""
-    # format: str = ''
-    # """File format of the resource."""
     description: str = ''
     """A text description of the resource."""
+    metadata: str = ''
+    """Path to metadata document describing resource"""
 
 
 class CollectionResource(Resource):
