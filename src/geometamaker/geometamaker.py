@@ -189,7 +189,7 @@ def describe_file(source_dataset_path, scheme):
     return description
 
 
-def describe_archive(source_dataset_path, scheme):
+def describe_archive(source_dataset_path, scheme, **kwargs):
     """Describe file properties of a compressed file.
 
     Args:
@@ -239,7 +239,7 @@ def describe_archive(source_dataset_path, scheme):
     return description
 
 
-def describe_vector(source_dataset_path, scheme):
+def describe_vector(source_dataset_path, scheme, **kwargs):
     """Describe properties of a GDAL vector file.
 
     Args:
@@ -281,7 +281,7 @@ def describe_vector(source_dataset_path, scheme):
     return description
 
 
-def describe_raster(source_dataset_path, scheme):
+def describe_raster(source_dataset_path, scheme, **kwargs):
     """Describe properties of a GDAL raster file.
 
     Args:
@@ -291,6 +291,7 @@ def describe_raster(source_dataset_path, scheme):
         dict
 
     """
+    compute_stats = kwargs.get('compute_stats', False)
     description = describe_file(source_dataset_path, scheme)
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
@@ -301,6 +302,8 @@ def describe_raster(source_dataset_path, scheme):
     for i in range(info['n_bands']):
         b = i + 1
         band = raster.GetRasterBand(b)
+        if compute_stats:
+            _ = band.ComputeStatistics(0)
         band_gdal_metadata = band.GetMetadata()
 
         bands.append(models.BandSchema(
@@ -331,7 +334,7 @@ def describe_raster(source_dataset_path, scheme):
     return description
 
 
-def describe_table(source_dataset_path, scheme):
+def describe_table(source_dataset_path, scheme, **kwargs):
     """Describe properties of a tabular dataset.
 
     Args:
@@ -364,7 +367,7 @@ RESOURCE_MODELS = {
 
 
 @_osgeo_use_exceptions
-def describe(source_dataset_path, profile=None):
+def describe(source_dataset_path, profile=None, **kwargs):
     """Create a metadata resource instance with properties of the dataset.
 
     Properties of the dataset are used to populate as many metadata
@@ -400,7 +403,7 @@ def describe(source_dataset_path, profile=None):
             f'is not one of the suppored file protocols: {PROTOCOLS}')
     resource_type = detect_file_type(source_dataset_path, protocol)
     description = DESCRIBE_FUNCS[resource_type](
-        source_dataset_path, protocol)
+        source_dataset_path, protocol, **kwargs)
     description['type'] = resource_type
     resource = RESOURCE_MODELS[resource_type](**description)
 
