@@ -16,6 +16,12 @@ Unreleased Changes
   calling ``describe`` on the vector dataset. GeoMetaMaker still only
   supports describing metadata for the first layer in a vector dataset.
   https://github.com/natcap/geometamaker/issues/28
+* Add support for describing folders as collections, generating a single
+  metadata file listing contained files along with their descriptions and
+  metadata. https://github.com/natcap/geometamaker/issues/66
+* ``describe_dir`` has been renamed to ``describe_all`` and the parameter
+  ``recursive`` has been replaced with ``depth`` to allow for more
+  fine-grained control.
 
 0.1.2 (2025-02-05)
 ------------------

@@ -401,14 +401,14 @@ def describe_table(source_dataset_path, scheme):
     return description
 
 
-def describe_collection(directory, depth=numpy.inf,
-                        exclude_regex=None, exclude_hidden=True,
-                        describe_files=False):
+def describe_collection(directory, depth=numpy.inf, exclude_regex=None,
+                        exclude_hidden=True, describe_files=False):
     """Create a single metadata document to describe a collection of files.
 
     Describe all the files within a directory as members of a "collection".
     The resulting metadata resource should include a list of all the files
-    included in the collection along with a description (or placeholder)
+    included in the collection along with a description and metadata filepath
+    (or placeholder).
 
     This is distinct from ``describe_all``, which
     creates individual metadata files for each supported file in a directory.
