@@ -437,7 +437,7 @@ class Resource(BaseMetadata):
     """A URL where the resource is available."""
 
     def model_post_init(self, __context):
-        self.metadata_path = f'{self.path}.yml'
+        self.metadata_path = self._default_metadata_path()
         self.geometamaker_version: str = geometamaker.__version__
         self.path = self.path.replace('\\', '/')
         self.sources = [x.replace('\\', '/') for x in self.sources]
@@ -671,8 +671,13 @@ class Resource(BaseMetadata):
                 workspace, os.path.basename(self.metadata_path))
 
         with open(target_path, 'w', encoding='utf-8') as file:
-            file.write(utils.yaml_dump(
-                self.model_dump(exclude=['metadata_path'])))
+            file.write(utils.yaml_dump(self._dump_for_write()))
+
+    def _dump_for_write(self):
+        return self.model_dump(exclude={'metadata_path'})
+
+    def _default_metadata_path(self):
+        return f'{self.path}.yml'
 
 
 class TableResource(Resource):
@@ -733,40 +738,14 @@ class CollectionResource(Resource):
 
     resources: list[ResourcesSchema] = Field(default_factory=list)
 
-    def model_post_init(self, __context):
-        self.metadata_path = f'{self.path}-metadata.yml'
-        self.geometamaker_version: str = geometamaker.__version__
-        self.path = self.path.replace('\\', '/')
-        self.sources = [x.replace('\\', '/') for x in self.sources]
+    def _dump_for_write(self):
+        """Additionally exclude sources and encoding"""
+        exclude_attributes = {'metadata_path', 'sources', 'encoding'}
+        return self.model_dump(exclude=exclude_attributes)
 
-    def write(self, workspace=None):
-        """Write datapackage yaml to disk.
-
-        This creates sidecar files with '_datapackage.yml'
-        appended to the full path of the collection directory. For example,
-
-        - '/path/to/mycollection'
-        - '/path/to/mycollection_datapackage.yml'
-
-        Args:
-            workspace (str): if ``None``, file writes to the same location
-                as the collection. If not ``None``, a path to a local directory
-                to write file. Metadata will still be named to match the source
-                collection name. Use this option if the collection is not on
-                the local filesystem.
-
-        """
-        if workspace is None:
-            target_path = self.metadata_path
-        else:
-            target_path = os.path.join(
-                workspace, os.path.basename(self.metadata_path))
-
-        with open(target_path, 'w', encoding='utf-8') as file:
-            file.write(utils.yaml_dump(
-                self.model_dump(exclude=['metadata_path',
-                                         'sources',
-                                         'encoding'])))
+    def _default_metadata_path(self):
+        """Add -metadata tag"""
+        return f'{self.path}-metadata.yml'
 
 
 class VectorResource(Resource):
