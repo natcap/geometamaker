@@ -113,8 +113,8 @@ def _list_files_with_depth(directory, depth=1, exclude_hidden=True):
     file_list = []
 
     for path in directory.rglob("*"):
-        # relative_path = path.relative_to(directory)
-        current_depth = len(path.parts)
+        relative_path = path.relative_to(directory)
+        current_depth = len(relative_path.parts)
         if current_depth > depth:
             continue
         if exclude_hidden and any(part.startswith('.') for part in path.parts):
@@ -401,7 +401,7 @@ def describe_table(source_dataset_path, scheme):
     return description
 
 
-def describe_collection(directory, depth=1, target_yml_path=None,
+def describe_collection(directory, depth=numpy.inf, target_yml_path=None,
                         exclude_regex=None, exclude_hidden=True,
                         describe_files=False):
     """Create a single metadata document to describe a collection of files.
@@ -415,12 +415,13 @@ def describe_collection(directory, depth=1, target_yml_path=None,
 
     Args:
         directory (str): path to collection
-        depth (int, optional): how many subdirectories whose files to (recursively)
-            include. With a depth of 1, only files in the ``directory`` path
-            will be listed in the output metadata document. With a depth of 2,
-            files within folders in the ``directory`` path are included, etc.
-            Can be arbitrarily large to inclue all files in all subdirectories.
-        target_yml_path (str, optional): where to save output yml
+        depth (int): maximum number of subdirectory levels to traverse when
+            walking through ``directory`` to find files included in the
+            collection. A value of 1 limits the walk to files in the top-level
+            ``directory`` only. A value of 2 allows descending into immediate
+            subdirectories, etc. By default, will inclue all files in all
+            subdirectories in the collection.
+        target_yml_path (str, optional): path for output yml
         exclude_regex (str, optional): a regular expression to pattern-match
             any files you do not want included in the output metadata yml.
         exclude_hidden (bool): whether to exclude hidden files (files that
@@ -428,7 +429,9 @@ def describe_collection(directory, depth=1, target_yml_path=None,
         describe_files (bool): whether to ``describe_all`` and create individual
             metadata files for each supported resource in the collection. Using this
             will also add an additional attribute ``collection`` (which refers back
-            to the collection metadata yaml) to any sidecar metadata created 
+            to the collection metadata yaml) to any sidecar metadata created.
+
+    Returns: dictionary of collection metadata
     """
 
     if not target_yml_path:
@@ -677,7 +680,6 @@ def validate_dir(directory, recursive=False):
 
 
 def describe_all(directory, depth=1):
-    #TODO: add depth option or add option to input a list of files into describe_all
     """Describe compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
@@ -686,9 +688,9 @@ def describe_all(directory, depth=1):
     Args:
         directory (string): path to a directory
         depth (int): maximum number of subdirectory levels to traverse when
-            walking through a directory. A value of 0 limits the walk to the
-            top-level directory only. A value of 1 allows descending into
-            immediate subdirectories, and so on. 
+            walking through a directory. A value of 1 limits the walk to files
+            in the top-level ``directory`` only. A value of 2 allows
+            descending into immediate subdirectories, etc.
     Returns:
         None
 
