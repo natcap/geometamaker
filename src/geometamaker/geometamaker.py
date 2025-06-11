@@ -401,7 +401,7 @@ def describe_table(source_dataset_path, scheme):
     return description
 
 
-def describe_collection(directory, depth=numpy.inf, target_yml_path=None,
+def describe_collection(directory, depth=numpy.inf,
                         exclude_regex=None, exclude_hidden=True,
                         describe_files=False):
     """Create a single metadata document to describe a collection of files.
@@ -421,7 +421,6 @@ def describe_collection(directory, depth=numpy.inf, target_yml_path=None,
             ``directory`` only. A value of 2 allows descending into immediate
             subdirectories, etc. By default, will inclue all files in all
             subdirectories in the collection.
-        target_yml_path (str, optional): path for output yml
         exclude_regex (str, optional): a regular expression to pattern-match
             any files you do not want included in the output metadata yml.
         exclude_hidden (bool): whether to exclude hidden files (files that
@@ -431,11 +430,10 @@ def describe_collection(directory, depth=numpy.inf, target_yml_path=None,
             will also add an additional attribute ``collection`` (which refers back
             to the collection metadata yaml) to any sidecar metadata created.
 
-    Returns: dictionary of collection metadata
+    Returns: Collection metadata
     """
-
-    if not target_yml_path:
-        target_yml_path = directory + "_datapackage.yml"
+    if describe_files:
+        describe_all(directory, depth=depth)
 
     file_list = _list_files_with_depth(directory, depth, exclude_hidden)
 
@@ -454,7 +452,7 @@ def describe_collection(directory, depth=numpy.inf, target_yml_path=None,
         if '.shp' in extensions:
             # if we're dealing with a shapefile, we do not want to describe any
             # of these other files with the same root name
-            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', 'cpg'])
+            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg'])
         for ext in extensions:
             filepath = os.path.join(directory, f'{root}{ext}')
             if ext and os.path.exists(filepath + '.yml'):
@@ -485,23 +483,17 @@ def describe_collection(directory, depth=numpy.inf, target_yml_path=None,
         path=directory,
         type='collection',
         format='directory',
-        scheme='file',
+        scheme=fsspec.utils.get_protocol(directory),
         bytes=total_bytes,
         last_modified=last_modified,
         resources=resources,
         uid=uid
     )
 
-    # del resource['sources']
-    # del resource['encoding']
-
     # Add profile metadata
     config = Config()
     resource = resource.replace(config.profile)
     resource.write()
-
-    if describe_files:
-        describe_all(directory, depth=depth)
 
     return resource
 
@@ -703,7 +695,7 @@ def describe_all(directory, depth=1):
         if '.shp' in extensions:
             # if we're dealing with a shapefile, we do not want to describe any
             # of these other files with the same root name
-            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', 'cpg'])
+            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg'])
         for ext in extensions:
             filepath = f'{root}{ext}'
             try:
