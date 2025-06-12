@@ -776,12 +776,12 @@ class GeometamakerTests(unittest.TestCase):
             file.write('')
 
         # Only 1 eligible file to describe in the root dir
-        geometamaker.describe_dir(self.workspace_dir)
+        geometamaker.describe_all(self.workspace_dir, depth=1)
         yaml_files, msgs = geometamaker.validate_dir(self.workspace_dir)
         self.assertEqual(len(yaml_files), 1)
 
         # 2 eligible files described with recursive option
-        geometamaker.describe_dir(self.workspace_dir, recursive=True)
+        geometamaker.describe_all(self.workspace_dir)
         yaml_files, msgs = geometamaker.validate_dir(
             self.workspace_dir, recursive=True)
         self.assertEqual(len(yaml_files), 2)
@@ -802,7 +802,7 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(len(yaml_files), 1)
         self.assertEqual(msgs[0], 'is not a readable yaml document')
 
-    def test_describe_dir_with_shapefile(self):
+    def test_describe_all_with_shapefile(self):
         """Test describe directory containing a multi-file dataset."""
         import geometamaker
 
@@ -823,7 +823,7 @@ class GeometamakerTests(unittest.TestCase):
         with patch.object(
                 geometamaker.geometamaker, 'describe',
                 wraps=geometamaker.geometamaker.describe) as mock_describe:
-            geometamaker.describe_dir(self.workspace_dir)
+            geometamaker.describe_all(self.workspace_dir)
 
         self.assertEqual(mock_describe.call_count, describe_count)
         self.assertTrue(os.path.exists(os.path.join(
@@ -1042,7 +1042,7 @@ class CLITests(unittest.TestCase):
         create_raster(numpy.int16, datasource_path)
 
         runner = CliRunner()
-        result = runner.invoke(cli.cli, ['describe', '-r', self.workspace_dir])
+        result = runner.invoke(cli.cli, ['describe', self.workspace_dir])
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
@@ -1055,7 +1055,7 @@ class CLITests(unittest.TestCase):
         create_raster(numpy.int16, datasource_path)
 
         runner = CliRunner()
-        result = runner.invoke(cli.cli, ['describe', '-r', datasource_path])
+        result = runner.invoke(cli.cli, ['describe', datasource_path])
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
@@ -1147,7 +1147,7 @@ class CLITests(unittest.TestCase):
         with open(yml2, 'w') as file:
             file.write('')
 
-        geometamaker.describe_dir(self.workspace_dir, recursive=True)
+        geometamaker.describe_all(self.workspace_dir)
 
         runner = CliRunner()
         result = runner.invoke(cli.cli, ['validate', '-r', self.workspace_dir])
