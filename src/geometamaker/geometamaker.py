@@ -671,7 +671,7 @@ def validate_dir(directory, recursive=False):
     return (yaml_files, messages)
 
 
-def describe_all(directory, depth=1):
+def describe_all(directory, depth=numpy.inf):
     """Describe compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
