@@ -419,7 +419,7 @@ def describe_collection(directory, depth=numpy.inf, exclude_regex=None,
             walking through ``directory`` to find files included in the
             collection. A value of 1 limits the walk to files in the top-level
             ``directory`` only. A value of 2 allows descending into immediate
-            subdirectories, etc. By default, will inclue all files in all
+            subdirectories, etc. By default, will include all files in all
             subdirectories in the collection.
         exclude_regex (str, optional): a regular expression to pattern-match
             any files you do not want included in the output metadata yml.
@@ -439,7 +439,7 @@ def describe_collection(directory, depth=numpy.inf, exclude_regex=None,
 
     # remove excluded files based on regex
     if exclude_regex:
-        file_list = [f for f in file_list if not re.match(exclude_regex, f)]
+        file_list = [f for f in file_list if not re.search(exclude_regex, f)]
     # exclude sidecar ymls
     file_list = [f for f in file_list if not f.endswith(".yml")]
 

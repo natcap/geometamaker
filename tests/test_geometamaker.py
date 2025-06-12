@@ -842,16 +842,22 @@ class GeometamakerTests(unittest.TestCase):
         with open(csv_path, 'w') as file:
             file.write('a,b,c')
 
+        # Create csv in main directory
+        csv_path_excluded = os.path.join(collection_path, 'exclude_this.csv')
+        with open(csv_path_excluded, 'w') as file:
+            file.write('a,b,c')
+
         # Create raster in subdirectory
         subdir1 = os.path.join(collection_path, "subdir1")
         os.mkdir(subdir1)
         raster_path = os.path.join(subdir1, 'raster.tif')
         create_raster(numpy.int16, raster_path)
 
-        metadata = geometamaker.describe_collection(collection_path, depth=1)
+        metadata = geometamaker.describe_collection(
+            collection_path, depth=1, exclude_regex="exclude_this*")
         self.assertTrue(os.path.exists(collection_path+"-metadata.yml"))
-        # assert that with depth=1, resources list only includes csv and subdir
-        print(metadata.resources)
+        # assert that with depth=1, resources list only includes csv and
+        # subdir and excludes exclude_this.csv
         self.assertEqual(len(metadata.resources), 2)
 
         geometamaker.describe_collection(collection_path, depth=1,
