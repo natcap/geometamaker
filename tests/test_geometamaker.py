@@ -831,6 +831,38 @@ class GeometamakerTests(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(
             self.workspace_dir, f'{root_name}.csv.yml')))
 
+    def test_describe_collection_with_depth(self):
+        import geometamaker
+
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        # Create csv in main directory
+        csv_path = os.path.join(collection_path, 'table.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
+
+        # Create raster in subdirectory
+        subdir1 = os.path.join(collection_path, "subdir1")
+        os.mkdir(subdir1)
+        raster_path = os.path.join(subdir1, 'raster.tif')
+        create_raster(numpy.int16, raster_path)
+
+        metadata = geometamaker.describe_collection(collection_path, depth=1)
+        self.assertTrue(os.path.exists(collection_path+"-metadata.yml"))
+        # assert that with depth=1, resources list only includes csv and subdir
+        print(metadata.resources)
+        self.assertEqual(len(metadata.resources), 2)
+
+        geometamaker.describe_collection(collection_path, depth=1,
+                                         describe_files=True)
+        self.assertTrue(os.path.exists(csv_path+".yml"))
+        self.assertFalse(os.path.exists(raster_path+".yml"))
+
+        geometamaker.describe_collection(collection_path, depth=2,
+                                         describe_files=True)
+        self.assertTrue(os.path.exists(raster_path+".yml"))
+
 
 class ValidationTests(unittest.TestCase):
     """Tests for geometamaker type validation."""
