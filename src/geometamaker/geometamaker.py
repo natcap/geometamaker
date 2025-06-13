@@ -303,7 +303,12 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
         b = i + 1
         band = raster.GetRasterBand(b)
         if compute_stats:
-            _ = band.ComputeStatistics(0)
+            try:
+                _ = band.ComputeStatistics(0)
+            except RuntimeError as e:
+                LOGGER.warning(
+                    f'Could not compute statistics for band {b} of '
+                    f'{source_dataset_path}: {e}')
         band_gdal_metadata = band.GetMetadata()
 
         bands.append(models.BandSchema(
