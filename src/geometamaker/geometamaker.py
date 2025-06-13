@@ -107,7 +107,8 @@ def _wkt_to_epsg_units_string(wkt_string):
     return crs_string, units_string
 
 
-def _list_files_with_depth(directory, depth=1, exclude_hidden=True):
+def _list_files_with_depth(directory, depth, exclude_regex,
+                           exclude_hidden=True):
     """List files in directory up to depth"""
     directory = Path(directory).resolve()
     file_list = []
@@ -120,6 +121,11 @@ def _list_files_with_depth(directory, depth=1, exclude_hidden=True):
         if exclude_hidden and any(part.startswith('.') for part in path.parts):
             continue
         file_list.append(str(path))
+
+    # remove excluded files based on regex
+    if exclude_regex:
+        file_list = [f for f in file_list if not re.search(exclude_regex, f)]
+
     return sorted(file_list)
 
 
@@ -137,7 +143,7 @@ def _group_files_by_root(file_list):
 
 
 def _get_collection_size_time_uid(directory):
-    """Get size of directory (in bytes) and datetime dir was last modified"""
+    """Get size of directory (in bytes), when it was last modified, and uid"""
     total_bytes = 0
     latest_mtime = 0
 
@@ -433,13 +439,11 @@ def describe_collection(directory, depth=numpy.inf, exclude_regex=None,
     Returns: Collection metadata
     """
     if describe_files:
-        describe_all(directory, depth=depth)
+        describe_all(directory, depth, exclude_regex)
 
-    file_list = _list_files_with_depth(directory, depth, exclude_hidden)
+    file_list = _list_files_with_depth(directory, depth, exclude_regex,
+                                       exclude_hidden)
 
-    # remove excluded files based on regex
-    if exclude_regex:
-        file_list = [f for f in file_list if not re.search(exclude_regex, f)]
     # exclude sidecar ymls
     file_list = [f for f in file_list if not f.endswith(".yml")]
 
@@ -671,7 +675,7 @@ def validate_dir(directory, recursive=False):
     return (yaml_files, messages)
 
 
-def describe_all(directory, depth=numpy.inf):
+def describe_all(directory, depth=numpy.inf, exclude_regex=None):
     """Describe compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
@@ -687,7 +691,7 @@ def describe_all(directory, depth=numpy.inf):
         None
 
     """
-    file_list = _list_files_with_depth(directory, depth, True)
+    file_list = _list_files_with_depth(directory, depth, exclude_regex)
     root_ext_map, root_set = _group_files_by_root(file_list)
 
     for root in root_set:

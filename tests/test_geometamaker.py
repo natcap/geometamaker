@@ -832,6 +832,7 @@ class GeometamakerTests(unittest.TestCase):
             self.workspace_dir, f'{root_name}.csv.yml')))
 
     def test_describe_collection_with_depth(self):
+        """Test describe_collection with depth and exclude_regex parameters"""
         import geometamaker
 
         collection_path = os.path.join(self.workspace_dir, "collection")
@@ -860,10 +861,12 @@ class GeometamakerTests(unittest.TestCase):
         # subdir and excludes exclude_this.csv
         self.assertEqual(len(metadata.resources), 2)
 
-        geometamaker.describe_collection(collection_path, depth=1,
-                                         describe_files=True)
+        geometamaker.describe_collection(
+            collection_path, depth=1, exclude_regex="exclude_this*",
+            describe_files=True)
         self.assertTrue(os.path.exists(csv_path+".yml"))
         self.assertFalse(os.path.exists(raster_path+".yml"))
+        self.assertFalse(os.path.exists(csv_path_excluded+".yml"))
 
         geometamaker.describe_collection(collection_path, depth=2,
                                          describe_files=True)
