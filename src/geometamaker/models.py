@@ -437,7 +437,7 @@ class Resource(BaseMetadata):
     """A URL where the resource is available."""
 
     def model_post_init(self, __context):
-        self.metadata_path = f'{self.path}.yml'
+        self.metadata_path = self._default_metadata_path()
         self.geometamaker_version: str = geometamaker.__version__
         self.path = self.path.replace('\\', '/')
         self.sources = [x.replace('\\', '/') for x in self.sources]
@@ -671,8 +671,13 @@ class Resource(BaseMetadata):
                 workspace, os.path.basename(self.metadata_path))
 
         with open(target_path, 'w', encoding='utf-8') as file:
-            file.write(utils.yaml_dump(
-                self.model_dump(exclude=['metadata_path'])))
+            file.write(utils.yaml_dump(self._dump_for_write()))
+
+    def _dump_for_write(self):
+        return self.model_dump(exclude={'metadata_path'})
+
+    def _default_metadata_path(self):
+        return f'{self.path}.yml'
 
 
 class TableResource(Resource):
@@ -716,6 +721,31 @@ class ArchiveResource(Resource):
 
     compression: str = ''
     """The compression method used to create the archive."""
+
+
+class ResourcesSchema(Parent):
+    """Class for keeping track of collections resource info."""
+    path: str = ''
+    """Path to the resource being described."""
+    description: str = ''
+    """A text description of the resource."""
+    metadata: str = ''
+    """Path to metadata document describing resource"""
+
+
+class CollectionResource(Resource):
+    """Class for metadata for a collection resource."""
+
+    resources: list[ResourcesSchema] = Field(default_factory=list)
+
+    def _dump_for_write(self):
+        """Additionally exclude sources and encoding"""
+        exclude_attributes = {'metadata_path', 'sources', 'encoding'}
+        return self.model_dump(exclude=exclude_attributes)
+
+    def _default_metadata_path(self):
+        """Add -metadata tag"""
+        return f'{self.path}-metadata.yml'
 
 
 class VectorResource(Resource):
