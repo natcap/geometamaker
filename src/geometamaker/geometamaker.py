@@ -529,7 +529,7 @@ def validate_dir(directory, recursive=False):
     return (yaml_files, messages)
 
 
-def describe_dir(directory, recursive=False):
+def describe_dir(directory, recursive=False, **kwargs):
     """Describe all compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
@@ -566,7 +566,7 @@ def describe_dir(directory, recursive=False):
         for ext in extensions:
             filepath = f'{root}{ext}'
             try:
-                resource = describe(filepath)
+                resource = describe(filepath, **kwargs)
             except ValueError as error:
                 LOGGER.debug(error)
                 continue

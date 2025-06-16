@@ -81,15 +81,19 @@ class _URL(click.ParamType):
               default=False,
               help='Dump metadata to stdout instead of to a .yml file. '
                    'This option is ignored if `filepath` is a directory')
-def describe(filepath, recursive, no_write):
+@click.option('-st', '--stats',
+              is_flag=True,
+              default=False,
+              help='Compute raster band statistics.')
+def describe(filepath, recursive, no_write, stats):
     if os.path.isdir(filepath):
         if no_write:
             click.echo('the -nw, or --no-write, flag is ignored when '
                        'describing all files in a directory.')
         geometamaker.describe_dir(
-            filepath, recursive=recursive)
+            filepath, recursive=recursive, compute_stats=stats)
     else:
-        resource = geometamaker.describe(filepath)
+        resource = geometamaker.describe(filepath, compute_stats=stats)
         if no_write:
             click.echo(geometamaker.utils.yaml_dump(
                 resource.model_dump(exclude=['metadata_path'])))
