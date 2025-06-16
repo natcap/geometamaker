@@ -73,7 +73,7 @@ class _URL(click.ParamType):
                 type=_ParamUnion([click.Path(exists=True), _URL()],
                                  report_all_errors=False))
 @click.option('-d', '--depth',
-              default=numpy.inf,
+              default=numpy.iinfo(numpy.int16).max,
               help='if FILEPATH is a directory, describe files in'
                    'subdirectories up to depth. Defaults to to describing '
                    'all files.')

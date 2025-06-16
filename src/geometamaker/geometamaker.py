@@ -108,7 +108,7 @@ def _wkt_to_epsg_units_string(wkt_string):
 
 
 def _list_files_with_depth(directory, depth, exclude_regex,
-                           exclude_hidden=True):
+                           exclude_hidden=True, use_relative=False):
     """List files in directory up to depth"""
     directory = Path(directory).resolve()
     file_list = []
@@ -118,9 +118,10 @@ def _list_files_with_depth(directory, depth, exclude_regex,
         current_depth = len(relative_path.parts)
         if current_depth > depth:
             continue
-        if exclude_hidden and any(part.startswith('.') for part in path.parts):
+        if exclude_hidden and (
+                any(part.startswith('.') for part in relative_path.parts)):
             continue
-        file_list.append(str(path))
+        file_list.append(str(relative_path if use_relative else path))
 
     # remove excluded files based on regex
     if exclude_regex:
@@ -407,8 +408,9 @@ def describe_table(source_dataset_path, scheme):
     return description
 
 
-def describe_collection(directory, depth=numpy.inf, exclude_regex=None,
-                        exclude_hidden=True, describe_files=False):
+def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
+                        exclude_regex=None, exclude_hidden=True,
+                        describe_files=False):
     """Create a single metadata document to describe a collection of files.
 
     Describe all the files within a directory as members of a "collection".
@@ -429,27 +431,24 @@ def describe_collection(directory, depth=numpy.inf, exclude_regex=None,
             subdirectories in the collection.
         exclude_regex (str, optional): a regular expression to pattern-match
             any files you do not want included in the output metadata yml.
-        exclude_hidden (bool): whether to exclude hidden files (files that
-            start with ".")
-        describe_files (bool): whether to ``describe_all`` and create individual
-            metadata files for each supported resource in the collection. Using this
-            will also add an additional attribute ``collection`` (which refers back
-            to the collection metadata yaml) to any sidecar metadata created.
+        exclude_hidden (bool, default True): whether to exclude hidden files
+            (files that start with ".").
+        describe_files (bool, default False): whether to ``describe_all`` and
+            create individual metadata files for each supported resource in the
+            collection. Using this will also add an additional attribute
+            ``collection`` (which refers back to the collection metadata yaml)
+            to any sidecar metadata created.
 
     Returns: Collection metadata
     """
-    if describe_files:
-        describe_all(directory, depth, exclude_regex)
+    directory = str(Path(directory).resolve())
 
     file_list = _list_files_with_depth(directory, depth, exclude_regex,
-                                       exclude_hidden)
-
-    # exclude sidecar ymls
-    file_list = [f for f in file_list if not f.endswith(".yml")]
+                                       exclude_hidden, use_relative=True)
 
     root_ext_map, root_list = _group_files_by_root(file_list)
 
-    resources = []
+    items = []
 
     for root in root_list:
         extensions = root_ext_map[root]
@@ -457,29 +456,33 @@ def describe_collection(directory, depth=numpy.inf, exclude_regex=None,
             # if we're dealing with a shapefile, we do not want to describe any
             # of these other files with the same root name
             extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg'])
+        # Only drop .yml if its sidecar file, i.e. the corresponding data file
+        # (root) exists on disk
+        if '.yml' in extensions and os.path.exists(root):
+            extensions.discard('.yml')
         for ext in extensions:
             filepath = os.path.join(directory, f'{root}{ext}')
+            try:
+                this_desc = describe(filepath)
+            except (ValueError, frictionless.FrictionlessException):
+                # if file type isn't supported by geometamaker, e.g. pdf
+                # or if trying to describe a dir
+                this_desc = None
+
+            if describe_files and this_desc:
+                this_desc.write()
+
             if ext and os.path.exists(filepath + '.yml'):
                 metadata_yml = f'{root}{ext}' + '.yml'
             else:
                 metadata_yml = ''
-            try:
-                this_desc = describe(filepath)
-                this_resource = models.ResourcesSchema(
-                    path=f'{root}{ext}',
-                    description=this_desc.description,
-                    metadata=metadata_yml
-                )
-            except (ValueError, frictionless.FrictionlessException):
-                # if file type isn't supported by geometamaker, e.g. pdf
-                # or if trying to describe a dir
-                this_resource = models.ResourcesSchema(
-                    path=f'{root}{ext}',
-                    description='',
-                    metadata=metadata_yml
-                )
 
-            resources.append(this_resource)
+            this_resource = models.CollectionItemSchema(
+                path=f'{root}{ext}',
+                description=this_desc.description if this_desc else '',
+                metadata=metadata_yml
+            )
+            items.append(this_resource)
 
     total_bytes, last_modified, uid = _get_collection_size_time_uid(directory)
 
@@ -490,7 +493,7 @@ def describe_collection(directory, depth=numpy.inf, exclude_regex=None,
         scheme=fsspec.utils.get_protocol(directory),
         bytes=total_bytes,
         last_modified=last_modified,
-        resources=resources,
+        items=items,
         uid=uid
     )
 
@@ -675,7 +678,8 @@ def validate_dir(directory, recursive=False):
     return (yaml_files, messages)
 
 
-def describe_all(directory, depth=numpy.inf, exclude_regex=None):
+def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
+                 exclude_regex=None):
     """Describe compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
@@ -686,7 +690,11 @@ def describe_all(directory, depth=numpy.inf, exclude_regex=None):
         depth (int): maximum number of subdirectory levels to traverse when
             walking through a directory. A value of 1 limits the walk to files
             in the top-level ``directory`` only. A value of 2 allows
-            descending into immediate subdirectories, etc.
+            descending into immediate subdirectories, etc. By default, all
+            supported files in all subdirectories in ``directory`` will
+            be described.
+        exclude_regex (str, optional): a regular expression to pattern-match
+            any files for which you do not want to create metadata.
     Returns:
         None
 

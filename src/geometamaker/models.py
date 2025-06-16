@@ -723,7 +723,7 @@ class ArchiveResource(Resource):
     """The compression method used to create the archive."""
 
 
-class ResourcesSchema(Parent):
+class CollectionItemSchema(Parent):
     """Class for keeping track of collections resource info."""
     path: str = ''
     """Path to the resource being described."""
@@ -736,7 +736,7 @@ class ResourcesSchema(Parent):
 class CollectionResource(Resource):
     """Class for metadata for a collection resource."""
 
-    resources: list[ResourcesSchema] = Field(default_factory=list)
+    items: list[CollectionItemSchema] = Field(default_factory=list)
 
     def _dump_for_write(self):
         """Additionally exclude sources and encoding"""
