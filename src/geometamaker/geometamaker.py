@@ -108,8 +108,23 @@ def _wkt_to_epsg_units_string(wkt_string):
 
 
 def _list_files_with_depth(directory, depth, exclude_regex,
-                           exclude_hidden=True, use_relative=False):
-    """List files in directory up to depth"""
+                           exclude_hidden=True):
+    """List files in directory up to depth
+
+    Args:
+        directory (string): path to a directory
+        depth (int): maximum number of subdirectory levels to traverse when
+            walking through a directory. A value of 1 limits the walk to files
+            in the top-level ``directory`` only. A value of 2 allows
+            descending into immediate subdirectories, etc.
+        exclude_regex (str, optional): a regular expression to pattern-match
+            any files for which you do not want to create metadata.
+        exclude_hidden (bool, default True): whether to ignore hidden files
+
+    Returns:
+        list of relative filepaths in ``directory``
+
+    """
     directory = Path(directory).resolve()
     file_list = []
 
@@ -121,7 +136,7 @@ def _list_files_with_depth(directory, depth, exclude_regex,
         if exclude_hidden and (
                 any(part.startswith('.') for part in relative_path.parts)):
             continue
-        file_list.append(str(relative_path if use_relative else path))
+        file_list.append(str(relative_path))
 
     # remove excluded files based on regex
     if exclude_regex:
@@ -444,7 +459,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     directory = str(Path(directory).resolve())
 
     file_list = _list_files_with_depth(directory, depth, exclude_regex,
-                                       exclude_hidden, use_relative=True)
+                                       exclude_hidden)
 
     root_ext_map, root_list = _group_files_by_root(file_list)
 
@@ -709,7 +724,7 @@ def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
             # of these other files with the same root name
             extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg'])
         for ext in extensions:
-            filepath = f'{root}{ext}'
+            filepath = os.path.join(directory, f'{root}{ext}')
             try:
                 resource = describe(filepath)
             except (ValueError, frictionless.FrictionlessException) as error:
