@@ -515,7 +515,6 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     # Add profile metadata
     config = Config()
     resource = resource.replace(config.profile)
-    resource.write()
 
     return resource
 

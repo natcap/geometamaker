@@ -861,6 +861,7 @@ class GeometamakerTests(unittest.TestCase):
 
         metadata = geometamaker.describe_collection(
             collection_path, depth=1, exclude_regex="exclude_this*")
+        metadata.write()
         self.assertTrue(os.path.exists(collection_path+"-metadata.yml"))
         # assert that with depth=1, items list only includes csv and
         # subdir and excludes exclude_this.csv
