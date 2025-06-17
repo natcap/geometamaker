@@ -375,7 +375,7 @@ class Profile(BaseMetadata):
             file.write(utils.yaml_dump(self.model_dump()))
 
 
-class Resource(BaseMetadata):
+class BaseResource(BaseMetadata):
     """Base class for metadata for a resource.
 
     https://datapackage.org/standard/data-resource/
@@ -396,8 +396,6 @@ class Resource(BaseMetadata):
     # These are populated by geometamaker.describe()
     bytes: int = 0
     """File size of the resource in bytes."""
-    encoding: str = ''
-    """File encoding of the resource."""
     format: str = ''
     """File format of the resource."""
     uid: str = ''
@@ -410,8 +408,6 @@ class Resource(BaseMetadata):
     """The type of resource being described."""
     last_modified: str = ''
     """Last modified time of the file at ``path``."""
-    sources: list[str] = Field(default_factory=list)
-    """A list of files which comprise the dataset or resource."""
 
     # These are not populated by geometamaker.describe(),
     # and should have setters & getters
@@ -435,12 +431,6 @@ class Resource(BaseMetadata):
     """The title of the resource."""
     url: str = ''
     """A URL where the resource is available."""
-
-    def model_post_init(self, __context):
-        self.metadata_path = self._default_metadata_path()
-        self.geometamaker_version: str = geometamaker.__version__
-        self.path = self.path.replace('\\', '/')
-        self.sources = [x.replace('\\', '/') for x in self.sources]
 
     @classmethod
     def load(cls, filepath):
@@ -676,6 +666,33 @@ class Resource(BaseMetadata):
     def _dump_for_write(self):
         return self.model_dump(exclude={'metadata_path'})
 
+
+class Resource(BaseResource):
+    """
+    Metadata class for general-purpose resources.
+
+    This class extends `BaseResource` and provides metadata for a single file
+    or dataset, including encoding and source file references. It serves as a
+    base for more specific resource types (e.g., table, raster, vector,
+    archive) and is typically initialized by `describe()`.
+
+    Attributes:
+        encoding (str): The text encoding of the resource (e.g., 'utf-8').
+        sources (list[str]): A list of paths to source files that comprise
+            the resource.
+    """
+
+    encoding: str = ''
+    """File encoding of the resource."""
+    sources: list[str] = Field(default_factory=list)
+    """A list of files which comprise the dataset or resource."""
+
+    def model_post_init(self, __context):
+        self.metadata_path = self._default_metadata_path()
+        self.geometamaker_version: str = geometamaker.__version__
+        self.path = self.path.replace('\\', '/')
+        self.sources = [x.replace('\\', '/') for x in self.sources]
+
     def _default_metadata_path(self):
         return f'{self.path}.yml'
 
@@ -733,15 +750,15 @@ class CollectionItemSchema(Parent):
     """Path to metadata document describing resource"""
 
 
-class CollectionResource(Resource):
+class CollectionResource(BaseResource):
     """Class for metadata for a collection resource."""
 
     items: list[CollectionItemSchema] = Field(default_factory=list)
 
-    def _dump_for_write(self):
-        """Additionally exclude sources and encoding"""
-        exclude_attributes = {'metadata_path', 'sources', 'encoding'}
-        return self.model_dump(exclude=exclude_attributes)
+    def model_post_init(self, __context):
+        self.metadata_path = self._default_metadata_path()
+        self.geometamaker_version: str = geometamaker.__version__
+        self.path = self.path.replace('\\', '/')
 
     def _default_metadata_path(self):
         """Add -metadata tag"""
