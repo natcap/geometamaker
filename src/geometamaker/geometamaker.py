@@ -438,23 +438,22 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
 
     Args:
         directory (str): path to collection
-        depth (int): maximum number of subdirectory levels to traverse when
-            walking through ``directory`` to find files included in the
-            collection. A value of 1 limits the walk to files in the top-level
-            ``directory`` only. A value of 2 allows descending into immediate
-            subdirectories, etc. By default, will include all files in all
-            subdirectories in the collection.
+        depth (int, optional): maximum number of subdirectory levels to
+            traverse when walking through ``directory`` to find files included
+            in the collection. A value of 1 limits the walk to files in the
+            top-level ``directory`` only. A value of 2 allows descending into
+            immediate subdirectories, etc. All files in all subdirectories in
+            the collection will be included by default.
         exclude_regex (str, optional): a regular expression to pattern-match
             any files you do not want included in the output metadata yml.
         exclude_hidden (bool, default True): whether to exclude hidden files
             (files that start with ".").
-        describe_files (bool, default False): whether to ``describe_all`` and
-            create individual metadata files for each supported resource in the
-            collection. Using this will also add an additional attribute
-            ``collection`` (which refers back to the collection metadata yaml)
-            to any sidecar metadata created.
+        describe_files (bool, default False): whether to ``describe`` all
+            files, i.e., create individual metadata files for each supported
+            resource in the collection.
 
-    Returns: Collection metadata
+    Returns:
+        Collection metadata
     """
     directory = str(Path(directory).resolve())
 
