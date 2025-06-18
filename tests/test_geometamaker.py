@@ -776,12 +776,12 @@ class GeometamakerTests(unittest.TestCase):
             file.write('')
 
         # Only 1 eligible file to describe in the root dir
-        geometamaker.describe_dir(self.workspace_dir)
+        geometamaker.describe_all(self.workspace_dir, depth=1)
         yaml_files, msgs = geometamaker.validate_dir(self.workspace_dir)
         self.assertEqual(len(yaml_files), 1)
 
         # 2 eligible files described with recursive option
-        geometamaker.describe_dir(self.workspace_dir, recursive=True)
+        geometamaker.describe_all(self.workspace_dir)
         yaml_files, msgs = geometamaker.validate_dir(
             self.workspace_dir, recursive=True)
         self.assertEqual(len(yaml_files), 2)
@@ -802,7 +802,7 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(len(yaml_files), 1)
         self.assertEqual(msgs[0], 'is not a readable yaml document')
 
-    def test_describe_dir_with_shapefile(self):
+    def test_describe_all_with_shapefile(self):
         """Test describe directory containing a multi-file dataset."""
         import geometamaker
 
@@ -823,13 +823,60 @@ class GeometamakerTests(unittest.TestCase):
         with patch.object(
                 geometamaker.geometamaker, 'describe',
                 wraps=geometamaker.geometamaker.describe) as mock_describe:
-            geometamaker.describe_dir(self.workspace_dir)
+            geometamaker.describe_all(self.workspace_dir)
 
         self.assertEqual(mock_describe.call_count, describe_count)
         self.assertTrue(os.path.exists(os.path.join(
             self.workspace_dir, f'{root_name}.shp.yml')))
         self.assertTrue(os.path.exists(os.path.join(
             self.workspace_dir, f'{root_name}.csv.yml')))
+
+    def test_describe_collection_with_depth(self):
+        """Test describe_collection with depth and exclude_regex parameters"""
+        import geometamaker
+
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        # Create csv in main directory
+        csv_path = os.path.join(collection_path, 'table.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
+
+        # Create csv in main directory (to exclude based on regex)
+        csv_path_excluded = os.path.join(collection_path, 'exclude_this.csv')
+        with open(csv_path_excluded, 'w') as file:
+            file.write('a,b,c')
+
+        # Create hidden csv in main directory (excluded by default)
+        csv_path_hidden = os.path.join(collection_path, '.table.csv')
+        with open(csv_path_hidden, 'w') as file:
+            file.write('a,b,c')
+
+        # Create raster in subdirectory
+        subdir1 = os.path.join(collection_path, "subdir1")
+        os.mkdir(subdir1)
+        raster_path = os.path.join(subdir1, 'raster.tif')
+        create_raster(numpy.int16, raster_path)
+
+        metadata = geometamaker.describe_collection(
+            collection_path, depth=1, exclude_regex="exclude_this*")
+        metadata.write()
+        self.assertTrue(os.path.exists(collection_path+"-metadata.yml"))
+        # assert that with depth=1, items list only includes csv and
+        # subdir and excludes exclude_this.csv
+        self.assertEqual(len(metadata.items), 2)
+
+        geometamaker.describe_collection(
+            collection_path, depth=1, exclude_regex="exclude_this*",
+            describe_files=True)
+        self.assertTrue(os.path.exists(csv_path+".yml"))
+        self.assertFalse(os.path.exists(raster_path+".yml"))
+        self.assertFalse(os.path.exists(csv_path_excluded+".yml"))
+
+        geometamaker.describe_collection(collection_path, depth=2,
+                                         describe_files=True)
+        self.assertTrue(os.path.exists(raster_path+".yml"))
 
 
 class ValidationTests(unittest.TestCase):
@@ -1042,7 +1089,7 @@ class CLITests(unittest.TestCase):
         create_raster(numpy.int16, datasource_path)
 
         runner = CliRunner()
-        result = runner.invoke(cli.cli, ['describe', '-r', self.workspace_dir])
+        result = runner.invoke(cli.cli, ['describe', self.workspace_dir])
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
@@ -1055,7 +1102,7 @@ class CLITests(unittest.TestCase):
         create_raster(numpy.int16, datasource_path)
 
         runner = CliRunner()
-        result = runner.invoke(cli.cli, ['describe', '-r', datasource_path])
+        result = runner.invoke(cli.cli, ['describe', datasource_path])
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
@@ -1147,7 +1194,7 @@ class CLITests(unittest.TestCase):
         with open(yml2, 'w') as file:
             file.write('')
 
-        geometamaker.describe_dir(self.workspace_dir, recursive=True)
+        geometamaker.describe_all(self.workspace_dir)
 
         runner = CliRunner()
         result = runner.invoke(cli.cli, ['validate', '-r', self.workspace_dir])
