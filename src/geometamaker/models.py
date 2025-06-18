@@ -736,7 +736,7 @@ class ArchiveResource(Resource):
 
 
 class CollectionItemSchema(Parent):
-    """Class for keeping track of collections resource info."""
+    """Class for metadata for collection items."""
     path: str = ''
     """Path to the resource being described."""
     description: str = ''
@@ -749,6 +749,7 @@ class CollectionResource(BaseResource):
     """Class for metadata for a collection resource."""
 
     items: list[CollectionItemSchema] = Field(default_factory=list)
+    """Files in collection"""
 
     def model_post_init(self, __context):
         self.metadata_path = self._default_metadata_path()
