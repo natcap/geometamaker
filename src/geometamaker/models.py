@@ -749,7 +749,7 @@ class CollectionResource(BaseResource):
     """Class for metadata for a collection resource."""
 
     items: list[CollectionItemSchema] = Field(default_factory=list)
-    """Files in collection"""
+    """Files in collection."""
 
     def model_post_init(self, __context):
         self.metadata_path = self._default_metadata_path()
