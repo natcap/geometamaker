@@ -63,6 +63,9 @@ to add these values manually by editing the
 `watershed_gura.shp.yml` file in a text editor.
 
 ### Creating metadata for a batch of files:
+Users can optionally specify `depth` to limit the number of subdirectory 
+levels to traverse when walking through a directory and creating metadata 
+for the supported files.
 
 #### Python
 ```python
@@ -71,12 +74,27 @@ import os
 import geometamaker
 
 data_dir = 'C:/Users/dmf/projects/invest/data/invest-sample-data'
-geometamaker.describe_dir(data_dir, recursive=True)
+geometamaker.describe_all(data_dir, depth=3)
 ```
 
 #### CLI
 ```
-geometamaker describe -r data/invest-sample-data
+geometamaker describe -d 3 data/invest-sample-data
+```
+
+### Creating metadata for a collection of files
+Users can create a single metadata document to describe a directory of 
+files, with the option of excluding some files using a regular expression.
+
+#### Python
+```python
+import geometamaker
+
+collection_path = 'invest/data/invest-sample-data'
+metadata = geometamaker.describe_collection(collection_path,
+                                            depth=2,
+                                            exclude_regex=r'.*\.json$')
+metadata.write()
 ```
 
 ### Validating a metadata document:
