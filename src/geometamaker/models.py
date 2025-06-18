@@ -675,11 +675,6 @@ class Resource(BaseResource):
     or dataset, including encoding and source file references. It serves as a
     base for more specific resource types (e.g., table, raster, vector,
     archive) and is typically initialized by `describe()`.
-
-    Attributes:
-        encoding (str): The text encoding of the resource (e.g., 'utf-8').
-        sources (list[str]): A list of paths to source files that comprise
-            the resource.
     """
 
     encoding: str = ''
