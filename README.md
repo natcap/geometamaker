@@ -69,8 +69,6 @@ for the supported files.
 
 #### Python
 ```python
-import os
-
 import geometamaker
 
 data_dir = 'C:/Users/dmf/projects/invest/data/invest-sample-data'
@@ -82,7 +80,7 @@ geometamaker.describe_all(data_dir, depth=3)
 geometamaker describe -d 3 data/invest-sample-data
 ```
 
-### Creating metadata for a collection of files
+### Creating metadata for a collection of files:
 Users can create a single metadata document to describe a directory of 
 files, with the option of excluding some files using a regular expression.
 
@@ -115,7 +113,7 @@ print(error)
 geometamaker validate data/watershed_gura.shp.yml
 ```
 
-### Validating all metadata documents in a directory
+### Validating all metadata documents in a directory:
 
 ##### Python
 ```python
@@ -144,8 +142,6 @@ during runtime, which takes precedence over a profile in the config file.
 
 #### Create & apply a Profile at runtime
 ```python
-import os
-
 import geometamaker
 from geometamaker import models
 
@@ -169,8 +165,6 @@ resource = geometamaker.describe(data_path, profile=profile)
 
 ##### Python
 ```python
-import os
-
 import geometamaker
 from geometamaker import models
 
