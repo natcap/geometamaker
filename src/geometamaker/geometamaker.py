@@ -515,6 +515,26 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     config = Config()
     resource = resource.replace(config.profile)
 
+    # Check if there is existing metadata for the collection
+    try:
+        existing_metadata = models.CollectionResource.load(
+            f'{directory}-metadata.yml')
+
+        # Copy any existing item descriptions from existing yml to new metadata
+        for item in resource.items:
+            item_desc = [i.description for i in existing_metadata.items if (
+                i.path == item.path)]
+            item.description = item_desc[0] if len(item_desc) == 1 else ''
+
+        # Replace fields in existing yml if new metadata has existing value
+        # This will overwrite: items, geometamaker_version, bytes, format, uid,
+        # path, scheme, type, last_modified, contact, license
+        resource = existing_metadata.replace(resource)
+        # Backtrack and don't update existing items
+
+    except FileNotFoundError:
+        existing_metadata = None
+
     return resource
 
 
