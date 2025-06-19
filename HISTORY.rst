@@ -22,6 +22,9 @@ Unreleased Changes
 * ``describe_dir`` has been renamed to ``describe_all`` and the parameter
   ``recursive`` has been replaced with ``depth`` to allow for more
   fine-grained control.
+* Existing attributes are now preserved when calling
+  ``describe_collection`` on collection with existing metadata.
+  https://github.com/natcap/geometamaker/issues/95
 
 0.1.2 (2025-02-05)
 ------------------
