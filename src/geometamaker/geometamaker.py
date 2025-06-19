@@ -511,10 +511,6 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         uid=uid
     )
 
-    # Add profile metadata
-    config = Config()
-    resource = resource.replace(config.profile)
-
     # Check if there is existing metadata for the collection
     try:
         existing_metadata = models.CollectionResource.load(
@@ -522,17 +518,23 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
 
         # Copy any existing item descriptions from existing yml to new metadata
         for item in resource.items:
-            # Existing metadata's item desc will always overwrite new metadata
-            # desc even if its an empty str
-            item_desc = [i.description for i in existing_metadata.items if (
-                i.path == item.path)]
-            item.description = item_desc[0] if len(item_desc) == 1 else ''
+            # Existing metadata's item desc will overwrite new metadata item
+            # desc if new item desc is ''
+            existing_item_desc = [
+                i.description for i in existing_metadata.items if (
+                    i.path == item.path)]
+            if item.description == '' and len(existing_item_desc) > 0:
+                item.description = existing_item_desc[0]
 
         # Replace fields in existing yml if new metadata has existing value
         resource = existing_metadata.replace(resource)
 
     except FileNotFoundError:
-        existing_metadata = None
+        pass
+
+    # Add profile metadata
+    config = Config()
+    resource = resource.replace(config.profile)
 
     return resource
 
