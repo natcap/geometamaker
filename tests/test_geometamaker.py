@@ -878,6 +878,32 @@ class GeometamakerTests(unittest.TestCase):
                                          describe_files=True)
         self.assertTrue(os.path.exists(raster_path+".yml"))
 
+    def test_describe_collection_existing_yml(self):
+        """test `describe_collection` does not overwrite existing attributes"""
+        import geometamaker
+
+        # Create collection with 1 item
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        csv_path = os.path.join(collection_path, 'table.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
+
+        resource = geometamaker.describe_collection(collection_path)
+
+        # Manually edit the metadata description and an item description
+        resource.set_description("some description")
+        resource.items[0].description = "item 1 description"
+        resource.write()
+
+        new_resource = geometamaker.describe_collection(collection_path)
+
+        # check that the manual descriptions are still present
+        self.assertEqual(new_resource.get_description(), "some description")
+        self.assertEqual(new_resource.items[0].description,
+                         "item 1 description")
+
 
 class ValidationTests(unittest.TestCase):
     """Tests for geometamaker type validation."""
