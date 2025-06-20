@@ -517,6 +517,8 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
             f'{directory}-metadata.yml')
 
         # Copy any existing item descriptions from existing yml to new metadata
+        # Note that descriptions in individual resources' ymls will take
+        # priority over item descriptions from preexisting collection metadata
         for item in resource.items:
             # Existing metadata's item desc will overwrite new metadata item
             # desc if new item desc is ''
