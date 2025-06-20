@@ -511,6 +511,29 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         uid=uid
     )
 
+    # Check if there is existing metadata for the collection
+    try:
+        existing_metadata = models.CollectionResource.load(
+            f'{directory}-metadata.yml')
+
+        # Copy any existing item descriptions from existing yml to new metadata
+        # Note that descriptions in individual resources' ymls will take
+        # priority over item descriptions from preexisting collection metadata
+        for item in resource.items:
+            # Existing metadata's item desc will overwrite new metadata item
+            # desc if new item desc is ''
+            existing_item_desc = [
+                i.description for i in existing_metadata.items if (
+                    i.path == item.path)]
+            if item.description == '' and len(existing_item_desc) > 0:
+                item.description = existing_item_desc[0]
+
+        # Replace fields in existing yml if new metadata has existing value
+        resource = existing_metadata.replace(resource)
+
+    except FileNotFoundError:
+        pass
+
     # Add profile metadata
     config = Config()
     resource = resource.replace(config.profile)
