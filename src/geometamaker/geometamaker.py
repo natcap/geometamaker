@@ -2,6 +2,7 @@ import functools
 import hashlib
 import logging
 import os
+import re
 import requests
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -13,6 +14,7 @@ import pygeoprocessing
 import yaml
 from osgeo import gdal
 from osgeo import osr
+from pathlib import Path
 from pydantic import ValidationError
 import tarfile
 
@@ -105,6 +107,80 @@ def _wkt_to_epsg_units_string(wkt_string):
     return crs_string, units_string
 
 
+def _list_files_with_depth(directory, depth, exclude_regex,
+                           exclude_hidden=True):
+    """List files in directory up to depth
+
+    Args:
+        directory (string): path to a directory
+        depth (int): maximum number of subdirectory levels to traverse when
+            walking through a directory. A value of 1 limits the walk to files
+            in the top-level ``directory`` only. A value of 2 allows
+            descending into immediate subdirectories, etc.
+        exclude_regex (str, optional): a regular expression to pattern-match
+            any files for which you do not want to create metadata.
+        exclude_hidden (bool, default True): whether to ignore hidden files
+
+    Returns:
+        list of relative filepaths in ``directory``
+
+    """
+    directory = Path(directory).resolve()
+    file_list = []
+
+    for path in directory.rglob("*"):
+        relative_path = path.relative_to(directory)
+        current_depth = len(relative_path.parts)
+        if current_depth > depth:
+            continue
+        if exclude_hidden and (
+                any(part.startswith('.') for part in relative_path.parts)):
+            continue
+        file_list.append(str(relative_path))
+
+    # remove excluded files based on regex
+    if exclude_regex:
+        file_list = [f for f in file_list if not re.search(exclude_regex, f)]
+
+    return sorted(file_list)
+
+
+def _group_files_by_root(file_list):
+    """Get set of files (roots) and extensions by filename"""
+    root_set = set()
+    root_ext_map = defaultdict(set)
+    for filepath in file_list:
+        root, ext = os.path.splitext(filepath)
+        # tracking which files share a root name
+        # so we can check if these comprise a shapefile
+        root_ext_map[root].add(ext)
+        root_set.add(root)
+    return root_ext_map, sorted(list(root_set))
+
+
+def _get_collection_size_time_uid(directory):
+    """Get size of directory (in bytes), when it was last modified, and uid"""
+    total_bytes = 0
+    latest_mtime = 0
+
+    for root, _, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            stat = os.stat(file_path)
+            total_bytes += stat.st_size
+            latest_mtime = max(latest_mtime, stat.st_mtime)
+
+    last_modified = datetime.fromtimestamp(latest_mtime, tz=timezone.utc)
+    last_modified_str = last_modified.strftime('%Y-%m-%d %H:%M:%S %Z')
+
+    hash_func = hashlib.sha256()
+    hash_func.update(
+        f'{total_bytes}{last_modified_str}{directory}'.encode('utf-8'))
+    uid = f'sizetimestamp:{hash_func.hexdigest()}'
+
+    return total_bytes, last_modified_str, uid
+
+
 def detect_file_type(filepath, scheme):
     """Detect the type of resource contained in the file.
 
@@ -121,7 +197,6 @@ def detect_file_type(filepath, scheme):
     """
     # TODO: guard against classifying netCDF, HDF5, etc as GDAL rasters.
     # We'll likely want a different data model for multi-dimensional arrays.
-
     # Frictionless supports a wide range of formats. The quickest way to
     # determine if a file is recognized as a table or archive is to call list.
     info = frictionless.list(filepath)[0]
@@ -356,6 +431,124 @@ def describe_table(source_dataset_path, scheme, **kwargs):
     return description
 
 
+def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
+                        exclude_regex=None, exclude_hidden=True,
+                        describe_files=False):
+    """Create a single metadata document to describe a collection of files.
+
+    Describe all the files within a directory as members of a "collection".
+    The resulting metadata resource should include a list of all the files
+    included in the collection along with a description and metadata filepath
+    (or placeholder).
+
+    This is distinct from ``describe_all``, which
+    creates individual metadata files for each supported file in a directory.
+
+    Args:
+        directory (str): path to collection
+        depth (int, optional): maximum number of subdirectory levels to
+            traverse when walking through ``directory`` to find files included
+            in the collection. A value of 1 limits the walk to files in the
+            top-level ``directory`` only. A value of 2 allows descending into
+            immediate subdirectories, etc. All files in all subdirectories in
+            the collection will be included by default.
+        exclude_regex (str, optional): a regular expression to pattern-match
+            any files you do not want included in the output metadata yml.
+        exclude_hidden (bool, default True): whether to exclude hidden files
+            (files that start with ".").
+        describe_files (bool, default False): whether to ``describe`` all
+            files, i.e., create individual metadata files for each supported
+            resource in the collection.
+
+    Returns:
+        Collection metadata
+    """
+    directory = str(Path(directory).resolve())
+
+    file_list = _list_files_with_depth(directory, depth, exclude_regex,
+                                       exclude_hidden)
+
+    root_ext_map, root_list = _group_files_by_root(file_list)
+
+    items = []
+
+    for root in root_list:
+        extensions = root_ext_map[root]
+        if '.shp' in extensions:
+            # if we're dealing with a shapefile, we do not want to describe any
+            # of these other files with the same root name
+            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg'])
+        # Only drop .yml if its sidecar file, i.e. the corresponding data file
+        # (root) exists on disk
+        if '.yml' in extensions and os.path.exists(root):
+            extensions.discard('.yml')
+        for ext in extensions:
+            filepath = os.path.join(directory, f'{root}{ext}')
+            try:
+                this_desc = describe(filepath)
+            except (ValueError, frictionless.FrictionlessException):
+                # if file type isn't supported by geometamaker, e.g. pdf
+                # or if trying to describe a dir
+                this_desc = None
+
+            if describe_files and this_desc:
+                this_desc.write()
+
+            if ext and os.path.exists(filepath + '.yml'):
+                metadata_yml = f'{root}{ext}' + '.yml'
+            else:
+                metadata_yml = ''
+
+            this_resource = models.CollectionItemSchema(
+                path=f'{root}{ext}',
+                description=this_desc.description if this_desc else '',
+                metadata=metadata_yml
+            )
+            items.append(this_resource)
+
+    total_bytes, last_modified, uid = _get_collection_size_time_uid(directory)
+
+    resource = models.CollectionResource(
+        path=directory,
+        type='collection',
+        format='directory',
+        scheme=fsspec.utils.get_protocol(directory),
+        bytes=total_bytes,
+        last_modified=last_modified,
+        items=items,
+        uid=uid
+    )
+
+    # Check if there is existing metadata for the collection
+    try:
+        existing_metadata = models.CollectionResource.load(
+            f'{directory}-metadata.yml')
+
+        # Copy any existing item descriptions from existing yml to new metadata
+        # Note that descriptions in individual resources' ymls will take
+        # priority over item descriptions from preexisting collection metadata
+        for item in resource.items:
+            # Existing metadata's item desc will overwrite new metadata item
+            # desc if new item desc is ''
+            existing_item_desc = [
+                i.description for i in existing_metadata.items if (
+                    i.path == item.path)]
+            if item.description == '' and len(existing_item_desc) > 0:
+                item.description = existing_item_desc[0]
+
+        # Replace fields in existing yml if new metadata has existing value
+        resource = existing_metadata.replace(resource)
+
+    except FileNotFoundError:
+        pass
+
+    # Add profile metadata
+    config = Config()
+    resource = resource.replace(config.profile)
+
+    return resource
+
+
 DESCRIBE_FUNCS = {
     'archive': describe_archive,
     'table': describe_table,
@@ -529,45 +722,42 @@ def validate_dir(directory, recursive=False):
     return (yaml_files, messages)
 
 
-def describe_dir(directory, recursive=False, **kwargs):
-    """Describe all compatible datasets in the directory.
+def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
+                 exclude_regex=None, **kwargs):
+    """Describe compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
     such as ESRI Shapefiles, one time.
 
     Args:
         directory (string): path to a directory
-        recursive (bool): whether or not to describe files
-            in all subdirectories
-
+        depth (int): maximum number of subdirectory levels to traverse when
+            walking through a directory. A value of 1 limits the walk to files
+            in the top-level ``directory`` only. A value of 2 allows
+            descending into immediate subdirectories, etc. By default, all
+            supported files in all subdirectories in ``directory`` will
+            be described.
+        exclude_regex (str, optional): a regular expression to pattern-match
+            any files for which you do not want to create metadata.
     Returns:
         None
 
     """
-    root_set = set()
-    root_ext_map = defaultdict(set)
-    for path, dirs, files in os.walk(directory):
-        for file in files:
-            full_path = os.path.join(path, file)
-            root, ext = os.path.splitext(full_path)
-            # tracking which files share a root name
-            # so we can check if these comprise a shapefile
-            root_ext_map[root].add(ext)
-            root_set.add(root)
-        if not recursive:
-            break
+    file_list = _list_files_with_depth(directory, depth, exclude_regex)
+    root_ext_map, root_set = _group_files_by_root(file_list)
 
     for root in root_set:
         extensions = root_ext_map[root]
         if '.shp' in extensions:
             # if we're dealing with a shapefile, we do not want to describe any
             # of these other files with the same root name
-            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', 'cpg'])
+            extensions.difference_update(
+                ['.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg'])
         for ext in extensions:
-            filepath = f'{root}{ext}'
+            filepath = os.path.join(directory, f'{root}{ext}')
             try:
                 resource = describe(filepath, **kwargs)
-            except ValueError as error:
+            except (ValueError, frictionless.FrictionlessException) as error:
                 LOGGER.debug(error)
                 continue
             resource.write()

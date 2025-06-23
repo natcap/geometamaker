@@ -4,6 +4,7 @@ import sys
 
 import click
 import fsspec
+import numpy
 from pydantic import ValidationError
 
 import geometamaker
@@ -71,11 +72,11 @@ class _URL(click.ParamType):
 @click.argument('filepath',
                 type=_ParamUnion([click.Path(exists=True), _URL()],
                                  report_all_errors=False))
-@click.option('-r', '--recursive',
-              is_flag=True,
-              default=False,
-              help='if FILEPATH is a directory, describe files '
-                   'in all subdirectories')
+@click.option('-d', '--depth',
+              default=numpy.iinfo(numpy.int16).max,
+              help='if FILEPATH is a directory, describe files in'
+                   'subdirectories up to depth. Defaults to to describing '
+                   'all files.')
 @click.option('-nw', '--no-write',
               is_flag=True,
               default=False,
@@ -85,18 +86,18 @@ class _URL(click.ParamType):
               is_flag=True,
               default=False,
               help='Compute raster band statistics.')
-def describe(filepath, recursive, no_write, stats):
+def describe(filepath, depth, no_write, stats):
     if os.path.isdir(filepath):
         if no_write:
             click.echo('the -nw, or --no-write, flag is ignored when '
                        'describing all files in a directory.')
-        geometamaker.describe_dir(
-            filepath, recursive=recursive, compute_stats=stats)
+        geometamaker.describe_all(
+            filepath, depth=depth, compute_stats=stats)
     else:
         resource = geometamaker.describe(filepath, compute_stats=stats)
         if no_write:
             click.echo(geometamaker.utils.yaml_dump(
-                resource.model_dump(exclude=['metadata_path'])))
+                resource._dump_for_write()))
         else:
             try:
                 resource.write()

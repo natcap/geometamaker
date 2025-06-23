@@ -7,4 +7,5 @@ Metadata Resource Models
    vector_resource
    table_resource
    archive_resource
+   collection_resource
    profile
