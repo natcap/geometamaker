@@ -314,6 +314,22 @@ class GeometamakerTests(unittest.TestCase):
              'STATISTICS_STDDEV': '0',
              'STATISTICS_VALID_PERCENT': '100'})
 
+    def test_describe_raster_band_compute_statistics(self):
+        """Test band statistics will be included if they already exist."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path, n_bands=1)
+
+        resource = geometamaker.describe(datasource_path, compute_stats=True)
+        self.assertEqual(
+            resource.data_model.bands[0].gdal_metadata,
+            {'STATISTICS_MINIMUM': '1',
+             'STATISTICS_MAXIMUM': '1',
+             'STATISTICS_MEAN': '1',
+             'STATISTICS_STDDEV': '0',
+             'STATISTICS_VALID_PERCENT': '100'})
+
     def test_describe_raster_with_gdal_metadata(self):
         """Test raster metadata will be included if they already exist."""
         import geometamaker
@@ -1033,6 +1049,19 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+    
+    def test_cli_describe_with_stats(self):
+        """CLI: test describe with stats option."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['describe', '--stats', datasource_path])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
 
     def test_cli_describe_recursive(self):
         """CLI: test describe with recursive option."""
@@ -1059,6 +1088,7 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+
 
     def test_cli_describe_remote_file(self):
         """CLI: test describe on a remote file at a URL."""
