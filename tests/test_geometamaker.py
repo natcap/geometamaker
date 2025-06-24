@@ -1122,7 +1122,7 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
-    
+
     def test_cli_describe_with_stats(self):
         """CLI: test describe with stats option."""
         from geometamaker import cli
@@ -1131,10 +1131,10 @@ class CLITests(unittest.TestCase):
         create_raster(numpy.int16, datasource_path)
 
         runner = CliRunner()
-        result = runner.invoke(cli.cli, ['describe', '--stats', datasource_path])
+        result = runner.invoke(
+            cli.cli, ['describe', '--stats', '-nw', datasource_path])
         self.assertEqual(result.exit_code, 0)
-        self.assertEqual(result.output, '')
-        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+        self.assertIn('STATISTICS_VALID_PERCENT', result.output)
 
     def test_cli_describe_recursive(self):
         """CLI: test describe with recursive option."""
@@ -1161,7 +1161,6 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
-
 
     def test_cli_describe_remote_file(self):
         """CLI: test describe on a remote file at a URL."""
