@@ -270,6 +270,7 @@ def describe_archive(source_dataset_path, scheme, **kwargs):
     Args:
         source_dataset_path (str): path to a file.
         scheme (str): the protocol prefix of the filepath
+        kwargs (dict): additional options when describing a dataset.
 
     Returns:
         dict
@@ -319,6 +320,8 @@ def describe_vector(source_dataset_path, scheme, **kwargs):
 
     Args:
         source_dataset_path (str): path to a GDAL vector.
+        scheme (str): the protocol prefix of the filepath
+        kwargs (dict): additional options when describing a dataset.
 
     Returns:
         dict
@@ -361,6 +364,10 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
 
     Args:
         source_dataset_path (str): path to a GDAL raster.
+        scheme (str): the protocol prefix of the filepath
+        kwargs (dict): additional options when describing a dataset:
+            * ``'compute_stats'`` (bool): whether to compute statistics
+              for each band in the raster. Default is False.
 
     Returns:
         dict
@@ -420,6 +427,7 @@ def describe_table(source_dataset_path, scheme, **kwargs):
     Args:
         source_dataset_path (str): path to a file representing a table.
         scheme (str): the protocol prefix of the filepath
+        kwargs (dict): additional options when describing a dataset.
 
     Returns:
         dict
@@ -459,6 +467,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         describe_files (bool, default False): whether to ``describe`` all
             files, i.e., create individual metadata files for each supported
             resource in the collection.
+        kwargs (dict): additional options to pass to ``describe``.
 
     Returns:
         Collection metadata
@@ -577,6 +586,9 @@ def describe(source_dataset_path, profile=None, **kwargs):
             metadata applies
         profile (geometamaker.models.Profile): a profile object from
             which to populate some metadata attributes
+        kwargs (dict): additional options when describing a dataset:
+            * ``'compute_stats'`` (bool): whether to compute statistics
+              for each band in a raster. Default is False.
 
     Returns:
         geometamaker.models.Resource: a metadata object
@@ -739,6 +751,8 @@ def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
             be described.
         exclude_regex (str, optional): a regular expression to pattern-match
             any files for which you do not want to create metadata.
+        kwargs (dict): additional options to pass to ``describe``.
+
     Returns:
         None
 
