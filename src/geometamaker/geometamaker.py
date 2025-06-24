@@ -386,13 +386,11 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
         band = raster.GetRasterBand(b)
         if compute_stats:
             try:
-                # Always ComputeStatistics instead of using GetStatistics
-                # because if stats already exist, they will be included
-                # in gdal_metadata even if compute_stats=False. So the
-                # use-cases for compute_stats=True are when the user
-                # knows stats don't already exist, or they want to re-compute
-                # them.
-                _ = band.ComputeStatistics(0)
+                # 0=do not approximate stats, 1=calculate if they don't exist
+                # If exact stats exist they will be retrieved without
+                # computing them, otherwise, this forces computation.
+                # https://github.com/OSGeo/gdal/blob/master/gcore/gdalrasterband.cpp
+                _ = band.GetStatistics(0, 1)
             except RuntimeError as e:
                 LOGGER.warning(
                     f'Could not compute statistics for band {b} of '
