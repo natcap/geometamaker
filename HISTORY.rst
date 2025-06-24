@@ -10,6 +10,9 @@ Unreleased Changes
 * Metadata documents for raster and vector datasets now include metadata
   key:value pairs that are defined on the GDAL raster, band, vector, and
   layer objects. https://github.com/natcap/geometamaker/issues/68
+* Added an option to compute raster band statistics when calling ``describe``.
+  Statistics are included in the ``gdal_metadata`` section of metadata documents.
+  https://github.com/natcap/geometamaker/issues/77
 * Vector metadata documents now include a 'data_model.layers' section
   for properties of the dataset that are specific to the layer.
   Existing metadata documents can be migrated to this new schema by

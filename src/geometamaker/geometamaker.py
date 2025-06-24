@@ -264,12 +264,13 @@ def describe_file(source_dataset_path, scheme):
     return description
 
 
-def describe_archive(source_dataset_path, scheme):
+def describe_archive(source_dataset_path, scheme, **kwargs):
     """Describe file properties of a compressed file.
 
     Args:
         source_dataset_path (str): path to a file.
         scheme (str): the protocol prefix of the filepath
+        kwargs (dict): additional options when describing a dataset.
 
     Returns:
         dict
@@ -314,11 +315,13 @@ def describe_archive(source_dataset_path, scheme):
     return description
 
 
-def describe_vector(source_dataset_path, scheme):
+def describe_vector(source_dataset_path, scheme, **kwargs):
     """Describe properties of a GDAL vector file.
 
     Args:
         source_dataset_path (str): path to a GDAL vector.
+        scheme (str): the protocol prefix of the filepath
+        kwargs (dict): additional options when describing a dataset.
 
     Returns:
         dict
@@ -356,16 +359,21 @@ def describe_vector(source_dataset_path, scheme):
     return description
 
 
-def describe_raster(source_dataset_path, scheme):
+def describe_raster(source_dataset_path, scheme, **kwargs):
     """Describe properties of a GDAL raster file.
 
     Args:
         source_dataset_path (str): path to a GDAL raster.
+        scheme (str): the protocol prefix of the filepath
+        kwargs (dict): additional options when describing a dataset:
+            * ``'compute_stats'`` (bool): whether to compute statistics
+              for each band in the raster. Default is False.
 
     Returns:
         dict
 
     """
+    compute_stats = kwargs.get('compute_stats', False)
     description = describe_file(source_dataset_path, scheme)
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
@@ -376,6 +384,17 @@ def describe_raster(source_dataset_path, scheme):
     for i in range(info['n_bands']):
         b = i + 1
         band = raster.GetRasterBand(b)
+        if compute_stats:
+            try:
+                # 0=do not approximate stats, 1=calculate if they don't exist
+                # If exact stats exist they will be retrieved without
+                # computing them, otherwise, this forces computation.
+                # https://github.com/OSGeo/gdal/blob/master/gcore/gdalrasterband.cpp
+                _ = band.GetStatistics(0, 1)
+            except RuntimeError as e:
+                LOGGER.warning(
+                    f'Could not compute statistics for band {b} of '
+                    f'{source_dataset_path}: {e}')
         band_gdal_metadata = band.GetMetadata()
 
         bands.append(models.BandSchema(
@@ -406,12 +425,13 @@ def describe_raster(source_dataset_path, scheme):
     return description
 
 
-def describe_table(source_dataset_path, scheme):
+def describe_table(source_dataset_path, scheme, **kwargs):
     """Describe properties of a tabular dataset.
 
     Args:
         source_dataset_path (str): path to a file representing a table.
         scheme (str): the protocol prefix of the filepath
+        kwargs (dict): additional options when describing a dataset.
 
     Returns:
         dict
@@ -425,7 +445,7 @@ def describe_table(source_dataset_path, scheme):
 
 def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                         exclude_regex=None, exclude_hidden=True,
-                        describe_files=False):
+                        describe_files=False, **kwargs):
     """Create a single metadata document to describe a collection of files.
 
     Describe all the files within a directory as members of a "collection".
@@ -451,6 +471,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         describe_files (bool, default False): whether to ``describe`` all
             files, i.e., create individual metadata files for each supported
             resource in the collection.
+        kwargs (dict): optional keyward arguments accepted by ``describe``.
 
     Returns:
         Collection metadata
@@ -477,7 +498,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         for ext in extensions:
             filepath = os.path.join(directory, f'{root}{ext}')
             try:
-                this_desc = describe(filepath)
+                this_desc = describe(filepath, **kwargs)
             except (ValueError, frictionless.FrictionlessException):
                 # if file type isn't supported by geometamaker, e.g. pdf
                 # or if trying to describe a dir
@@ -557,7 +578,7 @@ RESOURCE_MODELS = {
 
 
 @_osgeo_use_exceptions
-def describe(source_dataset_path, profile=None):
+def describe(source_dataset_path, profile=None, compute_stats=False):
     """Create a metadata resource instance with properties of the dataset.
 
     Properties of the dataset are used to populate as many metadata
@@ -569,6 +590,8 @@ def describe(source_dataset_path, profile=None):
             metadata applies
         profile (geometamaker.models.Profile): a profile object from
             which to populate some metadata attributes
+        compute_stats (bool): whether to compute statistics
+            for each band in a raster.
 
     Returns:
         geometamaker.models.Resource: a metadata object
@@ -593,7 +616,7 @@ def describe(source_dataset_path, profile=None):
             f'is not one of the suppored file protocols: {PROTOCOLS}')
     resource_type = detect_file_type(source_dataset_path, protocol)
     description = DESCRIBE_FUNCS[resource_type](
-        source_dataset_path, protocol)
+        source_dataset_path, protocol, compute_stats=compute_stats)
     description['type'] = resource_type
     resource = RESOURCE_MODELS[resource_type](**description)
 
@@ -715,7 +738,7 @@ def validate_dir(directory, recursive=False):
 
 
 def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
-                 exclude_regex=None):
+                 exclude_regex=None, **kwargs):
     """Describe compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
@@ -731,6 +754,8 @@ def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
             be described.
         exclude_regex (str, optional): a regular expression to pattern-match
             any files for which you do not want to create metadata.
+        kwargs (dict): additional options to pass to ``describe``.
+
     Returns:
         None
 
@@ -743,11 +768,12 @@ def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
         if '.shp' in extensions:
             # if we're dealing with a shapefile, we do not want to describe any
             # of these other files with the same root name
-            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg'])
+            extensions.difference_update(
+                ['.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg'])
         for ext in extensions:
             filepath = os.path.join(directory, f'{root}{ext}')
             try:
-                resource = describe(filepath)
+                resource = describe(filepath, **kwargs)
             except (ValueError, frictionless.FrictionlessException) as error:
                 LOGGER.debug(error)
                 continue
