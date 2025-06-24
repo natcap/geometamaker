@@ -433,7 +433,7 @@ def describe_table(source_dataset_path, scheme, **kwargs):
 
 def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                         exclude_regex=None, exclude_hidden=True,
-                        describe_files=False):
+                        describe_files=False, **kwargs):
     """Create a single metadata document to describe a collection of files.
 
     Describe all the files within a directory as members of a "collection".
@@ -485,7 +485,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         for ext in extensions:
             filepath = os.path.join(directory, f'{root}{ext}')
             try:
-                this_desc = describe(filepath)
+                this_desc = describe(filepath, **kwargs)
             except (ValueError, frictionless.FrictionlessException):
                 # if file type isn't supported by geometamaker, e.g. pdf
                 # or if trying to describe a dir
