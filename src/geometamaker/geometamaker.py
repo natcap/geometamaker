@@ -386,6 +386,12 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
         band = raster.GetRasterBand(b)
         if compute_stats:
             try:
+                # Always ComputeStatistics instead of using GetStatistics
+                # because if stats already exist, they will be included
+                # in gdal_metadata even if compute_stats=False. So the
+                # use-cases for compute_stats=True are when the user
+                # knows stats don't already exist, or they want to re-compute
+                # them.
                 _ = band.ComputeStatistics(0)
             except RuntimeError as e:
                 LOGGER.warning(
@@ -467,7 +473,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         describe_files (bool, default False): whether to ``describe`` all
             files, i.e., create individual metadata files for each supported
             resource in the collection.
-        kwargs (dict): additional options to pass to ``describe``.
+        kwargs (dict): optional keyward arguments accepted by ``describe``.
 
     Returns:
         Collection metadata
@@ -574,7 +580,7 @@ RESOURCE_MODELS = {
 
 
 @_osgeo_use_exceptions
-def describe(source_dataset_path, profile=None, **kwargs):
+def describe(source_dataset_path, profile=None, compute_stats=False):
     """Create a metadata resource instance with properties of the dataset.
 
     Properties of the dataset are used to populate as many metadata
@@ -586,9 +592,8 @@ def describe(source_dataset_path, profile=None, **kwargs):
             metadata applies
         profile (geometamaker.models.Profile): a profile object from
             which to populate some metadata attributes
-        kwargs (dict): additional options when describing a dataset:
-            * ``'compute_stats'`` (bool): whether to compute statistics
-              for each band in a raster. Default is False.
+        compute_stats (bool): whether to compute statistics
+            for each band in a raster.
 
     Returns:
         geometamaker.models.Resource: a metadata object
@@ -613,7 +618,7 @@ def describe(source_dataset_path, profile=None, **kwargs):
             f'is not one of the suppored file protocols: {PROTOCOLS}')
     resource_type = detect_file_type(source_dataset_path, protocol)
     description = DESCRIBE_FUNCS[resource_type](
-        source_dataset_path, protocol, **kwargs)
+        source_dataset_path, protocol, compute_stats=compute_stats)
     description['type'] = resource_type
     resource = RESOURCE_MODELS[resource_type](**description)
 
