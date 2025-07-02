@@ -578,7 +578,7 @@ RESOURCE_MODELS = {
 
 
 @_osgeo_use_exceptions
-def describe(source_dataset_path, profile=None, compute_stats=False):
+def describe(source_dataset_path, compute_stats=False):
     """Create a metadata resource instance with properties of the dataset.
 
     Properties of the dataset are used to populate as many metadata
@@ -588,8 +588,6 @@ def describe(source_dataset_path, profile=None, compute_stats=False):
     Args:
         source_dataset_path (string): path or URL to dataset to which the
             metadata applies
-        profile (geometamaker.models.Profile): a profile object from
-            which to populate some metadata attributes
         compute_stats (bool): whether to compute statistics
             for each band in a raster.
 
@@ -597,10 +595,6 @@ def describe(source_dataset_path, profile=None, compute_stats=False):
         geometamaker.models.Resource: a metadata object
 
     """
-    config = Config()
-    user_profile = config.profile
-    if profile is not None:
-        user_profile = user_profile.replace(profile)
 
     metadata_path = f'{source_dataset_path}.yml'
 
@@ -658,7 +652,8 @@ def describe(source_dataset_path, profile=None, compute_stats=False):
     except FileNotFoundError:
         pass
 
-    resource = resource.replace(user_profile)
+    config = Config()
+    resource = resource.replace(config.profile)
     return resource
 
 

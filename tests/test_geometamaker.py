@@ -653,28 +653,6 @@ class GeometamakerTests(unittest.TestCase):
         field2 = new_resource.get_field_description(field2_name)
         self.assertEqual(field2.type, 'String')
 
-    def test_preexisting_metadata_document_new_profile(self):
-        """Test ammending an existing Metadata document with a profile."""
-        import geometamaker
-
-        title = 'Title'
-        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-        create_raster(numpy.int16, datasource_path)
-        resource = geometamaker.describe(datasource_path)
-        resource.set_title(title)
-        resource.set_contact(individual_name='alice')
-        resource.write()
-
-        # Describe the same dataset, with new profile info
-        profile = geometamaker.Profile()
-        profile.set_contact(individual_name='bob')
-        new_resource = geometamaker.describe(datasource_path, profile=profile)
-
-        self.assertEqual(
-            new_resource.get_title(), title)
-        self.assertEqual(
-            new_resource.contact.individual_name, 'bob')
-
     def test_preexisting_metadata_profile_not_overwritten(self):
         """Test doc with contact info is not overwritten by blank profile."""
         import geometamaker
@@ -1020,40 +998,6 @@ class ConfigurationTests(unittest.TestCase):
                          resource.get_contact().individual_name)
         # expect a default value for license title
         self.assertEqual('', resource.get_license().title)
-
-    @patch('geometamaker.config.platformdirs.user_config_dir')
-    def test_runtime_configuration(self, mock_user_config_dir):
-        """Test runtime config overrides user-level config."""
-        mock_user_config_dir.return_value = self.workspace_dir
-        import geometamaker
-        from geometamaker import models
-
-        contact = {
-            'individual_name': 'bob'
-        }
-        license = {
-            'title': 'CC-BY-4'
-        }
-        profile = models.Profile()
-        profile.set_contact(**contact)
-        profile.set_license(**license)
-        config = geometamaker.Config()
-        config.save(profile)
-
-        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-        create_raster(numpy.int16, datasource_path)
-
-        runtime_profile = models.Profile()
-        runtime_contact = {'individual_name': 'jane'}
-        runtime_profile.set_contact(**runtime_contact)
-
-        resource = geometamaker.describe(
-            datasource_path, profile=runtime_profile)
-        self.assertEqual(runtime_contact['individual_name'],
-                         resource.get_contact().individual_name)
-        # license was not part of profile passed at runtime,
-        # so it should default to the user-config
-        self.assertEqual(license['title'], resource.get_license().title)
 
     def test_missing_config(self):
         """Test default profile is instantiated if config file is missing."""
