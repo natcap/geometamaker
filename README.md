@@ -137,10 +137,9 @@ to all datasets they describe. Profiles can include `contact` information
 and/or `license` information.
 
 A profile can be saved to a configuration file so that it will be re-used
-everytime you use `geometamaker`. In addition, users can set a profile
-during runtime, which takes precedence over a profile in the config file.
+everytime you use `geometamaker`.
 
-#### Create & apply a Profile at runtime
+##### Python
 ```python
 import geometamaker
 from geometamaker import models
@@ -156,30 +155,11 @@ license = {
 profile = models.Profile(contact=contact)  # keyword arguments
 profile.set_license(**license)             # `set_*` methods
 
-data_path = 'data/watershed_gura.shp'
-# Pass the profile to the `describe` function
-resource = geometamaker.describe(data_path, profile=profile)
-```
-
-#### Store a Profile in user-configuration
-
-##### Python
-```python
-import geometamaker
-from geometamaker import models
-
-contact = {
-    'individual_name': 'bob'
-}
-
-profile = models.Profile(contact=contact)
 config = geometamaker.Config()
 config.save(profile)
 
-data_path = 'data/watershed_gura.shp'
-# A profile saved in the user's configuration file does not
-# need to be passed to `describe`. It is always applied.
-resource = geometamaker.describe(data_path)
+# The saved profile will automatically be applied during `describe`:
+resource = geometamaker.describe('data/watershed_gura.shp')
 ```
 
 ##### CLI

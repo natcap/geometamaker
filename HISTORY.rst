@@ -28,6 +28,11 @@ Unreleased Changes
 * Existing attributes are now preserved when calling
   ``describe_collection`` on collection with existing metadata.
   https://github.com/natcap/geometamaker/issues/95
+* Removed the ``profile`` argument to ``describe``. ``set_contact`` and
+  ``set_license`` can still be used to set those metadata properties.
+  ``Config`` can still be used to create and store a default profile.
+  https://github.com/natcap/geometamaker/issues/92
+
 
 0.1.2 (2025-02-05)
 ------------------
