@@ -99,8 +99,14 @@ def describe(filepath, depth, no_write, stats):
             click.echo(geometamaker.utils.yaml_dump(
                 resource._dump_for_write()))
         else:
+            if resource._would_overwrite:
+                click.confirm(
+                    f'{resource.metadata_path} is about to be overwritten because it is'
+                    f' not a valid metadata document. Are you sure want to continue?',
+                    abort=True)
             try:
-                resource.write()
+                # Users can abort at the confirm and manage their own backups.
+                resource.write(backup=False)
             except OSError:
                 click.echo(
                     f'geometamaker could not write to {resource.metadata_path}\n'

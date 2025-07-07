@@ -651,10 +651,10 @@ def describe(source_dataset_path, compute_stats=False):
     except (ValueError, ValidationError) as error:
         LOGGER.warning(error)
         LOGGER.warning(
-            f'ignoring an existing YAML document: {metadata_path} because it'
+            f'Ignoring an existing YAML document: {metadata_path} because it'
             f' is invalid or incompatible. A subsequent call to `.write()` will'
-            f' replace this file, but it will be backed up to {metadata_path}.bak.'
-            f' Use `.write(backup=False)` to skip the backup.')
+            f' replace this file, but it will be backed up to {metadata_path}.bak.\n'
+            f'Use `.write(backup=False)` to skip the backup.\n')
         resource._would_overwrite = True
 
     except FileNotFoundError:
@@ -742,7 +742,7 @@ def validate_dir(directory, recursive=False):
 
 
 def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
-                 exclude_regex=None, **kwargs):
+                 exclude_regex=None, backup=True, **kwargs):
     """Describe compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
@@ -758,6 +758,9 @@ def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
             be described.
         exclude_regex (str, optional): a regular expression to pattern-match
             any files for which you do not want to create metadata.
+        backup (bool): whether to write a backup of a pre-existing metadata
+            file before ovewriting it in cases where that file is not a valid
+            geometamaker document.
         kwargs (dict): additional options to pass to ``describe``.
 
     Returns:
@@ -781,5 +784,5 @@ def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
             except (ValueError, frictionless.FrictionlessException) as error:
                 LOGGER.debug(error)
                 continue
-            resource.write()
+            resource.write(backup=backup)
             LOGGER.info(f'{filepath} described')
