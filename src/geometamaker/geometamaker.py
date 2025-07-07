@@ -648,8 +648,17 @@ def describe(source_dataset_path, compute_stats=False):
                         units=efield.units)
         resource = existing_resource.replace(resource)
 
-    # Common path: metadata file does not already exist
+    except (ValueError, ValidationError) as error:
+        LOGGER.warning(error)
+        LOGGER.warning(
+            f'ignoring an existing YAML document: {metadata_path} because it'
+            f' is invalid or incompatible. A subsequent call to `.write()` will'
+            f' replace this file, but it will be backed up to {metadata_path}.bak.'
+            f' Use `.write(backup=False)` to skip the backup.')
+        resource._would_overwrite = True
+
     except FileNotFoundError:
+        # Common path: metadata file does not already exist
         pass
 
     config = Config()

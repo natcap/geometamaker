@@ -671,8 +671,8 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(
             new_resource.contact.individual_name, 'alice')
 
-    def test_preexisting_incompatible_doc(self):
-        """Test when yaml file not created by geometamaker already exists."""
+    def test_preexisting_invalid_doc(self):
+        """Test when invalid yaml file already exists."""
         import geometamaker
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
@@ -681,12 +681,27 @@ class GeometamakerTests(unittest.TestCase):
             file.write(yaml.dump({'foo': 'bar'}))
         create_raster(numpy.int16, datasource_path)
 
-        # Describing a dataset that already has an incompatible yaml
-        # sidecar file should raise an exception.
-        with self.assertRaises(ValueError) as cm:
+        # Describing a dataset that already has an invalid yaml
+        # sidecar file should issue a warning.
+        with self.assertLogs('geometamaker', level='WARNING') as cm:
             _ = geometamaker.describe(datasource_path)
-        expected_message = 'exists but is not compatible with'
-        self.assertIn(expected_message, str(cm.exception))
+        expected_message = 'ignoring an existing YAML document'
+        self.assertIn(expected_message, ';'.join(cm.output))
+
+    def test_backup_invalid_doc_before_overwriting(self):
+        """Backup invalid yaml file instead of overwriting."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        target_yml_path = f'{datasource_path}.yml'
+        with open(target_yml_path, 'w') as file:
+            file.write(yaml.dump({'foo': 'bar'}))
+        create_raster(numpy.int16, datasource_path)
+
+        resource = geometamaker.describe(datasource_path)
+        resource.write()
+        self.assertTrue(os.path.exists(f'{target_yml_path}.bak'))
+        self.assertTrue(os.path.exists(os.path.join(resource.metadata_path)))
 
     def test_write_to_local_workspace(self):
         """Test write metadata to a different location."""
