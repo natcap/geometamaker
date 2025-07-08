@@ -9,13 +9,16 @@ from pydantic import ValidationError
 
 import geometamaker
 
-ROOT_LOGGER = logging.getLogger()
-ROOT_LOGGER.setLevel(logging.DEBUG)
+LOGGER = logging.getLogger('geometamaker')
+LOGGER.setLevel(logging.DEBUG)
 HANDLER = logging.StreamHandler(sys.stdout)
 FORMATTER = logging.Formatter(
     fmt='%(asctime)s %(name)-18s %(levelname)-8s %(message)s',
     datefmt='%m/%d/%Y %H:%M:%S ')
 HANDLER.setFormatter(FORMATTER)
+LOGGER.addFilter(
+    lambda record: not record.__dict__.get(
+        geometamaker.geometamaker._NOT_FOR_CLI, False))
 
 
 # The recommended approach to allowing multiple ParamTypes
@@ -101,8 +104,9 @@ def describe(filepath, depth, no_write, stats):
         else:
             if resource._would_overwrite:
                 click.confirm(
-                    f'{resource.metadata_path} is about to be overwritten because it is'
-                    f' not a valid metadata document. Are you sure want to continue?',
+                    f'\n{resource.metadata_path} is about to be overwritten because it is'
+                    f' not a valid metadata document.\n'    
+                    'Are you sure want to continue?',
                     abort=True)
             try:
                 # Users can abort at the confirm and manage their own backups.
@@ -170,7 +174,7 @@ def delete_config(ctx, param, value):
         return
     config = geometamaker.Config()
     click.confirm(
-        f'Are you sure you want to delete {config.config_path}?',
+        f'\nAre you sure you want to delete {config.config_path}?',
         abort=True)
     config.delete()
     ctx.exit()
@@ -224,7 +228,7 @@ def config(individual_name, email, organization, position_name,
 def cli(verbosity):
     log_level = logging.ERROR - verbosity*10
     HANDLER.setLevel(log_level)
-    ROOT_LOGGER.addHandler(HANDLER)
+    LOGGER.addHandler(HANDLER)
 
 
 cli.add_command(describe)

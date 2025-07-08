@@ -23,7 +23,11 @@ from .config import Config
 
 logging.getLogger('chardet').setLevel(logging.INFO)  # DEBUG is just too noisy
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger('geometamaker')
+_NOT_FOR_CLI = 'not_for_cli'
+_LOG_EXTRA_NOT_FOR_CLI = {
+    _NOT_FOR_CLI: True
+}
 
 # URI schemes we support. A subset of fsspec.available_protocols()
 PROTOCOLS = [
@@ -556,9 +560,12 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         LOGGER.warning(error)
         LOGGER.warning(
             f'Ignoring an existing YAML document: {metadata_path} because it'
-            f' is invalid or incompatible. A subsequent call to `.write()` will'
-            f' replace this file, but it will be backed up to {metadata_path}.bak.\n'
-            f'Use `.write(backup=False)` to skip the backup.\n')
+            f' is invalid or incompatible.')
+        LOGGER.warning(
+            'A subsequent call to `.write()` will replace this file, but it'
+            ' will be backed up to {metadata_path}.bak.\n'
+            f'Use `.write(backup=False)` to skip the backup.\n',
+            extra=_LOG_EXTRA_NOT_FOR_CLI)
         resource._would_overwrite = True
 
     except FileNotFoundError:
@@ -661,9 +668,12 @@ def describe(source_dataset_path, compute_stats=False):
         LOGGER.warning(error)
         LOGGER.warning(
             f'Ignoring an existing YAML document: {metadata_path} because it'
-            f' is invalid or incompatible. A subsequent call to `.write()` will'
-            f' replace this file, but it will be backed up to {metadata_path}.bak.\n'
-            f'Use `.write(backup=False)` to skip the backup.\n')
+            f' is invalid or incompatible.')
+        LOGGER.warning(
+            'A subsequent call to `.write()` will replace this file, but it'
+            ' will be backed up to {metadata_path}.bak.\n'
+            f'Use `.write(backup=False)` to skip the backup.\n',
+            extra=_LOG_EXTRA_NOT_FOR_CLI)
         resource._would_overwrite = True
 
     except FileNotFoundError:

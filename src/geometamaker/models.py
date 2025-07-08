@@ -15,7 +15,8 @@ import geometamaker
 from . import utils
 
 
-LOGGER = logging.getLogger(__name__)
+# LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger('geometamaker')
 
 
 def _deep_update_dict(self_dict, other_dict):

@@ -685,8 +685,11 @@ class GeometamakerTests(unittest.TestCase):
         # sidecar file should issue a warning.
         with self.assertLogs('geometamaker', level='WARNING') as cm:
             _ = geometamaker.describe(datasource_path)
-        expected_message = 'Ignoring an existing YAML document'
-        self.assertIn(expected_message, ';'.join(cm.output))
+        msg1 = 'Ignoring an existing YAML document'
+        msg2 = 'A subsequent call to `.write()` will replace this file'
+        actualMessages = ';'.join(cm.output)
+        self.assertIn(msg1, actualMessages)
+        self.assertIn(msg2, actualMessages)
 
     def test_backup_invalid_doc_before_overwriting(self):
         """Backup invalid yaml file instead of overwriting."""
@@ -934,8 +937,11 @@ class GeometamakerTests(unittest.TestCase):
         # sidecar file should issue a warning.
         with self.assertLogs('geometamaker', level='WARNING') as cm:
             _ = geometamaker.describe_collection(collection_path)
-        expected_message = 'Ignoring an existing YAML document'
-        self.assertIn(expected_message, ';'.join(cm.output))
+        msg1 = 'Ignoring an existing YAML document'
+        msg2 = 'A subsequent call to `.write()` will replace this file'
+        actualMessages = ';'.join(cm.output)
+        self.assertIn(msg1, actualMessages)
+        self.assertIn(msg2, actualMessages)
 
 
 class ValidationTests(unittest.TestCase):
@@ -1175,17 +1181,26 @@ class CLITests(unittest.TestCase):
 
         runner = CliRunner()
         # Describe should prompt for confirmation before overwriting the file
-        result = runner.invoke(cli.cli, ['describe', datasource_path], input='n\n')
+        result = runner.invoke(
+            cli.cli, ['describe', datasource_path], input='n\n')
         self.assertEqual(result.exit_code, 1)  # Aborted
         # The incompatible yml doc should still exist.
         with self.assertRaises(ValueError):
             _ = geometamaker.validate(target_path)
 
-        result = runner.invoke(cli.cli, ['describe', datasource_path], input='y\n')
-        self.assertEqual(result.exit_code, 0)  # Did not abort. 
+        with self.assertLogs('geometamaker', level='WARNING') as cm:
+            result = runner.invoke(
+                cli.cli, ['describe', datasource_path], input='y\n')
+        self.assertEqual(result.exit_code, 0)  # Did not abort.
         # Should have a valid yml doc.
         error = geometamaker.validate(target_path)
         self.assertIsNone(error)
+        # Logging for CLI should be filtered
+        msg1 = 'Ignoring an existing YAML document'
+        msg2 = 'A subsequent call to `.write()` will replace this file'
+        actualMessages = ';'.join(cm.output)
+        self.assertIn(msg1, actualMessages)
+        self.assertNotIn(msg2, actualMessages)
 
     def test_cli_validate_valid(self):
         """CLI: test validate creates no output for valid document."""
