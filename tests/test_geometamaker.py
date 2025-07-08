@@ -685,7 +685,7 @@ class GeometamakerTests(unittest.TestCase):
         # sidecar file should issue a warning.
         with self.assertLogs('geometamaker', level='WARNING') as cm:
             _ = geometamaker.describe(datasource_path)
-        expected_message = 'ignoring an existing YAML document'
+        expected_message = 'Ignoring an existing YAML document'
         self.assertIn(expected_message, ';'.join(cm.output))
 
     def test_backup_invalid_doc_before_overwriting(self):
@@ -912,6 +912,30 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(new_resource.get_description(), "some description")
         self.assertEqual(new_resource.items[0].description,
                          "item 1 description")
+
+    def test_describe_collection_preexisting_invalid_yml(self):
+        """test `describe_collection` when invalid yaml file already exists."""
+        import geometamaker
+
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        # Setup an incompatible yml file at the expected path
+        target_yml_path = f'{collection_path}-metadata.yml'
+        with open(target_yml_path, 'w') as file:
+            file.write(yaml.dump({'foo': 'bar'}))
+
+        csv_path = os.path.join(collection_path, 'table.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
+
+
+        # Describing a collection that already has an invalid yaml
+        # sidecar file should issue a warning.
+        with self.assertLogs('geometamaker', level='WARNING') as cm:
+            _ = geometamaker.describe_collection(collection_path)
+        expected_message = 'Ignoring an existing YAML document'
+        self.assertIn(expected_message, ';'.join(cm.output))
 
 
 class ValidationTests(unittest.TestCase):
