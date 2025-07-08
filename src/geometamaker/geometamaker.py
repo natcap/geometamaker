@@ -475,6 +475,9 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         describe_files (bool, default False): whether to ``describe`` all
             files, i.e., create individual metadata files for each supported
             resource in the collection.
+        backup (bool): whether to write a backup of a pre-existing metadata
+            file before ovewriting it in cases where that file is not a valid
+            geometamaker document.
         kwargs (dict): optional keyward arguments accepted by ``describe``.
 
     Returns:

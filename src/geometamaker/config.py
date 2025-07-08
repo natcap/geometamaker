@@ -7,7 +7,6 @@ from pydantic import ValidationError
 from . import models
 
 
-# LOGGER = logging.getLogger(__name__)
 LOGGER = logging.getLogger('geometamaker')
 
 CONFIG_FILENAME = 'geometamaker_profile.yml'

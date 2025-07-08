@@ -15,7 +15,6 @@ import geometamaker
 from . import utils
 
 
-# LOGGER = logging.getLogger(__name__)
 LOGGER = logging.getLogger('geometamaker')
 
 
@@ -657,6 +656,9 @@ class BaseResource(BaseMetadata):
                 to write files. They will still be named to match the source
                 filename. Use this option if the source data is not on the local
                 filesystem.
+            backup (bool): whether to write a backup of a pre-existing metadata
+                file before ovewriting it in cases where that file is not a valid
+                geometamaker document.
 
         """
         if workspace is None:

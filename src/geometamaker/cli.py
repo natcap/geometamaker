@@ -104,8 +104,8 @@ def describe(filepath, depth, no_write, stats):
         else:
             if resource._would_overwrite:
                 click.confirm(
-                    f'\n{resource.metadata_path} is about to be overwritten because it is'
-                    f' not a valid metadata document.\n'    
+                    f'\n{resource.metadata_path} is about to be overwritten'
+                    ' because it is not a valid metadata document.\n'
                     'Are you sure want to continue?',
                     abort=True)
             try:
