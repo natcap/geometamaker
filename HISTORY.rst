@@ -32,6 +32,11 @@ Unreleased Changes
   ``set_license`` can still be used to set those metadata properties.
   ``Config`` can still be used to create and store a default profile.
   https://github.com/natcap/geometamaker/issues/92
+* If an invalid metadata document exists when a dataset or collection is
+  described, do not prevent creation of a new metadata document.
+  Invalid/incompatible documents will be renamed by adding a '.bak' extension
+  before the new metadata document replaces them.
+  https://github.com/natcap/geometamaker/issues/89
 
 
 0.1.2 (2025-02-05)
