@@ -666,7 +666,7 @@ class BaseResource(BaseMetadata):
 
         if self._would_overwrite and backup and os.path.exists(target_path):
             backup_path = f'{target_path}.bak'
-            LOGGER.warning(
+            LOGGER.info(
                 f'Backing up existing metadata file to {backup_path}')
             os.rename(target_path, backup_path)
 
