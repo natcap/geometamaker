@@ -671,8 +671,8 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(
             new_resource.contact.individual_name, 'alice')
 
-    def test_preexisting_incompatible_doc(self):
-        """Test when yaml file not created by geometamaker already exists."""
+    def test_preexisting_invalid_doc(self):
+        """Test when invalid yaml file already exists."""
         import geometamaker
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
@@ -681,12 +681,30 @@ class GeometamakerTests(unittest.TestCase):
             file.write(yaml.dump({'foo': 'bar'}))
         create_raster(numpy.int16, datasource_path)
 
-        # Describing a dataset that already has an incompatible yaml
-        # sidecar file should raise an exception.
-        with self.assertRaises(ValueError) as cm:
+        # Describing a dataset that already has an invalid yaml
+        # sidecar file should issue a warning.
+        with self.assertLogs('geometamaker', level='WARNING') as cm:
             _ = geometamaker.describe(datasource_path)
-        expected_message = 'exists but is not compatible with'
-        self.assertIn(expected_message, str(cm.exception))
+        msg1 = 'Ignoring an existing YAML document'
+        msg2 = 'A subsequent call to `.write()` will replace this file'
+        actualMessages = ';'.join(cm.output)
+        self.assertIn(msg1, actualMessages)
+        self.assertIn(msg2, actualMessages)
+
+    def test_backup_invalid_doc_before_overwriting(self):
+        """Backup invalid yaml file instead of overwriting."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        target_yml_path = f'{datasource_path}.yml'
+        with open(target_yml_path, 'w') as file:
+            file.write(yaml.dump({'foo': 'bar'}))
+        create_raster(numpy.int16, datasource_path)
+
+        resource = geometamaker.describe(datasource_path)
+        resource.write()
+        self.assertTrue(os.path.exists(f'{target_yml_path}.bak'))
+        self.assertTrue(os.path.exists(os.path.join(resource.metadata_path)))
 
     def test_write_to_local_workspace(self):
         """Test write metadata to a different location."""
@@ -898,6 +916,33 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(new_resource.items[0].description,
                          "item 1 description")
 
+    def test_describe_collection_preexisting_invalid_yml(self):
+        """test `describe_collection` when invalid yaml file already exists."""
+        import geometamaker
+
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        # Setup an incompatible yml file at the expected path
+        target_yml_path = f'{collection_path}-metadata.yml'
+        with open(target_yml_path, 'w') as file:
+            file.write(yaml.dump({'foo': 'bar'}))
+
+        csv_path = os.path.join(collection_path, 'table.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
+
+
+        # Describing a collection that already has an invalid yaml
+        # sidecar file should issue a warning.
+        with self.assertLogs('geometamaker', level='WARNING') as cm:
+            _ = geometamaker.describe_collection(collection_path)
+        msg1 = 'Ignoring an existing YAML document'
+        msg2 = 'A subsequent call to `.write()` will replace this file'
+        actualMessages = ';'.join(cm.output)
+        self.assertIn(msg1, actualMessages)
+        self.assertIn(msg2, actualMessages)
+
 
 class ValidationTests(unittest.TestCase):
     """Tests for geometamaker type validation."""
@@ -1080,8 +1125,8 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIn('STATISTICS_VALID_PERCENT', result.output)
 
-    def test_cli_describe_recursive(self):
-        """CLI: test describe with recursive option."""
+    def test_cli_describe_directory(self):
+        """CLI: test describe with a directory."""
         from geometamaker import cli
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
@@ -1089,19 +1134,6 @@ class CLITests(unittest.TestCase):
 
         runner = CliRunner()
         result = runner.invoke(cli.cli, ['describe', self.workspace_dir])
-        self.assertEqual(result.exit_code, 0)
-        self.assertEqual(result.output, '')
-        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
-
-    def test_cli_describe_recursive_filepath(self):
-        """CLI: test recursive option ignored if filepath is not a directory."""
-        from geometamaker import cli
-
-        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-        create_raster(numpy.int16, datasource_path)
-
-        runner = CliRunner()
-        result = runner.invoke(cli.cli, ['describe', datasource_path])
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
@@ -1134,6 +1166,41 @@ class CLITests(unittest.TestCase):
             cli.cli, ['describe', '--no-write', 'https://foo.tif'])
         self.assertEqual(result.exit_code, 2)
         self.assertIn('does not exist', result.output)
+
+    def test_cli_describe_prompt_before_overwrite(self):
+        """CLI: test describe asks for confirmation when data could be lost."""
+        import geometamaker
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        target_path = f'{datasource_path}.yml'
+        # Setup an incompatible yml doc at the expected path.
+        with open(target_path, 'w') as file:
+            file.write(yaml.dump({'foo': 'bar'}))
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        # Describe should prompt for confirmation before overwriting the file
+        result = runner.invoke(
+            cli.cli, ['describe', datasource_path], input='n\n')
+        self.assertEqual(result.exit_code, 1)  # Aborted
+        # The incompatible yml doc should still exist.
+        with self.assertRaises(ValueError):
+            _ = geometamaker.validate(target_path)
+
+        with self.assertLogs('geometamaker', level='WARNING') as cm:
+            result = runner.invoke(
+                cli.cli, ['describe', datasource_path], input='y\n')
+        self.assertEqual(result.exit_code, 0)  # Did not abort.
+        # Should have a valid yml doc.
+        error = geometamaker.validate(target_path)
+        self.assertIsNone(error)
+        # Logging for CLI should be filtered
+        msg1 = 'Ignoring an existing YAML document'
+        msg2 = 'A subsequent call to `.write()` will replace this file'
+        actualMessages = ';'.join(cm.output)
+        self.assertIn(msg1, actualMessages)
+        self.assertNotIn(msg2, actualMessages)
 
     def test_cli_validate_valid(self):
         """CLI: test validate creates no output for valid document."""

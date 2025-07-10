@@ -15,7 +15,7 @@ import geometamaker
 from . import utils
 
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger('geometamaker')
 
 
 def _deep_update_dict(self_dict, other_dict):
@@ -336,7 +336,11 @@ class BaseMetadata(Parent):
         if isinstance(other, BaseMetadata):
             updated_dict = _deep_update_dict(
                 self.model_dump(), other.model_dump())
-            return self.__class__(**updated_dict)
+            obj = self.__class__(**updated_dict)
+            # Private attributes are not pydantic fields.
+            # They were excluded in model_dump so set them again
+            obj._would_overwrite = self._would_overwrite
+            return obj
         raise TypeError(f'{type(other)} is not an instance of BaseMetadata')
 
 
@@ -388,10 +392,10 @@ class BaseResource(BaseMetadata):
     with which to complete later.
 
     """
-
-    # A version string we can use to identify geometamaker compliant documents
-    geometamaker_version: str = ''
+    _would_overwrite: bool = False
     metadata_path: str = ''
+    geometamaker_version: str = ''
+    """The version of geometamaker used to create this metadata resource."""
 
     # These are populated by geometamaker.describe()
     bytes: int = 0
@@ -637,7 +641,7 @@ class BaseResource(BaseMetadata):
         """Get the url for the dataset."""
         return self.url
 
-    def write(self, workspace=None):
+    def write(self, workspace=None, backup=True):
         """Write datapackage yaml to disk.
 
         This creates sidecar files with '.yml'
@@ -652,6 +656,9 @@ class BaseResource(BaseMetadata):
                 to write files. They will still be named to match the source
                 filename. Use this option if the source data is not on the local
                 filesystem.
+            backup (bool): whether to write a backup of a pre-existing metadata
+                file before ovewriting it in cases where that file is not a valid
+                geometamaker document.
 
         """
         if workspace is None:
@@ -659,6 +666,12 @@ class BaseResource(BaseMetadata):
         else:
             target_path = os.path.join(
                 workspace, os.path.basename(self.metadata_path))
+
+        if self._would_overwrite and backup and os.path.exists(target_path):
+            backup_path = f'{target_path}.bak'
+            LOGGER.info(
+                f'Backing up existing metadata file to {backup_path}')
+            os.rename(target_path, backup_path)
 
         with open(target_path, 'w', encoding='utf-8') as file:
             file.write(utils.yaml_dump(self._dump_for_write()))

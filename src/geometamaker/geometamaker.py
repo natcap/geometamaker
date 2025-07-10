@@ -23,7 +23,11 @@ from .config import Config
 
 logging.getLogger('chardet').setLevel(logging.INFO)  # DEBUG is just too noisy
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger('geometamaker')
+_NOT_FOR_CLI = 'not_for_cli'
+_LOG_EXTRA_NOT_FOR_CLI = {
+    _NOT_FOR_CLI: True
+}
 
 # URI schemes we support. A subset of fsspec.available_protocols()
 PROTOCOLS = [
@@ -445,7 +449,7 @@ def describe_table(source_dataset_path, scheme, **kwargs):
 
 def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                         exclude_regex=None, exclude_hidden=True,
-                        describe_files=False, **kwargs):
+                        describe_files=False, backup=True, **kwargs):
     """Create a single metadata document to describe a collection of files.
 
     Describe all the files within a directory as members of a "collection".
@@ -471,6 +475,9 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         describe_files (bool, default False): whether to ``describe`` all
             files, i.e., create individual metadata files for each supported
             resource in the collection.
+        backup (bool): whether to write a backup of a pre-existing metadata
+            file before ovewriting it in cases where that file is not a valid
+            geometamaker document.
         kwargs (dict): optional keyward arguments accepted by ``describe``.
 
     Returns:
@@ -505,7 +512,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                 this_desc = None
 
             if describe_files and this_desc:
-                this_desc.write()
+                this_desc.write(backup=backup)
 
             if ext and os.path.exists(filepath + '.yml'):
                 metadata_yml = f'{root}{ext}' + '.yml'
@@ -534,8 +541,8 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
 
     # Check if there is existing metadata for the collection
     try:
-        existing_metadata = models.CollectionResource.load(
-            f'{directory}-metadata.yml')
+        metadata_path = f'{directory}-metadata.yml'
+        existing_metadata = models.CollectionResource.load(metadata_path)
 
         # Copy any existing item descriptions from existing yml to new metadata
         # Note that descriptions in individual resources' ymls will take
@@ -551,6 +558,18 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
 
         # Replace fields in existing yml if new metadata has existing value
         resource = existing_metadata.replace(resource)
+
+    except (ValueError, ValidationError) as error:
+        LOGGER.warning(error)
+        LOGGER.warning(
+            f'Ignoring an existing YAML document: {metadata_path} because it'
+            f' is invalid or incompatible.')
+        LOGGER.warning(
+            'A subsequent call to `.write()` will replace this file, but it'
+            f' will be backed up to {metadata_path}.bak.\n'
+            f'Use `.write(backup=False)` to skip the backup.\n',
+            extra=_LOG_EXTRA_NOT_FOR_CLI)
+        resource._would_overwrite = True
 
     except FileNotFoundError:
         pass
@@ -648,8 +667,20 @@ def describe(source_dataset_path, compute_stats=False):
                         units=efield.units)
         resource = existing_resource.replace(resource)
 
-    # Common path: metadata file does not already exist
+    except (ValueError, ValidationError) as error:
+        LOGGER.warning(error)
+        LOGGER.warning(
+            f'Ignoring an existing YAML document: {metadata_path} because it'
+            f' is invalid or incompatible.')
+        LOGGER.warning(
+            'A subsequent call to `.write()` will replace this file, but it'
+            ' will be backed up to {metadata_path}.bak.\n'
+            f'Use `.write(backup=False)` to skip the backup.\n',
+            extra=_LOG_EXTRA_NOT_FOR_CLI)
+        resource._would_overwrite = True
+
     except FileNotFoundError:
+        # Common path: metadata file does not already exist
         pass
 
     config = Config()
@@ -733,7 +764,7 @@ def validate_dir(directory, recursive=False):
 
 
 def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
-                 exclude_regex=None, **kwargs):
+                 exclude_regex=None, backup=True, **kwargs):
     """Describe compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
@@ -749,6 +780,9 @@ def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
             be described.
         exclude_regex (str, optional): a regular expression to pattern-match
             any files for which you do not want to create metadata.
+        backup (bool): whether to write a backup of a pre-existing metadata
+            file before ovewriting it in cases where that file is not a valid
+            geometamaker document.
         kwargs (dict): additional options to pass to ``describe``.
 
     Returns:
@@ -772,5 +806,5 @@ def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
             except (ValueError, frictionless.FrictionlessException) as error:
                 LOGGER.debug(error)
                 continue
-            resource.write()
+            resource.write(backup=backup)
             LOGGER.info(f'{filepath} described')
