@@ -1125,19 +1125,6 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIn('STATISTICS_VALID_PERCENT', result.output)
 
-    def test_cli_describe_directory(self):
-        """CLI: test describe with a directory."""
-        from geometamaker import cli
-
-        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-        create_raster(numpy.int16, datasource_path)
-
-        runner = CliRunner()
-        result = runner.invoke(cli.cli, ['describe', self.workspace_dir])
-        self.assertEqual(result.exit_code, 0)
-        self.assertEqual(result.output, '')
-        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
-
     def test_cli_describe_remote_file(self):
         """CLI: test describe on a remote file at a URL."""
         from geometamaker import cli
@@ -1201,6 +1188,46 @@ class CLITests(unittest.TestCase):
         actualMessages = ';'.join(cm.output)
         self.assertIn(msg1, actualMessages)
         self.assertNotIn(msg2, actualMessages)
+
+    def test_cli_describe_directory(self):
+        """CLI: test describe with a directory."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['describe', self.workspace_dir])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+        self.assertTrue(os.path.exists(f'{self.workspace_dir}-metadata.yml'))
+
+    def test_cli_describe_directory_collection_options(self):
+        """CLI: test describe with a directory with various options."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.cli,
+            ['describe', '--no-write', '--collection-only', self.workspace_dir])
+        self.assertEqual(result.exit_code, 0)
+        # one of many things expected to print to stdout:
+        self.assertIn('last_modified', result.output)
+        self.assertFalse(os.path.exists(f'{datasource_path}.yml'))
+        self.assertFalse(os.path.exists(f'{self.workspace_dir}-metadata.yml'))
+
+        result = runner.invoke(
+            cli.cli,
+            ['describe', '--collection-only', self.workspace_dir])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+        self.assertFalse(os.path.exists(f'{datasource_path}.yml'))
+        self.assertTrue(os.path.exists(f'{self.workspace_dir}-metadata.yml'))
+
 
     def test_cli_validate_valid(self):
         """CLI: test validate creates no output for valid document."""
