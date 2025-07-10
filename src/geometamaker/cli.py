@@ -71,52 +71,79 @@ class _URL(click.ParamType):
     help='''Describe properties of a dataset given by FILEPATH and write this
     metadata to a .yml sidecar file. Or if FILEPATH is a directory, describe
     all datasets within.''',
-    short_help='Generate metadata for geospatial or tabular data, or zip archives.')
+    short_help='Generate metadata for geospatial, tabular data, compressed'
+               ' archives, or collections of files in a directory.')
 @click.argument('filepath',
                 type=_ParamUnion([click.Path(exists=True), _URL()],
                                  report_all_errors=False))
-@click.option('-d', '--depth',
-              default=numpy.iinfo(numpy.int16).max,
-              help='if FILEPATH is a directory, describe files in'
-                   'subdirectories up to depth. Defaults to to describing '
-                   'all files.')
 @click.option('-nw', '--no-write',
               is_flag=True,
               default=False,
-              help='Dump metadata to stdout instead of to a .yml file. '
-                   'This option is ignored if `filepath` is a directory')
+              help='Dump metadata to stdout instead of to a .yml file.'
+                   ' This option is ignored when describing all files'
+                   ' in a directory.')
 @click.option('-st', '--stats',
               is_flag=True,
               default=False,
               help='Compute raster band statistics.')
-def describe(filepath, depth, no_write, stats):
+@click.option('-d', '--depth',
+              default=numpy.iinfo(numpy.int16).max,
+              help='if FILEPATH is a directory, describe files in'
+                   ' subdirectories up to depth. Defaults to to describing'
+                   ' all files.')
+@click.option('-x', '--exclude',
+              default=None,
+              help='Regular expression used to exclude files from being'
+                   ' described. Only used if FILEPATH is a directory.')
+@click.option('-a', '--all', 'all_files',
+              is_flag=True,
+              default=False,
+              help='Do not ignore files starting with .'
+                   ' Only used if FILEPATH is a directory.')
+@click.option('-co', '--collection-only',
+              is_flag=True,
+              default=False,
+              help='If FILEPATH is a directory, do not write metadata documents'
+                   ' for all files in the directory. Only create a single'
+                   ' *-metadata.yml document for the collection')
+def describe(filepath, depth, exclude, all_files, no_write, stats,
+             collection_only):
+    describing_single = True  # if filepath is a file, or collection_only=True
     if os.path.isdir(filepath):
-        if no_write:
-            click.echo('the -nw, or --no-write, flag is ignored when '
-                       'describing all files in a directory.')
-        geometamaker.describe_all(
-            filepath, depth=depth, compute_stats=stats)
+        resource = geometamaker.describe_collection(
+            filepath,
+            depth=depth,
+            exclude_regex=exclude,
+            exclude_hidden=(not all_files),
+            describe_files=(not collection_only),
+            compute_stats=stats)
+        describing_single = collection_only
     else:
         resource = geometamaker.describe(filepath, compute_stats=stats)
-        if no_write:
-            click.echo(geometamaker.utils.yaml_dump(
-                resource._dump_for_write()))
-        else:
-            if resource._would_overwrite:
-                click.confirm(
-                    f'\n{resource.metadata_path} is about to be overwritten'
-                    ' because it is not a valid metadata document.\n'
-                    'Are you sure want to continue?',
-                    abort=True)
-            try:
-                # Users can abort at the confirm and manage their own backups.
-                resource.write(backup=False)
-            except OSError:
-                click.echo(
-                    f'geometamaker could not write to {resource.metadata_path}\n'
-                    'Try using the --no-write flag to print metadata to '
-                    'stdout instead:')
-                click.echo(f'    geometamaker describe --no-write {filepath}')
+
+    if no_write and describing_single:
+        click.echo(geometamaker.utils.yaml_dump(
+            resource._dump_for_write()))
+        return
+
+    if no_write and not describing_single:
+        click.echo('the -nw, or --no-write, flag is ignored when '
+                   'describing all files in a directory.')
+    if resource._would_overwrite:
+        click.confirm(
+            f'\n{resource.metadata_path} is about to be overwritten'
+            ' because it is not a valid metadata document.\n'
+            'Are you sure want to continue?',
+            abort=True)
+    try:
+        # Users can abort at the confirm and manage their own backups.
+        resource.write(backup=False)
+    except OSError:
+        click.echo(
+            f'geometamaker could not write to {resource.metadata_path}\n'
+            'Try using the --no-write flag to print metadata to '
+            'stdout instead:')
+        click.echo(f'    geometamaker describe --no-write {filepath}')
 
 
 def echo_validation_error(error, filepath):
@@ -219,7 +246,8 @@ def config(individual_name, email, organization, position_name,
     click.echo(f'saved profile information to {config.config_path}')
 
 
-@click.group()
+@click.group(
+    epilog='https://geometamaker.readthedocs.io/en/latest/ for more details')
 @click.option('-v', 'verbosity', count=True, default=2, required=False,
               help='''Override the default verbosity of logging. Use "-vvv" for
               debug-level logging. Omit this flag for default,
