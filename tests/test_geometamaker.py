@@ -792,10 +792,10 @@ class GeometamakerTests(unittest.TestCase):
         yaml_files, msgs = geometamaker.validate_dir(self.workspace_dir)
         self.assertEqual(len(yaml_files), 1)
 
-        # 2 eligible files described with recursive option
+        # 2 eligible files described with default depth
         geometamaker.describe_all(self.workspace_dir)
         yaml_files, msgs = geometamaker.validate_dir(
-            self.workspace_dir, recursive=True)
+            self.workspace_dir)
         self.assertEqual(len(yaml_files), 2)
 
     def test_validate_dir_handles_exception(self):
@@ -1290,15 +1290,21 @@ class CLITests(unittest.TestCase):
         geometamaker.describe_all(self.workspace_dir)
 
         runner = CliRunner()
-        result = runner.invoke(cli.cli, ['validate', '-r', self.workspace_dir])
+        result = runner.invoke(cli.cli, ['validate', self.workspace_dir])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn(u'\u2713' + f' {raster1}.yml', result.output)
-        self.assertIn(u'\u2713' + f' {raster2}.yml', result.output)
         self.assertIn(
-            u'\u25CB' + f' {yml1} does not appear to be a geometamaker document',
+            u'\u2713' + f' {os.path.relpath(raster1, self.workspace_dir)}.yml',
             result.output)
         self.assertIn(
-            u'\u25CB' + f' {yml2} does not appear to be a geometamaker document',
+            u'\u2713' + f' {os.path.relpath(raster2, self.workspace_dir)}.yml',
+            result.output)
+        self.assertIn(
+            u'\u25CB' + f' {os.path.relpath(yml1, self.workspace_dir)}'
+            f' does not appear to be a geometamaker document',
+            result.output)
+        self.assertIn(
+            u'\u25CB' + f' {os.path.relpath(yml2, self.workspace_dir)}'
+            f' does not appear to be a geometamaker document',
             result.output)
 
     @patch('geometamaker.config.platformdirs.user_config_dir')

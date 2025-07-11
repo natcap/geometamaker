@@ -163,15 +163,15 @@ def echo_validation_error(error, filepath):
     short_help='Validate metadata documents for syntax or type errors.')
 @click.argument('filepath',
                 type=click.Path(exists=True))
-@click.option('-r', '--recursive',
-              is_flag=True,
-              default=False,
-              help='if `filepath` is a directory, validate documents '
-                   'in all subdirectories.')
-def validate(filepath, recursive):
+@click.option('-d', '--depth',
+              default=numpy.iinfo(numpy.int16).max,
+              help='if FILEPATH is a directory, validate files in'
+                   ' subdirectories up to depth. Defaults to validating'
+                   ' all files.')
+def validate(filepath, depth):
     if os.path.isdir(filepath):
         file_list, message_list = geometamaker.validate_dir(
-            filepath, recursive=recursive)
+            filepath, depth=depth)
         for filepath, msg in zip(file_list, message_list):
             if isinstance(msg, ValidationError):
                 echo_validation_error(msg, filepath)
