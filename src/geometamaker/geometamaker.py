@@ -111,7 +111,7 @@ def _wkt_to_epsg_units_string(wkt_string):
     return crs_string, units_string
 
 
-def _list_files_with_depth(directory, depth, exclude_regex,
+def _list_files_with_depth(directory, depth, exclude_regex=None,
                            exclude_hidden=True):
     """List files in directory up to depth
 
@@ -143,7 +143,7 @@ def _list_files_with_depth(directory, depth, exclude_regex,
         file_list.append(str(relative_path))
 
     # remove excluded files based on regex
-    if exclude_regex:
+    if exclude_regex is not None:
         file_list = [f for f in file_list if not re.search(exclude_regex, f)]
 
     return sorted(file_list)
@@ -719,30 +719,20 @@ def validate(filepath):
         return error
 
 
-def validate_dir(directory, recursive=False):
+def validate_dir(directory, depth=numpy.iinfo(numpy.int16).max):
     """Validate all compatible yml documents in the directory.
 
     Args:
         directory (string): path to a directory
-        recursive (bool): whether or not to describe files
-            in all subdirectories
+        depth (int): maximum number of subdirectory levels to
+            traverse when walking through ``directory``.
 
     Returns:
         tuple (list, list): a list of the filepaths that were validated and
             an equal-length list of the validation messages.
 
     """
-    file_list = []
-    if recursive:
-        for path, dirs, files in os.walk(directory):
-            for file in files:
-                file_list.append(os.path.join(path, file))
-    else:
-        file_list.extend(
-            [os.path.join(directory, path)
-                for path in os.listdir(directory)
-                if os.path.isfile(os.path.join(directory, path))])
-
+    file_list = _list_files_with_depth(directory, depth)
     messages = []
     yaml_files = []
     for filepath in file_list:
@@ -750,7 +740,7 @@ def validate_dir(directory, recursive=False):
             yaml_files.append(filepath)
             msg = ''
             try:
-                error = validate(filepath)
+                error = validate(os.path.join(directory, filepath))
                 if error:
                     msg = error
             except ValueError:
@@ -764,7 +754,7 @@ def validate_dir(directory, recursive=False):
 
 
 def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
-                 exclude_regex=None, backup=True, **kwargs):
+                 exclude_regex=None, exclude_hidden=True, backup=True, **kwargs):
     """Describe compatible datasets in the directory.
 
     Take special care to only describe multifile datasets,
@@ -789,7 +779,8 @@ def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
         None
 
     """
-    file_list = _list_files_with_depth(directory, depth, exclude_regex)
+    file_list = _list_files_with_depth(
+        directory, depth, exclude_regex, exclude_hidden)
     root_ext_map, root_set = _group_files_by_root(file_list)
 
     for root in root_set:

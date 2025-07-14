@@ -792,10 +792,10 @@ class GeometamakerTests(unittest.TestCase):
         yaml_files, msgs = geometamaker.validate_dir(self.workspace_dir)
         self.assertEqual(len(yaml_files), 1)
 
-        # 2 eligible files described with recursive option
+        # 2 eligible files described with default depth
         geometamaker.describe_all(self.workspace_dir)
         yaml_files, msgs = geometamaker.validate_dir(
-            self.workspace_dir, recursive=True)
+            self.workspace_dir)
         self.assertEqual(len(yaml_files), 2)
 
     def test_validate_dir_handles_exception(self):
@@ -1125,19 +1125,6 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIn('STATISTICS_VALID_PERCENT', result.output)
 
-    def test_cli_describe_directory(self):
-        """CLI: test describe with a directory."""
-        from geometamaker import cli
-
-        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-        create_raster(numpy.int16, datasource_path)
-
-        runner = CliRunner()
-        result = runner.invoke(cli.cli, ['describe', self.workspace_dir])
-        self.assertEqual(result.exit_code, 0)
-        self.assertEqual(result.output, '')
-        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
-
     def test_cli_describe_remote_file(self):
         """CLI: test describe on a remote file at a URL."""
         from geometamaker import cli
@@ -1202,6 +1189,46 @@ class CLITests(unittest.TestCase):
         self.assertIn(msg1, actualMessages)
         self.assertNotIn(msg2, actualMessages)
 
+    def test_cli_describe_directory(self):
+        """CLI: test describe with a directory."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(cli.cli, ['describe', self.workspace_dir])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+        self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
+        self.assertTrue(os.path.exists(f'{self.workspace_dir}-metadata.yml'))
+
+    def test_cli_describe_directory_collection_options(self):
+        """CLI: test describe with a directory with various options."""
+        from geometamaker import cli
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path)
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.cli,
+            ['describe', '--no-write', '--collection-only', self.workspace_dir])
+        self.assertEqual(result.exit_code, 0)
+        # one of many things expected to print to stdout:
+        self.assertIn('last_modified', result.output)
+        self.assertFalse(os.path.exists(f'{datasource_path}.yml'))
+        self.assertFalse(os.path.exists(f'{self.workspace_dir}-metadata.yml'))
+
+        result = runner.invoke(
+            cli.cli,
+            ['describe', '--collection-only', self.workspace_dir])
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.output, '')
+        self.assertFalse(os.path.exists(f'{datasource_path}.yml'))
+        self.assertTrue(os.path.exists(f'{self.workspace_dir}-metadata.yml'))
+
+
     def test_cli_validate_valid(self):
         """CLI: test validate creates no output for valid document."""
         from geometamaker import cli
@@ -1263,15 +1290,21 @@ class CLITests(unittest.TestCase):
         geometamaker.describe_all(self.workspace_dir)
 
         runner = CliRunner()
-        result = runner.invoke(cli.cli, ['validate', '-r', self.workspace_dir])
+        result = runner.invoke(cli.cli, ['validate', self.workspace_dir])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn(u'\u2713' + f' {raster1}.yml', result.output)
-        self.assertIn(u'\u2713' + f' {raster2}.yml', result.output)
         self.assertIn(
-            u'\u25CB' + f' {yml1} does not appear to be a geometamaker document',
+            u'\u2713' + f' {os.path.relpath(raster1, self.workspace_dir)}.yml',
             result.output)
         self.assertIn(
-            u'\u25CB' + f' {yml2} does not appear to be a geometamaker document',
+            u'\u2713' + f' {os.path.relpath(raster2, self.workspace_dir)}.yml',
+            result.output)
+        self.assertIn(
+            u'\u25CB' + f' {os.path.relpath(yml1, self.workspace_dir)}'
+            f' does not appear to be a geometamaker document',
+            result.output)
+        self.assertIn(
+            u'\u25CB' + f' {os.path.relpath(yml2, self.workspace_dir)}'
+            f' does not appear to be a geometamaker document',
             result.output)
 
     @patch('geometamaker.config.platformdirs.user_config_dir')
