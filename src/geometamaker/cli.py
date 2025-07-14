@@ -71,7 +71,7 @@ class _URL(click.ParamType):
     help='''Describe properties of a dataset given by FILEPATH and write this
     metadata to a .yml sidecar file. Or if FILEPATH is a directory, describe
     all datasets within.''',
-    short_help='Generate metadata for geospatial, tabular data, compressed'
+    short_help='Generate metadata for geospatial or tabular data, compressed'
                ' archives, or collections of files in a directory.')
 @click.argument('filepath',
                 type=_ParamUnion([click.Path(exists=True), _URL()],
