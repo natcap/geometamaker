@@ -62,27 +62,11 @@ user-input. If you create a metadata document with the CLI, you may wish
 to add these values manually by editing the 
 `watershed_gura.shp.yml` file in a text editor.
 
-### Creating metadata for a batch of files:
-Users can optionally specify `depth` to limit the number of subdirectory 
-levels to traverse when walking through a directory and creating metadata 
-for the supported files.
-
-#### Python
-```python
-import geometamaker
-
-data_dir = 'C:/Users/dmf/projects/invest/data/invest-sample-data'
-geometamaker.describe_all(data_dir, depth=3)
-```
-
-#### CLI
-```
-geometamaker describe -d 3 data/invest-sample-data
-```
-
 ### Creating metadata for a collection of files:
 Users can create a single metadata document to describe a directory of 
-files, with the option of excluding some files using a regular expression.
+files, with the option of excluding some files using a regular expression,
+or limiting the number of subdirectory levels to traverse using the
+`depth` or `-d` flag.
 
 #### Python
 ```python
@@ -91,9 +75,17 @@ import geometamaker
 collection_path = 'invest/data/invest-sample-data'
 metadata = geometamaker.describe_collection(collection_path,
                                             depth=2,
-                                            exclude_regex=r'.*\.json$')
+                                            exclude_regex=r'.*\.json$',
+                                            describe_files=True)
 metadata.write()
 ```
+
+#### CLI
+```
+geometamaker describe -d 2 --exclude .*\.json$ data/invest-sample-data
+```
+These examples will create `invest-sample-data-metadata.yml` as well as
+create individual `.yml` documents for each dataset within the directory.
 
 ### Validating a metadata document:
 If you have manually edited a `.yml` metadata document,

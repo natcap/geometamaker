@@ -37,6 +37,11 @@ Unreleased Changes
   Invalid/incompatible documents will be renamed by adding a '.bak' extension
   before the new metadata document replaces them.
   https://github.com/natcap/geometamaker/issues/89
+* ``geometamaker describe``, when given a directory, will create a
+  "*-metadata.yml" document for that directory, as well as metadata documents
+  for all datasets within.
+  https://github.com/natcap/geometamaker/issues/94
+* ``geometamaker.validate_dir`` has been updated to use the ``depth`` argument.
 
 
 0.1.2 (2025-02-05)
