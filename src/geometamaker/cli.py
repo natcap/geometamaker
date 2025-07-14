@@ -89,7 +89,7 @@ class _URL(click.ParamType):
 @click.option('-d', '--depth',
               default=numpy.iinfo(numpy.int16).max,
               help='if FILEPATH is a directory, describe files in'
-                   ' subdirectories up to depth. Defaults to to describing'
+                   ' subdirectories up to depth. Defaults to describing'
                    ' all files.')
 @click.option('-x', '--exclude',
               default=None,
