@@ -617,6 +617,17 @@ def describe(source_dataset_path, compute_stats=False):
 
     metadata_path = f'{source_dataset_path}.yml'
 
+    if os.path.isdir(source_dataset_path):
+        raise ValueError(
+            f"Cannot `describe` {source_dataset_path} as it is a directory, "
+            "not a dataset. \nIf you are trying to create metadata for the "
+            "files within a directory and/or the directory itself, please use "
+            "`geometamaker.describe_collection` instead.")
+
+    # "If you're trying to describe a directory of datasets, try using `describe_all()` to describe all files "
+    # "in the folder individually, or `describe_collection()` to describe them as a single collection."
+
+
     # Despite naming, this does not open a file that must be closed
     of = fsspec.open(source_dataset_path)
     if not of.fs.exists(source_dataset_path):

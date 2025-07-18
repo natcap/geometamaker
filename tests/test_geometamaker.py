@@ -943,6 +943,17 @@ class GeometamakerTests(unittest.TestCase):
         self.assertIn(msg1, actualMessages)
         self.assertIn(msg2, actualMessages)
 
+    def test_describe_directory_error(self):
+        """Test that `describing` a directory raises useful error"""
+        import geometamaker
+
+        with self.assertRaises(ValueError) as cm:
+            _ = geometamaker.describe(self.workspace_dir)
+        msg = ("If you are trying to create metadata for the files within a "
+               "directory and/or the directory itself, please use "
+               "`geometamaker.describe_collection` instead.")
+        self.assertIn(msg, str(cm.exception))
+
 
 class ValidationTests(unittest.TestCase):
     """Tests for geometamaker type validation."""
