@@ -504,7 +504,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
             filepath = os.path.join(directory, f'{root}{ext}')
             try:
                 this_desc = describe(filepath, **kwargs)
-            except (ValueError, frictionless.FrictionlessException):
+            except ValueError:
                 # if file type isn't supported by geometamaker, e.g. pdf
                 # or if trying to describe a dir
                 this_desc = None
