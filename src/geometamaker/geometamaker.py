@@ -455,10 +455,8 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     Describe all the files within a directory as members of a "collection".
     The resulting metadata resource should include a list of all the files
     included in the collection along with a description and metadata filepath
-    (or placeholder).
-
-    This is distinct from ``describe_all``, which
-    creates individual metadata files for each supported file in a directory.
+    (or placeholder). Optionally create individual metadata files for each
+    supported file in a directory.
 
     Args:
         directory (str): path to collection
@@ -624,10 +622,6 @@ def describe(source_dataset_path, compute_stats=False):
             "files within a directory and/or the directory itself, please use "
             "`geometamaker.describe_collection` instead.")
 
-    # "If you're trying to describe a directory of datasets, try using `describe_all()` to describe all files "
-    # "in the folder individually, or `describe_collection()` to describe them as a single collection."
-
-
     # Despite naming, this does not open a file that must be closed
     of = fsspec.open(source_dataset_path)
     if not of.fs.exists(source_dataset_path):
@@ -762,51 +756,3 @@ def validate_dir(directory, depth=numpy.iinfo(numpy.int16).max):
             messages.append(msg)
 
     return (yaml_files, messages)
-
-
-def describe_all(directory, depth=numpy.iinfo(numpy.int16).max,
-                 exclude_regex=None, exclude_hidden=True, backup=True, **kwargs):
-    """Describe compatible datasets in the directory.
-
-    Take special care to only describe multifile datasets,
-    such as ESRI Shapefiles, one time.
-
-    Args:
-        directory (string): path to a directory
-        depth (int): maximum number of subdirectory levels to traverse when
-            walking through a directory. A value of 1 limits the walk to files
-            in the top-level ``directory`` only. A value of 2 allows
-            descending into immediate subdirectories, etc. By default, all
-            supported files in all subdirectories in ``directory`` will
-            be described.
-        exclude_regex (str, optional): a regular expression to pattern-match
-            any files for which you do not want to create metadata.
-        backup (bool): whether to write a backup of a pre-existing metadata
-            file before ovewriting it in cases where that file is not a valid
-            geometamaker document.
-        kwargs (dict): additional options to pass to ``describe``.
-
-    Returns:
-        None
-
-    """
-    file_list = _list_files_with_depth(
-        directory, depth, exclude_regex, exclude_hidden)
-    root_ext_map, root_set = _group_files_by_root(file_list)
-
-    for root in root_set:
-        extensions = root_ext_map[root]
-        if '.shp' in extensions:
-            # if we're dealing with a shapefile, we do not want to describe any
-            # of these other files with the same root name
-            extensions.difference_update(
-                ['.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg'])
-        for ext in extensions:
-            filepath = os.path.join(directory, f'{root}{ext}')
-            try:
-                resource = describe(filepath, **kwargs)
-            except (ValueError, frictionless.FrictionlessException) as error:
-                LOGGER.debug(error)
-                continue
-            resource.write(backup=backup)
-            LOGGER.info(f'{filepath} described')
