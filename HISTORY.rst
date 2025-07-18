@@ -22,9 +22,8 @@ Unreleased Changes
 * Add support for describing folders as collections, generating a single
   metadata file listing contained files along with their descriptions and
   metadata. https://github.com/natcap/geometamaker/issues/66
-* ``describe_dir`` has been renamed to ``describe_all`` and the parameter
-  ``recursive`` has been replaced with ``depth`` to allow for more
-  fine-grained control.
+* ``describe_dir`` has been deprecated as this functionality can be achieved
+  with ``describe_collection``. https://github.com/natcap/geometamaker/issues/98
 * Existing attributes are now preserved when calling
   ``describe_collection`` on collection with existing metadata.
   https://github.com/natcap/geometamaker/issues/95
@@ -43,6 +42,8 @@ Unreleased Changes
   https://github.com/natcap/geometamaker/issues/94
 * ``geometamaker.validate_dir`` was updated to use the ``depth`` argument
   instead of ``recursive``.
+* If ``describe`` is called on a directory, a helpful error message is raised.
+  https://github.com/natcap/geometamaker/issues/98
 
 
 0.1.2 (2025-02-05)
