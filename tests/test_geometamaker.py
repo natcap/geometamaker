@@ -788,12 +788,14 @@ class GeometamakerTests(unittest.TestCase):
             file.write('')
 
         # Only 1 eligible file to describe in the root dir
-        geometamaker.describe_all(self.workspace_dir, depth=1)
+        geometamaker.describe_collection(self.workspace_dir, depth=1,
+                                         describe_files=True)
         yaml_files, msgs = geometamaker.validate_dir(self.workspace_dir)
         self.assertEqual(len(yaml_files), 1)
 
         # 2 eligible files described with default depth
-        geometamaker.describe_all(self.workspace_dir)
+        geometamaker.describe_collection(self.workspace_dir,
+                                         describe_files=True)
         yaml_files, msgs = geometamaker.validate_dir(
             self.workspace_dir)
         self.assertEqual(len(yaml_files), 2)
@@ -814,7 +816,7 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(len(yaml_files), 1)
         self.assertEqual(msgs[0], 'is not a readable yaml document')
 
-    def test_describe_all_with_shapefile(self):
+    def test_describe_collection_with_shapefile(self):
         """Test describe directory containing a multi-file dataset."""
         import geometamaker
 
@@ -835,7 +837,8 @@ class GeometamakerTests(unittest.TestCase):
         with patch.object(
                 geometamaker.geometamaker, 'describe',
                 wraps=geometamaker.geometamaker.describe) as mock_describe:
-            geometamaker.describe_all(self.workspace_dir)
+            geometamaker.describe_collection(self.workspace_dir,
+                                             describe_files=True)
 
         self.assertEqual(mock_describe.call_count, describe_count)
         self.assertTrue(os.path.exists(os.path.join(
@@ -942,6 +945,17 @@ class GeometamakerTests(unittest.TestCase):
         actualMessages = ';'.join(cm.output)
         self.assertIn(msg1, actualMessages)
         self.assertIn(msg2, actualMessages)
+
+    def test_describe_directory_error(self):
+        """Test that `describing` a directory raises useful error"""
+        import geometamaker
+
+        with self.assertRaises(ValueError) as cm:
+            _ = geometamaker.describe(self.workspace_dir)
+        msg = ("If you are trying to create metadata for the files within a "
+               "directory and/or the directory itself, please use "
+               "`geometamaker.describe_collection` instead.")
+        self.assertIn(msg, str(cm.exception))
 
 
 class ValidationTests(unittest.TestCase):
@@ -1287,7 +1301,8 @@ class CLITests(unittest.TestCase):
         with open(yml2, 'w') as file:
             file.write('')
 
-        geometamaker.describe_all(self.workspace_dir)
+        geometamaker.describe_collection(self.workspace_dir,
+                                         describe_files=True)
 
         runner = CliRunner()
         result = runner.invoke(cli.cli, ['validate', self.workspace_dir])
