@@ -388,18 +388,25 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
     for i in range(info['n_bands']):
         b = i + 1
         band = raster.GetRasterBand(b)
+        band_gdal_metadata = band.GetMetadata()
         if compute_stats:
             try:
-                # 0=do not approximate stats, 1=calculate if they don't exist
-                # If exact stats exist they will be retrieved without
-                # computing them, otherwise, this forces computation.
-                # https://github.com/OSGeo/gdal/blob/master/gcore/gdalrasterband.cpp
-                _ = band.GetStatistics(0, 1)
+                if not 'STATISTICS_VALID_PERCENT' in band_gdal_metadata:
+                    # Sometimes some stats exist, but not all. If this one doesn't,
+                    # it's important enough that we want to force computation.
+                    LOGGER.info('computing statistics')
+                    _ = band.ComputeStatistics(0)
+                else:
+                    # 0=do not approximate stats, 1=calculate if they don't exist
+                    # If exact stats exist they will be retrieved without
+                    # computing them, otherwise, this forces computation.
+                    # https://github.com/OSGeo/gdal/blob/master/gcore/gdalrasterband.cpp
+                    _ = band.GetStatistics(0, 1)
+                band_gdal_metadata = band.GetMetadata()
             except RuntimeError as e:
                 LOGGER.warning(
                     f'Could not compute statistics for band {b} of '
                     f'{source_dataset_path}: {e}')
-        band_gdal_metadata = band.GetMetadata()
 
         bands.append(models.BandSchema(
             index=b,

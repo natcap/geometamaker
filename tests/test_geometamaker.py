@@ -315,11 +315,34 @@ class GeometamakerTests(unittest.TestCase):
              'STATISTICS_VALID_PERCENT': '100'})
 
     def test_describe_raster_band_compute_statistics(self):
-        """Test band statistics will be included if they already exist."""
+        """Test band statistics will be computed if they do not already exist."""
         import geometamaker
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
         create_raster(numpy.int16, datasource_path, n_bands=1)
+
+        resource = geometamaker.describe(datasource_path, compute_stats=True)
+        self.assertEqual(
+            resource.data_model.bands[0].gdal_metadata,
+            {'STATISTICS_MINIMUM': '1',
+             'STATISTICS_MAXIMUM': '1',
+             'STATISTICS_MEAN': '1',
+             'STATISTICS_STDDEV': '0',
+             'STATISTICS_VALID_PERCENT': '100'})
+
+    def test_describe_raster_band_compute_statistics_valid_percent(self):
+        """Test band statistics will be computed if VALID_PERCENT is missing."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path, n_bands=1)
+        raster = gdal.OpenEx(datasource_path)
+        band = raster.GetRasterBand(1)
+        # Deliberately set stats metadata that do not include VALID_PERCENT
+        band.SetMetadataItem('STATISTICS_MINIMUM', '1')
+        band.SetMetadataItem('STATISTICS_MAXIMUM', '1')
+        band.SetMetadataItem('STATISTICS_MEAN', '1')
+        band.SetMetadataItem('STATISTICS_STDDEV', '0')
 
         resource = geometamaker.describe(datasource_path, compute_stats=True)
         self.assertEqual(
