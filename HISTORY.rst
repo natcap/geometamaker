@@ -1,6 +1,11 @@
 Release History
 ===============
 
+Unreleased Changes
+------------------
+* Make sure that the option to compute band statistics will include
+  STATISTICS_VALID_PERCENT. https://github.com/natcap/geometamaker/issues/106
+
 0.2.0 (2025-07-22)
 ------------------
 * Allow CLI to ``describe`` remote datasets.
