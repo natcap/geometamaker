@@ -39,6 +39,12 @@ PROTOCOLS = [
 DT_FMT = '%Y-%m-%d %H:%M:%S %Z'
 
 
+def _gdal_progress_callback(complete, message, data):
+    percentage = complete * 100
+    if (percentage > 0) & (percentage % 5 == 0):
+        LOGGER.info(f'{message} {percentage}%')
+
+
 # TODO: In the future we can remove these exception managers in favor of the
 # builtin gdal.ExceptionMgr. It was released in 3.7.0 and debugged in 3.9.1.
 # https://github.com/OSGeo/gdal/blob/v3.9.3/NEWS.md#gdalogr-391-release-notes
@@ -394,8 +400,7 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
                 if not 'STATISTICS_VALID_PERCENT' in band_gdal_metadata:
                     # Sometimes some stats exist, but not all. If this one doesn't,
                     # it's important enough that we want to force computation.
-                    LOGGER.info('computing statistics')
-                    _ = band.ComputeStatistics(0)
+                    _ = band.ComputeStatistics(0, callback=_gdal_progress_callback)
                 else:
                     # 0=do not approximate stats, 1=calculate if they don't exist
                     # If exact stats exist they will be retrieved without

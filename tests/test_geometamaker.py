@@ -59,11 +59,11 @@ def create_vector(target_filepath, field_map=None, driver='GEOJSON'):
 
 def create_raster(
         numpy_dtype, target_path,
-        pixel_size=(1, 1), projection_epsg=4326,
+        pixel_size=(1, 1), raster_size=(2, 2), projection_epsg=4326,
         origin=(0, 0), n_bands=2, define_nodata=True):
     driver_name, creation_options = DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
     raster_driver = gdal.GetDriverByName(driver_name)
-    ny, nx = (2, 2)
+    nx, ny = raster_size
     gdal_type = gdal_array.NumericTypeCodeToGDALTypeCode(numpy_dtype)
     raster = raster_driver.Create(
         target_path, nx, ny, n_bands, gdal_type)
@@ -78,7 +78,7 @@ def create_raster(
     if projection_wkt is not None:
         raster.SetProjection(projection_wkt)
 
-    base_array = numpy.full((2, 2), 1, dtype=numpy_dtype)
+    base_array = numpy.full((nx, ny), 1, dtype=numpy_dtype)
 
     target_nodata = pygeoprocessing.choose_nodata(numpy_dtype)
 
