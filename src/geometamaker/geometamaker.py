@@ -209,7 +209,10 @@ def detect_file_type(filepath, scheme):
     # We'll likely want a different data model for multi-dimensional arrays.
     # Frictionless supports a wide range of formats. The quickest way to
     # determine if a file is recognized as a table or archive is to call list.
-    info = frictionless.list(filepath)[0]
+    try:
+        info = frictionless.list(filepath)[0]
+    except frictionless.FrictionlessException:
+        raise RuntimeError(f'Cannot detect file type of "{filepath}"')
     if info.type == 'table':
         return 'table'
     # Frictionless doesn't recognize .tgz compression (but does recognize .tar.gz)

@@ -5,6 +5,9 @@ Unreleased Changes
 ------------------
 * Make sure that the option to compute band statistics will include
   STATISTICS_VALID_PERCENT. https://github.com/natcap/geometamaker/issues/106
+* Improve the error message if frictionless raises an exception while
+  trying to detect a filetype.
+  https://github.com/natcap/geometamaker/issues/107
 
 0.2.0 (2025-07-22)
 ------------------
