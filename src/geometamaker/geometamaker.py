@@ -268,7 +268,7 @@ def describe_file(source_dataset_path, scheme):
     hash_func = hashlib.new('sha256')
     hash_func.update(
         f'{description["bytes"]}{description["last_modified"]}\
-        {description["path"]}'.encode('ascii'))
+        {description["path"]}'.encode('utf-8'))
     description['uid'] = f'sizetimestamp:{hash_func.hexdigest()}'
 
     # We don't have a use for including these attributes in our metadata:

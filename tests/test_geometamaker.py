@@ -96,7 +96,8 @@ class GeometamakerTests(unittest.TestCase):
 
     def setUp(self):
         """Override setUp function to create temp workspace directory."""
-        self.workspace_dir = tempfile.mkdtemp()
+        self.workspace_dir = tempfile.mkdtemp(
+            suffix='\U0001f60e')  # ensure unicode support
         self.patcher = patch('geometamaker.config.platformdirs.user_config_dir')
         self.mock_user_config_dir = self.patcher.start()
         self.mock_user_config_dir.return_value = self.workspace_dir
