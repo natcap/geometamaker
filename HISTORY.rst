@@ -1,7 +1,7 @@
 Release History
 ===============
 
-Unreleased Changes
+0.2.1 (2026-02-02)
 ------------------
 * Make sure that the option to compute band statistics will include
   STATISTICS_VALID_PERCENT. https://github.com/natcap/geometamaker/issues/106
