@@ -8,6 +8,8 @@ Unreleased Changes
 * Improve the error message if frictionless raises an exception while
   trying to detect a filetype.
   https://github.com/natcap/geometamaker/issues/107
+* Fixed bug where non-ascii characters in filepaths raised an exception
+  in ``describe``. https://github.com/natcap/geometamaker/issues/112
 
 0.2.0 (2025-07-22)
 ------------------
