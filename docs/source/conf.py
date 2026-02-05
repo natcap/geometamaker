@@ -3,6 +3,7 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import datetime
 import os
 import sys
 import sphinx.ext.apidoc
@@ -14,8 +15,8 @@ sys.path.insert(0, os.path.abspath('../../src'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'geometamaker'
-copyright = '2024, The Natural Capital Project'
-author = 'The Natural Capital Project'
+copyright = f'{datetime.datetime.today().year}, The Natural Capital Alliance'
+author = 'The Natural Capital Alliance'
 # release = '0.0'
 
 # -- General configuration ---------------------------------------------------
