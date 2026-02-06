@@ -1,6 +1,12 @@
 Release History
 ===============
 
+Unreleased Changes
+------------------
+* The Natural Capital Project changed its name to the Natural Capital Alliance.
+  References to the old name and website URL have been updated to reflect
+  this change. https://github.com/natcap/geometamaker/issues/115
+
 0.2.1 (2026-02-02)
 ------------------
 * Make sure that the option to compute band statistics will include
