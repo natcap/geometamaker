@@ -117,6 +117,20 @@ def _wkt_to_epsg_units_string(wkt_string):
     return crs_string, units_string
 
 
+def _epsg_to_wkt_units_string(epsg_code):
+    wkt_string = 'unknown'
+    units_string = 'unknown'
+    try:
+        srs = osr.SpatialReference()
+        srs.ImportFromEPSG(epsg_code)
+        wkt_string = srs.ExportToWkt()
+        units_string = srs.GetAttrValue('UNIT', 0)
+    except RuntimeError:
+        LOGGER.warning(
+            f'EPSG: {epsg_code} cannot be interpreted as a coordinate reference system')
+    return wkt_string, units_string
+
+
 def _list_files_with_depth(directory, depth, exclude_regex=None,
                            exclude_hidden=True):
     """List files in directory up to depth
@@ -504,6 +518,8 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     root_ext_map, root_list = _group_files_by_root(file_list)
 
     items = []
+    collection_crs_set = set()
+    item_spatial_list = []
 
     for root in root_list:
         extensions = root_ext_map[root]
@@ -518,28 +534,57 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         for ext in extensions:
             filepath = os.path.join(directory, f'{root}{ext}')
             try:
-                this_desc = describe(filepath, **kwargs)
+                item_resource = describe(filepath, **kwargs)
+                if hasattr(item_resource, 'spatial'):
+                    collection_crs_set.add(item_resource.spatial.crs)
+                    item_spatial_list.append(item_resource.spatial)
+
             except ValueError:
                 # if file type isn't supported by geometamaker, e.g. pdf
                 # or if trying to describe a dir
-                this_desc = None
+                item_resource = None
 
-            if describe_files and this_desc:
-                this_desc.write(backup=backup)
+            if describe_files and item_resource:
+                item_resource.write(backup=backup)
 
             if ext and os.path.exists(filepath + '.yml'):
                 metadata_yml = f'{root}{ext}' + '.yml'
             else:
                 metadata_yml = ''
 
-            this_resource = models.CollectionItemSchema(
+            collection_item = models.CollectionItemSchema(
                 path=f'{root}{ext}',
-                description=this_desc.description if this_desc else '',
+                description=item_resource.description if item_resource else '',
                 metadata=metadata_yml
             )
-            items.append(this_resource)
+            items.append(collection_item)
 
     total_bytes, last_modified, uid = _get_collection_size_time_uid(directory)
+    spatial = None
+    if len(collection_crs_set) == 1:
+        collection_bbox = pygeoprocessing.merge_bounding_box_list(
+            [list(spatial.bounding_box) for spatial in item_spatial_list], 'union')
+        spatial = models.SpatialSchema(
+            bounding_box=models.BoundingBox(*collection_bbox),
+            crs=item_spatial_list[0].crs,
+            crs_units=item_spatial_list[0].crs_units)
+    if len(collection_crs_set) > 1:
+        wgs84_bbox_list = []
+        target_projection_wkt, crs_units = _epsg_to_wkt_units_string(4326)
+        for spatial in item_spatial_list:
+            base_projection_wkt, crs_units = _epsg_to_wkt_units_string(
+                int(spatial.crs.split(':')[1]))
+            bbox = pygeoprocessing.transform_bounding_box(
+                bounding_box=list(spatial.bounding_box),
+                base_projection_wkt=base_projection_wkt,
+                target_projection_wkt=target_projection_wkt)
+            wgs84_bbox_list.append(bbox)
+        collection_bbox = pygeoprocessing.merge_bounding_box_list(
+            wgs84_bbox_list, 'union')
+        spatial = models.SpatialSchema(
+            bounding_box=models.BoundingBox(*collection_bbox),
+            crs='EPSG:4326',
+            crs_units=crs_units)
 
     resource = models.CollectionResource(
         path=directory,
@@ -549,7 +594,8 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         bytes=total_bytes,
         last_modified=last_modified,
         items=items,
-        uid=uid
+        uid=uid,
+        spatial=spatial
     )
 
     # Check if there is existing metadata for the collection

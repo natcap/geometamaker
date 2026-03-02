@@ -870,6 +870,54 @@ class GeometamakerTests(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(
             self.workspace_dir, f'{root_name}.csv.yml')))
 
+    def test_describe_collection_spatial_single_crs(self):
+        """Test describe_collection spatial section is populated."""
+        import geometamaker
+
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        raster_path = os.path.join(collection_path, 'raster.tif')
+        create_raster(numpy.int16, raster_path, projection_epsg=3857)
+
+        resource = geometamaker.describe_collection(collection_path)
+        self.assertEqual(resource.spatial.crs, 'EPSG:3857')
+        self.assertEqual(resource.spatial.crs_units, 'metre')
+        self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 2, 2])
+
+    def test_describe_collection_spatial_multiple_crs(self):
+        """Test describe_collection spatial section represents union."""
+        import geometamaker
+
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        raster_path = os.path.join(collection_path, 'raster.tif')
+        create_raster(numpy.int16, raster_path, projection_epsg=3857,
+                      origin=(0, 0))
+        raster2_path = os.path.join(collection_path, 'raster2.tif')
+        create_raster(numpy.int16, raster2_path, projection_epsg=4326,
+                      origin=(2, 2))
+
+        resource = geometamaker.describe_collection(collection_path)
+        self.assertEqual(resource.spatial.crs, 'EPSG:4326')
+        self.assertEqual(resource.spatial.crs_units, 'degree')
+        self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 4, 4])
+
+    def test_describe_collection_spatial_no_crs(self):
+        """Test describe_collection spatial section is None."""
+        import geometamaker
+
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        csv_path = os.path.join(collection_path, 'table.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
+
+        resource = geometamaker.describe_collection(collection_path)
+        self.assertIsNone(resource.spatial)
+
     def test_describe_collection_with_depth(self):
         """Test describe_collection with depth and exclude_regex parameters"""
         import geometamaker
@@ -958,7 +1006,6 @@ class GeometamakerTests(unittest.TestCase):
         csv_path = os.path.join(collection_path, 'table.csv')
         with open(csv_path, 'w') as file:
             file.write('a,b,c')
-
 
         # Describing a collection that already has an invalid yaml
         # sidecar file should issue a warning.

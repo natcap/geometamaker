@@ -56,6 +56,14 @@ class BoundingBox:
     xmax: float
     ymax: float
 
+    def __iter__(self):
+        """Return the bounding box as an iterator."""
+        return iter([self.xmin, self.ymin, self.xmax, self.ymax])
+
+    def to_list(self):
+        """Return the bounding box as a list: [xmin, ymin, xmax, ymax]."""
+        return list(self)
+
 
 class SpatialSchema(Parent):
     """Class for keeping track of spatial info."""
@@ -763,6 +771,14 @@ class CollectionResource(BaseResource):
 
     items: list[CollectionItemSchema] = Field(default_factory=list)
     """Files in collection."""
+    spatial: SpatialSchema | None = None
+    """An object for describing spatial properties of the collection.
+
+    The bounding box is the union of the bounding boxes of all the items.
+    If all items share the same CRS, the collection's bounding box
+    will match that CRS. If items use different CRS from each other,
+    bounding boxes are transformed to WGS84 before unioning.
+    """
 
     def model_post_init(self, __context):
         self.metadata_path = self._default_metadata_path()
