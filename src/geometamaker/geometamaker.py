@@ -535,7 +535,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
             filepath = os.path.join(directory, f'{root}{ext}')
             try:
                 item_resource = describe(filepath, **kwargs)
-                if hasattr(item_resource, 'spatial'):
+                if item_resource.spatial is not None:
                     collection_crs_set.add(item_resource.spatial.crs)
                     item_spatial_list.append(item_resource.spatial)
 
@@ -560,14 +560,17 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
             items.append(collection_item)
 
     total_bytes, last_modified, uid = _get_collection_size_time_uid(directory)
+
     spatial = None
     if len(collection_crs_set) == 1:
         collection_bbox = pygeoprocessing.merge_bounding_box_list(
-            [list(spatial.bounding_box) for spatial in item_spatial_list], 'union')
+            [list(spatial.bounding_box) for spatial in item_spatial_list],
+            'union')
         spatial = models.SpatialSchema(
             bounding_box=models.BoundingBox(*collection_bbox),
             crs=item_spatial_list[0].crs,
             crs_units=item_spatial_list[0].crs_units)
+
     if len(collection_crs_set) > 1:
         wgs84_bbox_list = []
         target_projection_wkt, crs_units = _epsg_to_wkt_units_string(4326)

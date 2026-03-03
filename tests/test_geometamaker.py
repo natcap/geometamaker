@@ -147,6 +147,7 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(resource.get_field_description('Strings').type, 'string')
         self.assertEqual(resource.get_field_description('Ints').type, 'integer')
         self.assertEqual(resource.get_field_description('Reals').type, 'number')
+        self.assertIsNone(resource.spatial)
 
         title = 'title'
         description = 'some abstract'
@@ -160,11 +161,18 @@ class GeometamakerTests(unittest.TestCase):
             field_names[1],
             units=units)
 
+        spatial = geometamaker.models.SpatialSchema(
+            bounding_box=geometamaker.models.BoundingBox(0, 0, 2, 2),
+            crs='EPSG:4326',
+            crs_units='degree')
+        resource.set_spatial(spatial)
+
         field = [field for field in resource.data_model.fields
                  if field.name == field_names[1]][0]
         self.assertEqual(field.title, title)
         self.assertEqual(field.description, description)
         self.assertEqual(field.units, units)
+        self.assertEqual(resource.spatial, spatial)
 
     def test_describe_bad_csv(self):
         """MetadataControl: CSV with extra item in row does not fail."""
