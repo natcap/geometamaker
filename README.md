@@ -25,29 +25,40 @@ how to do the same thing, if possible, using the CLI.
 ```python
 import geometamaker
 
-data_path = 'data/watershed_gura.shp'
-resource = geometamaker.describe(data_path)
-
-resource.set_title('My Dataset')
-resource.set_description('all about my dataset')
-resource.set_keywords(['hydrology', 'watersheds'])
-
 # For a vector:
-resource.set_field_description(
+data_path = 'data/watershed_gura.shp'
+vector_resource = geometamaker.describe(data_path)
+
+vector_resource.set_title('My Dataset')
+vector_resource.set_description('all about my dataset')
+vector_resource.set_keywords(['hydrology', 'watersheds'])
+
+vector_resource.set_field_description(
     'field_name',  # the name of an actual field in the vector's table
     description='something about the field',
     units='mm')
+vector_resource.write()
 
-# or for a raster:
+# For a raster:
 data_path = 'data/dem.tif'
-resource = geometamaker.describe(data_path)
-resource.set_band_description(
+raster_resource = geometamaker.describe(data_path)
+raster_resource.set_band_description(
     1,  # a raster band index, starting at 1
     description='something about the band',
     units='mm')
+raster_resource.write()
 
-
-resource.write()
+# For a CSV:
+data_path = 'data/table.csv'
+table_resource = geometamaker.describe(data_path)
+table_resource.set_field_description(
+    'field_name',  # the name of an actual field in the table
+    description='something about the field',
+    units='mm')
+# A table does not have inherent spatial information, but the
+# property may be set manually:
+table_resource.set_spatial(raster_resource.spatial)
+table_resource.write()
 ```
 For a complete list of methods and attributes:
 https://geometamaker.readthedocs.io/en/latest/index.html

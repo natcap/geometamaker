@@ -3,6 +3,12 @@ Release History
 
 Unreleased Changes
 ------------------
+* Added an optional ``spatial`` attribute for tables, archives, and
+  collections. The ``spatial`` attribute for rasters and vectors remains
+  required. Spatial information for Collections represents the union of the
+  bounding boxes of all items within a collection. Table and archive resources
+  have no spatial information by default, but the attributes can be set manually.
+  https://github.com/natcap/geometamaker/issues/93
 * The Natural Capital Project changed its name to the Natural Capital Alliance.
   References to the old name and website URL have been updated to reflect
   this change. https://github.com/natcap/geometamaker/issues/115
