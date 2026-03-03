@@ -574,20 +574,26 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     if len(collection_crs_set) > 1:
         wgs84_bbox_list = []
         target_projection_wkt, crs_units = _epsg_to_wkt_units_string(4326)
-        for spatial in item_spatial_list:
-            base_projection_wkt, crs_units = _epsg_to_wkt_units_string(
-                int(spatial.crs.split(':')[1]))
-            bbox = pygeoprocessing.transform_bounding_box(
-                bounding_box=list(spatial.bounding_box),
-                base_projection_wkt=base_projection_wkt,
-                target_projection_wkt=target_projection_wkt)
-            wgs84_bbox_list.append(bbox)
-        collection_bbox = pygeoprocessing.merge_bounding_box_list(
-            wgs84_bbox_list, 'union')
-        spatial = models.SpatialSchema(
-            bounding_box=models.BoundingBox(*collection_bbox),
-            crs='EPSG:4326',
-            crs_units=crs_units)
+        try:
+            for spatial in item_spatial_list:
+                base_projection_wkt, crs_units = _epsg_to_wkt_units_string(
+                    int(spatial.crs.split(':')[1]))
+                bbox = pygeoprocessing.transform_bounding_box(
+                    bounding_box=list(spatial.bounding_box),
+                    base_projection_wkt=base_projection_wkt,
+                    target_projection_wkt=target_projection_wkt)
+                wgs84_bbox_list.append(bbox)
+            collection_bbox = pygeoprocessing.merge_bounding_box_list(
+                wgs84_bbox_list, 'union')
+            spatial = models.SpatialSchema(
+                bounding_box=models.BoundingBox(*collection_bbox),
+                crs='EPSG:4326',
+                crs_units=crs_units)
+        except ValueError as error:
+            # transform_bounding_box can raise a ValueError
+            LOGGER.error(error)
+            LOGGER.warning(
+                f'Cannot define spatial attribute for Collection {directory}')
 
     resource = models.CollectionResource(
         path=directory,
