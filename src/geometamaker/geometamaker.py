@@ -589,7 +589,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                 bounding_box=models.BoundingBox(*collection_bbox),
                 crs='EPSG:4326',
                 crs_units=crs_units)
-        except ValueError as error:
+        except (ValueError, RuntimeError) as error:
             # transform_bounding_box can raise a ValueError
             LOGGER.error(error)
             LOGGER.warning(
