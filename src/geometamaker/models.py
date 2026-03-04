@@ -68,6 +68,8 @@ class BoundingBox:
 class SpatialSchema(Parent):
     """Class for keeping track of spatial info."""
 
+    model_config = ConfigDict(frozen=True)
+
     bounding_box: BoundingBox
     """Spatial extent [xmin, ymin, xmax, ymax]."""
     crs: str
@@ -787,7 +789,7 @@ class CollectionResource(BaseResource):
     """
 
     items: list[CollectionItemSchema] = Field(default_factory=list)
-    """Files in collection."""    
+    """Files in collection."""
 
     def model_post_init(self, __context):
         self.metadata_path = self._default_metadata_path()
