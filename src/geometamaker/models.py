@@ -28,7 +28,7 @@ def _deep_update_dict(self_dict, other_dict):
     """
     for k, v in other_dict.items():
         if k in self_dict:
-            if isinstance(v, collections.abc.Mapping):
+            if self_dict[k] is not None and isinstance(v, collections.abc.Mapping):
                 self_dict[k] = _deep_update_dict(self_dict[k], v)
             else:
                 if v is not None and (v or isinstance(v, numbers.Number)):
@@ -56,9 +56,19 @@ class BoundingBox:
     xmax: float
     ymax: float
 
+    def __iter__(self):
+        """Return the bounding box as an iterator."""
+        return iter([self.xmin, self.ymin, self.xmax, self.ymax])
+
+    def to_list(self):
+        """Return the bounding box as a list: [xmin, ymin, xmax, ymax]."""
+        return list(self)
+
 
 class SpatialSchema(Parent):
     """Class for keeping track of spatial info."""
+
+    model_config = ConfigDict(frozen=True)
 
     bounding_box: BoundingBox
     """Spatial extent [xmin, ymin, xmax, ymax]."""
@@ -435,6 +445,8 @@ class BaseResource(BaseMetadata):
     """The title of the resource."""
     url: str = ''
     """A URL where the resource is available."""
+    spatial: SpatialSchema | None = None
+    """An object for describing spatial properties of the resource."""
 
     @classmethod
     def load(cls, filepath):
@@ -740,12 +752,20 @@ class TableResource(Resource):
         self.data_model.set_field_description(
             name, title, description, units, type)
 
+    def set_spatial(self, spatial: SpatialSchema):
+        """Set spatial properties of a resource."""
+        self.spatial = spatial
+
 
 class ArchiveResource(Resource):
     """Class for metadata for an archive resource."""
 
     compression: str = ''
     """The compression method used to create the archive."""
+
+    def set_spatial(self, spatial: SpatialSchema):
+        """Set spatial properties of a resource."""
+        self.spatial = spatial
 
 
 class CollectionItemSchema(Parent):
@@ -759,7 +779,14 @@ class CollectionItemSchema(Parent):
 
 
 class CollectionResource(BaseResource):
-    """Class for metadata for a collection resource."""
+    """Class for metadata for a collection resource.
+
+    In the spatial properties of a collection, the bounding box is the
+    union of the bounding boxes of all the items in the collection.
+    If all items share the same CRS, the collection's bounding box
+    will match that CRS. If items use a different CRS from each other,
+    bounding boxes are transformed to WGS84 before unioning.
+    """
 
     items: list[CollectionItemSchema] = Field(default_factory=list)
     """Files in collection."""
@@ -772,6 +799,10 @@ class CollectionResource(BaseResource):
     def _default_metadata_path(self):
         """Add -metadata tag"""
         return f'{self.path}-metadata.yml'
+
+    def set_spatial(self, spatial: SpatialSchema):
+        """Set spatial properties of a resource."""
+        self.spatial = spatial
 
 
 class VectorResource(Resource):

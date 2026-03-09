@@ -7,7 +7,7 @@ from datetime import datetime
 import os
 import sys
 import sphinx.ext.apidoc
-from pkg_resources import get_distribution
+from importlib.metadata import version
 
 sys.path.insert(0, os.path.abspath('../../src'))
 
@@ -81,5 +81,5 @@ sphinx.ext.apidoc.main([
     os.path.join(DOCS_SOURCE_DIR, '..', '..', 'src'),
 ])
 
-release = get_distribution('geometamaker').version
+release = version('geometamaker')
 version = '.'.join(release.split('.')[:2])
