@@ -157,6 +157,10 @@ def echo_validation_error(error, filepath):
         click.secho(msg_string)
 
 
+def echo_is_valid(filepath):
+    click.secho(f'\u2713 {filepath} is valid', fg='bright_green')
+
+
 @click.command(
     help='''Validate a .yml metadata document given by FILEPATH.
     Or if FILEPATH is a directory, validate all documents within.''',
@@ -175,17 +179,19 @@ def validate(filepath, depth):
         for filepath, msg in zip(file_list, message_list):
             if isinstance(msg, ValidationError):
                 echo_validation_error(msg, filepath)
+            elif msg:
+                # The file was not a metadata document at all
+                click.secho(f'\u25CB {filepath} {msg}', fg='yellow')
             else:
-                color = 'yellow'
-                icon = u'\u25CB'
-                if not msg:
-                    color = 'bright_green'
-                    icon = u'\u2713'
-                click.secho(f'{icon} {filepath} {msg}', fg=color)
+                echo_is_valid(filepath)
     else:
         error = geometamaker.validate(filepath)
+        # If the filepath was not a metadata document validate
+        # raises an exception rather than returning a message
         if error:
             echo_validation_error(error, filepath)
+        else:
+            echo_is_valid(filepath)
 
 
 def print_config(ctx, param, value):

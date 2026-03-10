@@ -1321,9 +1321,8 @@ class CLITests(unittest.TestCase):
         self.assertFalse(os.path.exists(f'{datasource_path}.yml'))
         self.assertTrue(os.path.exists(f'{self.workspace_dir}-metadata.yml'))
 
-
     def test_cli_validate_valid(self):
-        """CLI: test validate creates no output for valid document."""
+        """CLI: test validate emits stdout for valid document."""
         from geometamaker import cli
 
         datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
@@ -1332,12 +1331,11 @@ class CLITests(unittest.TestCase):
         runner = CliRunner()
         _ = runner.invoke(cli.cli, ['describe', datasource_path])
         result = runner.invoke(cli.cli, ['validate', f'{datasource_path}.yml'])
-        # print(result)
         self.assertEqual(result.exit_code, 0)
-        self.assertEqual(result.output, '')
+        self.assertIn('is valid', result.output)
 
     def test_cli_validate_invalid(self):
-        """CLI: test validate generates stdout for invalid document."""
+        """CLI: test validate emits stdout for invalid document."""
         from geometamaker import cli
         from geometamaker import utils
 
