@@ -186,8 +186,8 @@ def validate(filepath, depth):
                 echo_is_valid(filepath)
     else:
         error = geometamaker.validate(filepath)
-        # If the filepath was not a metadata document,
-        # validate raises an exception
+        # If the filepath was not a metadata document validate
+        # raises an exception rather than returning a message
         if error:
             echo_validation_error(error, filepath)
         else:
