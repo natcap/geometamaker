@@ -9,6 +9,10 @@ Unreleased Changes
   bounding boxes of all items within a collection. Table and archive resources
   have no spatial information by default, but the attributes can be set manually.
   https://github.com/natcap/geometamaker/issues/93
+* Added a positive feedback message to ``geometamaker validate <filepath>``
+  indicating that the file passed validation. Previously, no output was emitted
+  unless there were validation errors.
+  https://github.com/natcap/geometamaker/issues/105
 * The Natural Capital Project changed its name to the Natural Capital Alliance.
   References to the old name and website URL have been updated to reflect
   this change. https://github.com/natcap/geometamaker/issues/115
