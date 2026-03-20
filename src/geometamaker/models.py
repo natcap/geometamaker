@@ -7,7 +7,6 @@ import warnings
 from typing import Union
 
 import fsspec
-import pandas
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.dataclasses import dataclass
@@ -247,9 +246,6 @@ class RasterAttributeTable(Parent):
                         row[columns[j].name] = rat.GetValueAsString(i, j)
             rows.append(row)
         return cls(table_type=table_type, columns=columns, rows=rows)
-
-    def to_dataframe(self):
-        return pandas.DataFrame(self.rows)
 
 
 class BandSchema(Parent):

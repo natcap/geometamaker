@@ -411,11 +411,6 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(table.columns[1].type, 'Integer')
         self.assertEqual(table.columns[1].usage, 'PixelCount')
 
-        table_df = table.to_dataframe()
-        self.assertEqual(table_df.columns[0], value_name)
-        self.assertEqual(table_df.columns[1], count_name)
-        self.assertEqual(table_df.shape, (len(values), 2))
-
     def test_describe_vector_with_gdal_metadata(self):
         """Test vector metadata will be included if they already exist."""
         import geometamaker
