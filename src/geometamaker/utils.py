@@ -28,3 +28,41 @@ def yaml_dump(data):
         allow_unicode=True,
         sort_keys=False,
         Dumper=_SafeDumper)
+
+
+# GDALGetRATFieldUsageName() and GDALGetRATFieldTypeName() were only added to
+# GDAL in 3.12, so we can maintain our own lookups.
+_GFU_INT_TO_STR = {
+    0: 'Generic',
+    1: 'PixelCount',
+    2: 'Name',
+    3: 'Min',
+    4: 'Max',
+    5: 'MinMax',
+    6: 'Red',
+    7: 'Green',
+    8: 'Blue',
+    9: 'Alpha',
+    10: 'RedMin',
+    11: 'GreenMin',
+    12: 'BlueMin',
+    13: 'AlphaMin',
+    14: 'RedMax',
+    15: 'GreenMax',
+    16: 'BlueMax',
+    17: 'AlphaMax',
+}
+
+_GFT_INT_TO_STR = {
+    0: 'Integer',
+    1: 'Real',
+    2: 'String',
+    3: 'Boolean',
+    4: 'DateTime',
+    5: 'WKBGeometry',
+}
+
+_GRTT_INT_TO_STR = {
+    0: 'Thematic',
+    1: 'Athematic'
+}

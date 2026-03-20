@@ -7,6 +7,7 @@ import warnings
 from typing import Union
 
 import fsspec
+import pandas
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.dataclasses import dataclass
@@ -191,6 +192,66 @@ class TableSchema(Parent):
         return field
 
 
+class RATColumnDefn(Parent):
+    """Class for metadata for a column in a raster attribute table."""
+
+    name: str
+    """The name used to uniquely identify the column."""
+    type: str
+    """Datatype of the content of the column. TODO: make enum?"""
+    usage: str
+    """The intended use of the column, see ``gdalconst.GFU_*``."""
+
+
+class RasterAttributeTable(Parent):
+    """Class for metadata for a raster attribute table."""
+
+    table_type: str  # TODO: make enum
+    columns: list[RATColumnDefn]
+    """A list of column definitions in the raster attribute table."""
+    rows: list[dict]
+    """A list of dicts representing rows in the raster attribute table."""
+
+    @classmethod
+    def from_gdal(cls, rat):
+        """Create a RasterAttributeTable from a GDAL RAT object."""
+        table_type = utils._GRTT_INT_TO_STR[rat.GetTableType()]
+        columns = []
+        for i in range(rat.GetColumnCount()):
+            column_name = rat.GetNameOfCol(i)
+            column_type = utils._GFT_INT_TO_STR[rat.GetTypeOfCol(i)]
+            column_usage = utils._GFU_INT_TO_STR[rat.GetUsageOfCol(i)]
+            columns.append(RATColumnDefn(
+                name=column_name,
+                type=column_type,
+                usage=column_usage))
+        rows = []
+        for i in range(rat.GetRowCount()):
+            row = {}
+            for j in range(rat.GetColumnCount()):
+                col = columns[j]
+                match col.type:
+                    case 'Integer':
+                        row[columns[j].name] = rat.GetValueAsInt(i, j)
+                    case 'String':
+                        row[columns[j].name] = rat.GetValueAsString(i, j)
+                    case 'Real':
+                        row[columns[j].name] = rat.GetValueAsDouble(i, j)
+                    case 'Boolean':
+                        row[columns[j].name] = rat.GetValueAsBoolean(i, j)
+                    case 'DateTime':
+                        row[columns[j].name] = rat.GetValueAsDateTime(i, j)
+                    case 'WKBGeometry':
+                        row[columns[j].name] = rat.GetValueAsWKBGeometry(i, j)
+                    case _:
+                        row[columns[j].name] = rat.GetValueAsString(i, j)
+            rows.append(row)
+        return cls(table_type=table_type, columns=columns, rows=rows)
+
+    def to_dataframe(self):
+        return pandas.DataFrame(self.rows)
+
+
 class BandSchema(Parent):
     """Class for metadata for a raster band."""
 
@@ -210,6 +271,7 @@ class BandSchema(Parent):
     """Unit of measurement for the pixel values."""
     gdal_metadata: dict = {}
     """Metadata key:value pairs stored in the GDAL band object."""
+    raster_attribute_table: Union[RasterAttributeTable, None] = None
 
 
 class RasterSchema(Parent):

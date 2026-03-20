@@ -12,6 +12,7 @@ import yaml
 
 from click.testing import CliRunner
 from osgeo import gdal
+from osgeo import gdalconst
 from osgeo import gdal_array
 from osgeo import ogr
 from osgeo import osr
@@ -377,6 +378,43 @@ class GeometamakerTests(unittest.TestCase):
             resource.data_model.gdal_metadata,
             {'AREA_OR_POINT': 'Area',  # This exists by default
              'FOO': 'BAR'})
+
+    def test_describe_raster_with_raster_attribute_table(self):
+        """Test raster attribute table will be included if it exists."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path, n_bands=1)
+        raster = gdal.OpenEx(datasource_path, gdal.OF_UPDATE)
+        band = raster.GetRasterBand(1)
+        rat = gdal.RasterAttributeTable()
+        value_name = 'Value'
+        count_name = 'Count'
+        rat.CreateColumn(value_name, gdalconst.GFT_Integer, gdalconst.GFU_MinMax)
+        rat.CreateColumn(count_name, gdalconst.GFT_Integer, gdalconst.GFU_PixelCount)
+        array = band.ReadAsArray()
+        values, counts = numpy.unique(array, return_counts=True)
+        for i in range(len(values)):
+            rat.SetValueAsInt(i, 0, int(values[i]))
+            rat.SetValueAsInt(i, 1, int(counts[i]))
+        band.SetDefaultRAT(rat)
+        band = raster = None
+
+        resource = geometamaker.describe(datasource_path)
+
+        table = resource.get_band_description(1).raster_attribute_table
+        self.assertEqual(len(table.rows), len(values))
+        self.assertEqual(table.columns[0].name, value_name)
+        self.assertEqual(table.columns[0].type, 'Integer')
+        self.assertEqual(table.columns[0].usage, 'MinMax')
+        self.assertEqual(table.columns[1].name, count_name)
+        self.assertEqual(table.columns[1].type, 'Integer')
+        self.assertEqual(table.columns[1].usage, 'PixelCount')
+
+        table_df = table.to_dataframe()
+        self.assertEqual(table_df.columns[0], value_name)
+        self.assertEqual(table_df.columns[1], count_name)
+        self.assertEqual(table_df.shape, (len(values), 2))
 
     def test_describe_vector_with_gdal_metadata(self):
         """Test vector metadata will be included if they already exist."""
