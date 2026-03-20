@@ -193,19 +193,22 @@ class TableSchema(Parent):
 
 class RATColumnDefn(Parent):
     """Class for metadata for a column in a raster attribute table."""
+    model_config = ConfigDict(frozen=True)
 
     name: str
     """The name used to uniquely identify the column."""
     type: str
-    """Datatype of the content of the column. TODO: make enum?"""
+    """Datatype of the content of the column, see ``gdalconst.GFT_*``."""
     usage: str
     """The intended use of the column, see ``gdalconst.GFU_*``."""
 
 
 class RasterAttributeTable(Parent):
     """Class for metadata for a raster attribute table."""
+    model_config = ConfigDict(frozen=True)
 
-    table_type: str  # TODO: make enum
+    table_type: str
+    """Thematic or Athematic, see ``gdalconst.GRTT_*``."""
     columns: list[RATColumnDefn]
     """A list of column definitions in the raster attribute table."""
     rows: list[dict]
@@ -217,13 +220,10 @@ class RasterAttributeTable(Parent):
         table_type = utils._GRTT_INT_TO_STR[rat.GetTableType()]
         columns = []
         for i in range(rat.GetColumnCount()):
-            column_name = rat.GetNameOfCol(i)
-            column_type = utils._GFT_INT_TO_STR[rat.GetTypeOfCol(i)]
-            column_usage = utils._GFU_INT_TO_STR[rat.GetUsageOfCol(i)]
             columns.append(RATColumnDefn(
-                name=column_name,
-                type=column_type,
-                usage=column_usage))
+                name=rat.GetNameOfCol(i),
+                type=utils._GFT_INT_TO_STR[rat.GetTypeOfCol(i)],
+                usage=utils._GFU_INT_TO_STR[rat.GetUsageOfCol(i)]))
         rows = []
         for i in range(rat.GetRowCount()):
             row = {}
@@ -267,7 +267,7 @@ class BandSchema(Parent):
     """Unit of measurement for the pixel values."""
     gdal_metadata: dict = {}
     """Metadata key:value pairs stored in the GDAL band object."""
-    raster_attribute_table: Union[RasterAttributeTable, None] = None
+    raster_attribute_table: RasterAttributeTable | None = None
 
 
 class RasterSchema(Parent):
