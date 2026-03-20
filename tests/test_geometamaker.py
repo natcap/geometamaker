@@ -402,7 +402,7 @@ class GeometamakerTests(unittest.TestCase):
 
         resource = geometamaker.describe(datasource_path)
 
-        table = resource.get_band_description(1).raster_attribute_table
+        table = resource.get_rat(1)
         self.assertEqual(len(table.rows), len(values))
         self.assertEqual(table.columns[0].name, value_name)
         self.assertEqual(table.columns[0].type, 'Integer')

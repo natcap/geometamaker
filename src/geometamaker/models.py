@@ -937,7 +937,7 @@ class RasterResource(Resource):
         self.data_model.bands[idx] = band
 
     def get_band_description(self, band_number):
-        """Get the attribute metadata for a band.
+        """Get the metadata for a band.
 
         Args:
             band_number (int): a raster band index, starting at 1
@@ -947,3 +947,15 @@ class RasterResource(Resource):
 
         """
         return self.data_model.bands[band_number - 1]
+
+    def get_rat(self, band_number):
+        """Get the raster attribute table for a band, if it exists.
+
+        Args:
+            band_number (int): a raster band index, starting at 1
+
+        Returns:
+            RasterAttributeTable or None if no RAT exists for the band
+
+        """
+        return self.data_model.bands[band_number - 1].raster_attribute_table
