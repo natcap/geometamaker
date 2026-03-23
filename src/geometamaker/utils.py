@@ -1,3 +1,4 @@
+from osgeo import gdalconst
 import yaml
 
 
@@ -33,36 +34,36 @@ def yaml_dump(data):
 # GDALGetRATFieldUsageName() and GDALGetRATFieldTypeName() were only added to
 # GDAL in 3.12, so we can maintain our own lookups.
 _GFU_INT_TO_STR = {
-    0: 'Generic',
-    1: 'PixelCount',
-    2: 'Name',
-    3: 'Min',
-    4: 'Max',
-    5: 'MinMax',
-    6: 'Red',
-    7: 'Green',
-    8: 'Blue',
-    9: 'Alpha',
-    10: 'RedMin',
-    11: 'GreenMin',
-    12: 'BlueMin',
-    13: 'AlphaMin',
-    14: 'RedMax',
-    15: 'GreenMax',
-    16: 'BlueMax',
-    17: 'AlphaMax',
+    gdalconst.GFU_Generic: 'Generic',
+    gdalconst.GFU_PixelCount: 'PixelCount',
+    gdalconst.GFU_Name: 'Name',
+    gdalconst.GFU_Min: 'Min',
+    gdalconst.GFU_Max: 'Max',
+    gdalconst.GFU_MinMax: 'MinMax',
+    gdalconst.GFU_Red: 'Red',
+    gdalconst.GFU_Green: 'Green',
+    gdalconst.GFU_Blue: 'Blue',
+    gdalconst.GFU_Alpha: 'Alpha',
+    gdalconst.GFU_RedMin: 'RedMin',
+    gdalconst.GFU_GreenMin: 'GreenMin',
+    gdalconst.GFU_BlueMin: 'BlueMin',
+    gdalconst.GFU_AlphaMin: 'AlphaMin',
+    gdalconst.GFU_RedMax: 'RedMax',
+    gdalconst.GFU_GreenMax: 'GreenMax',
+    gdalconst.GFU_BlueMax: 'BlueMax',
+    gdalconst.GFU_AlphaMax: 'AlphaMax',
 }
 
 _GFT_INT_TO_STR = {
-    0: 'Integer',
-    1: 'Real',
-    2: 'String',
-    3: 'Boolean',
-    4: 'DateTime',
-    5: 'WKBGeometry',
+    gdalconst.GFT_Integer: 'Integer',
+    gdalconst.GFT_Real: 'Real',
+    gdalconst.GFT_String: 'String',
+    gdalconst.GFT_Boolean: 'Boolean',
+    gdalconst.GFT_DateTime: 'DateTime',
+    gdalconst.GFT_WKBGeometry: 'WKBGeometry',
 }
 
 _GRTT_INT_TO_STR = {
-    0: 'Thematic',
-    1: 'Athematic'
+    gdalconst.GRTT_THEMATIC: 'Thematic',
+    gdalconst.GRTT_ATHEMATIC: 'Athematic'
 }
