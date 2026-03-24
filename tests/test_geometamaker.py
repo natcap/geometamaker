@@ -12,7 +12,6 @@ import yaml
 
 from click.testing import CliRunner
 from osgeo import gdal
-from osgeo import gdalconst
 from osgeo import gdal_array
 from osgeo import ogr
 from osgeo import osr
@@ -388,8 +387,8 @@ class GeometamakerTests(unittest.TestCase):
         rat = gdal.RasterAttributeTable()
         value_name = 'Value'
         count_name = 'Count'
-        rat.CreateColumn(value_name, gdalconst.GFT_Integer, gdalconst.GFU_MinMax)
-        rat.CreateColumn(count_name, gdalconst.GFT_Integer, gdalconst.GFU_PixelCount)
+        rat.CreateColumn(value_name, gdal.GFT_Integer, gdal.GFU_MinMax)
+        rat.CreateColumn(count_name, gdal.GFT_Integer, gdal.GFU_PixelCount)
         array = band.ReadAsArray()
         values, counts = numpy.unique(array, return_counts=True)
         for i in range(len(values)):
