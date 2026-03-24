@@ -23,6 +23,8 @@ from .config import Config
 
 logging.getLogger('chardet').setLevel(logging.INFO)  # DEBUG is just too noisy
 
+GDAL_VERSION = tuple(int(_) for _ in gdal.__version__.split('.'))
+
 LOGGER = logging.getLogger('geometamaker')
 _NOT_FOR_CLI = 'not_for_cli'
 _LOG_EXTRA_NOT_FOR_CLI = {
@@ -415,6 +417,12 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
         gdal_rat = band.GetDefaultRAT()
         if gdal_rat:
             rat = models.RasterAttributeTable.from_gdal(gdal_rat)
+        elif GDAL_VERSION < (3, 11, 0):
+            # GetDefaultRAT did not support DBF prior to 3.11.0
+            dbf_rat = f'{source_dataset_path}.vat.dbf'
+            if dbf_rat in info['file_list']:
+                rat = models.RasterAttributeTable.from_gdal_dbf(dbf_rat)
+
         band_gdal_metadata = band.GetMetadata()
         if compute_stats:
             try:

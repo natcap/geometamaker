@@ -16,8 +16,7 @@ Unreleased Changes
 * Added read support for a GDAL Raster Attribute Table. If it exists, the
   table will be included as band metadata under the 'raster_attribute_table'
   key. It can be retrieved by the ``get_rat`` method of a ``RasterResource``
-  instance. Reading DBF-format raster attribute tables requires GDAL>=3.11.
-  https://github.com/natcap/geometamaker/issues/25
+  instance. https://github.com/natcap/geometamaker/issues/25
 * The Natural Capital Project changed its name to the Natural Capital Alliance.
   References to the old name and website URL have been updated to reflect
   this change. https://github.com/natcap/geometamaker/issues/115

@@ -1,4 +1,4 @@
-from osgeo import gdalconst
+from osgeo import gdal
 import yaml
 
 
@@ -34,36 +34,36 @@ def yaml_dump(data):
 # GDALGetRATFieldUsageName() and GDALGetRATFieldTypeName() were only added to
 # GDAL in 3.12, so we can maintain our own lookups.
 _GFU_INT_TO_STR = {
-    gdalconst.GFU_Generic: 'Generic',
-    gdalconst.GFU_PixelCount: 'PixelCount',
-    gdalconst.GFU_Name: 'Name',
-    gdalconst.GFU_Min: 'Min',
-    gdalconst.GFU_Max: 'Max',
-    gdalconst.GFU_MinMax: 'MinMax',
-    gdalconst.GFU_Red: 'Red',
-    gdalconst.GFU_Green: 'Green',
-    gdalconst.GFU_Blue: 'Blue',
-    gdalconst.GFU_Alpha: 'Alpha',
-    gdalconst.GFU_RedMin: 'RedMin',
-    gdalconst.GFU_GreenMin: 'GreenMin',
-    gdalconst.GFU_BlueMin: 'BlueMin',
-    gdalconst.GFU_AlphaMin: 'AlphaMin',
-    gdalconst.GFU_RedMax: 'RedMax',
-    gdalconst.GFU_GreenMax: 'GreenMax',
-    gdalconst.GFU_BlueMax: 'BlueMax',
-    gdalconst.GFU_AlphaMax: 'AlphaMax',
+    gdal.GFU_Generic: 'Generic',
+    gdal.GFU_PixelCount: 'PixelCount',
+    gdal.GFU_Name: 'Name',
+    gdal.GFU_Min: 'Min',
+    gdal.GFU_Max: 'Max',
+    gdal.GFU_MinMax: 'MinMax',
+    gdal.GFU_Red: 'Red',
+    gdal.GFU_Green: 'Green',
+    gdal.GFU_Blue: 'Blue',
+    gdal.GFU_Alpha: 'Alpha',
+    gdal.GFU_RedMin: 'RedMin',
+    gdal.GFU_GreenMin: 'GreenMin',
+    gdal.GFU_BlueMin: 'BlueMin',
+    gdal.GFU_AlphaMin: 'AlphaMin',
+    gdal.GFU_RedMax: 'RedMax',
+    gdal.GFU_GreenMax: 'GreenMax',
+    gdal.GFU_BlueMax: 'BlueMax',
+    gdal.GFU_AlphaMax: 'AlphaMax',
 }
 
 _GFT_INT_TO_STR = {
-    gdalconst.GFT_Integer: 'Integer',
-    gdalconst.GFT_Real: 'Real',
-    gdalconst.GFT_String: 'String',
-    gdalconst.GFT_Boolean: 'Boolean',
-    gdalconst.GFT_DateTime: 'DateTime',
-    gdalconst.GFT_WKBGeometry: 'WKBGeometry',
+    gdal.GFT_Integer: 'Integer',
+    gdal.GFT_Real: 'Real',
+    gdal.GFT_String: 'String',
+    gdal.GFT_Boolean: 'Boolean',
+    gdal.GFT_DateTime: 'DateTime',
+    gdal.GFT_WKBGeometry: 'WKBGeometry',
 }
 
 _GRTT_INT_TO_STR = {
-    gdalconst.GRTT_THEMATIC: 'Thematic',
-    gdalconst.GRTT_ATHEMATIC: 'Athematic'
+    gdal.GRTT_THEMATIC: 'Thematic',
+    gdal.GRTT_ATHEMATIC: 'Athematic'
 }

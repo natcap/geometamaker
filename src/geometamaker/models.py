@@ -8,6 +8,7 @@ from typing import Union
 
 import fsspec
 import yaml
+from osgeo import gdal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.dataclasses import dataclass
 
@@ -198,9 +199,9 @@ class RATColumnDefn(Parent):
     name: str
     """The name used to uniquely identify the column."""
     type: str
-    """Datatype of the content of the column, see ``gdalconst.GFT_*``."""
+    """Datatype of the content of the column, see ``gdal.GFT_*``."""
     usage: str
-    """The intended use of the column, see ``gdalconst.GFU_*``."""
+    """The intended use of the column, see ``gdal.GFU_*``."""
 
 
 class RasterAttributeTable(Parent):
@@ -208,7 +209,7 @@ class RasterAttributeTable(Parent):
     model_config = ConfigDict(frozen=True)
 
     table_type: str
-    """Thematic or Athematic, see ``gdalconst.GRTT_*``."""
+    """Thematic or Athematic, see ``gdal.GRTT_*``."""
     columns: list[RATColumnDefn]
     """A list of column definitions in the raster attribute table."""
     rows: list[dict]
@@ -246,6 +247,36 @@ class RasterAttributeTable(Parent):
                         row[columns[j].name] = rat.GetValueAsString(i, j)
             rows.append(row)
         return cls(table_type=table_type, columns=columns, rows=rows)
+
+    @classmethod
+    def from_gdal_dbf(cls, dbf_path):
+        """Create a RasterAttributeTable from a DBF file."""
+        vector = gdal.OpenEx(dbf_path)
+        layer = vector.GetLayer()
+        columns = []
+        for field in layer.schema:
+            name = field.GetName()
+            if name == 'VALUE':
+                usage = 'MinMax'
+            elif name == 'COUNT':
+                usage = 'PixelCount'
+            # I'm not sure how common any other fields, so just calling
+            # them all 'Generic'
+            else:
+                usage = 'Generic'
+            columns.append(
+                RATColumnDefn(
+                    name=name,
+                    type=field.GetTypeName(),
+                    usage=usage))
+        rows = []
+        for feature in layer:
+            row = {}
+            for col in columns:
+                row[col.name] = feature.GetField(col.name)
+            rows.append(row)
+
+        return cls(table_type='Unknown', columns=columns, rows=rows)
 
 
 class BandSchema(Parent):
