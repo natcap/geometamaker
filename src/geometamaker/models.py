@@ -260,8 +260,8 @@ class RasterAttributeTable(Parent):
                 usage = 'MinMax'
             elif name == 'COUNT':
                 usage = 'PixelCount'
-            # I'm not sure how common any other fields, so just calling
-            # them all 'Generic'
+            # I'm not sure how standard any other fields are, so just calling
+            # them all 'Generic' may be good enough.
             else:
                 usage = 'Generic'
             columns.append(
