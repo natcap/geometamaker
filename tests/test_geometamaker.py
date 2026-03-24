@@ -415,7 +415,7 @@ class GeometamakerTests(unittest.TestCase):
 
         datasource_path = os.path.join(
             os.path.dirname(__file__), 'data/testrat.tif.vat.dbf')
-        
+
         # Calling this method directly instead of `describe`
         # because depending on GDAL version, this method may not be used
         # and the resulting table would have minor differences.
