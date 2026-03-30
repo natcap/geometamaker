@@ -18,8 +18,6 @@ from osgeo import osr
 from pygeoprocessing.geoprocessing_core import DEFAULT_GTIFF_CREATION_TUPLE_OPTIONS
 from pydantic import ValidationError
 
-REGRESSION_DATA = os.path.join(
-    os.path.dirname(__file__), 'data')
 
 # A remote file we can use for testing
 REMOTE_FILEPATH = 'https://storage.googleapis.com/releases.naturalcapitalproject.org/invest/3.14.2/data/CoastalBlueCarbon.zip'
@@ -377,6 +375,65 @@ class GeometamakerTests(unittest.TestCase):
             resource.data_model.gdal_metadata,
             {'AREA_OR_POINT': 'Area',  # This exists by default
              'FOO': 'BAR'})
+
+    def test_describe_raster_with_raster_attribute_table(self):
+        """Test raster attribute table will be included if it exists."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        create_raster(numpy.int16, datasource_path, n_bands=1)
+        raster = gdal.OpenEx(datasource_path, gdal.OF_UPDATE)
+        band = raster.GetRasterBand(1)
+        rat = gdal.RasterAttributeTable()
+        value_name = 'Value'
+        count_name = 'Count'
+        rat.CreateColumn(value_name, gdal.GFT_Integer, gdal.GFU_MinMax)
+        rat.CreateColumn(count_name, gdal.GFT_Integer, gdal.GFU_PixelCount)
+        array = band.ReadAsArray()
+        values, counts = numpy.unique(array, return_counts=True)
+        for i in range(len(values)):
+            rat.SetValueAsInt(i, 0, int(values[i]))
+            rat.SetValueAsInt(i, 1, int(counts[i]))
+        band.SetDefaultRAT(rat)
+        band = raster = None
+
+        resource = geometamaker.describe(datasource_path)
+
+        table = resource.get_rat(1)
+        self.assertEqual(len(table.rows), len(values))
+        self.assertEqual(table.columns[0].name, value_name)
+        self.assertEqual(table.columns[0].type, 'Integer')
+        self.assertEqual(table.columns[0].usage, 'MinMax')
+        self.assertEqual(table.columns[1].name, count_name)
+        self.assertEqual(table.columns[1].type, 'Integer')
+        self.assertEqual(table.columns[1].usage, 'PixelCount')
+
+    def test_describe_raster_with_dbf_rat(self):
+        """Test raster attribute table can be constructed from vat.dbf."""
+        from geometamaker import models
+
+        datasource_path = os.path.join(
+            os.path.dirname(__file__), 'data/testrat.tif.vat.dbf')
+
+        # Calling this method directly instead of `describe`
+        # because depending on GDAL version, this method may not be used
+        # and the resulting table would have minor differences.
+        table = models.RasterAttributeTable.from_gdal_dbf(datasource_path)
+
+        self.assertEqual(len(table.rows), 2)
+        self.assertEqual(len(table.columns), 9)
+        self.assertEqual(
+            [col.name for col in table.columns],
+            ["VALUE", "COUNT", "CLASS", "Red", "Green", "Blue", "OtherInt",
+             "OtherReal", "OtherStr"])
+        self.assertEqual(
+            [col.type for col in table.columns],
+            ["Integer", "Integer", "String", "Real", "Real", "Real", "Integer",
+             "Real", "String"])
+        self.assertEqual(
+            [col.usage for col in table.columns],
+            ["MinMax", "PixelCount", "Generic", "Generic", "Generic", "Generic", "Generic",
+             "Generic", "Generic"])
 
     def test_describe_vector_with_gdal_metadata(self):
         """Test vector metadata will be included if they already exist."""

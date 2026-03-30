@@ -4,10 +4,11 @@ import logging
 import numbers
 import os
 import warnings
-from typing import Union
+from typing import Literal, Union
 
 import fsspec
 import yaml
+from osgeo import gdal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.dataclasses import dataclass
 
@@ -191,6 +192,100 @@ class TableSchema(Parent):
         return field
 
 
+class RATColumnDefn(Parent):
+    """Class for metadata for a column in a raster attribute table."""
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    """The name used to uniquely identify the column."""
+    type: str
+    """Datatype of the content of the column.
+
+    String representation of one of ``GDALRATFieldType`` or ``OGRFieldType``.
+    """
+    usage: str
+    """The intended use of the column.
+
+    String representation of one of ``GDALRATFieldUsage``.
+    """
+
+
+class RasterAttributeTable(Parent):
+    """Class for metadata for a raster attribute table."""
+    model_config = ConfigDict(frozen=True)
+
+    table_type: Literal['Thematic', 'Athematic', 'Unknown']
+    """One of ``GDALRATTableType`` or Unknown."""
+    columns: list[RATColumnDefn]
+    """A list of column definitions in the raster attribute table."""
+    rows: list[dict]
+    """A list of dicts representing rows in the raster attribute table."""
+
+    @classmethod
+    def from_gdal(cls, rat):
+        """Create a RasterAttributeTable from a GDAL RAT object."""
+        table_type = utils._GRTT_INT_TO_STR[rat.GetTableType()]
+        columns = []
+        n_cols = rat.GetColumnCount()
+        for i in range(n_cols):
+            columns.append(RATColumnDefn(
+                name=rat.GetNameOfCol(i),
+                type=utils._GFT_INT_TO_STR[rat.GetTypeOfCol(i)],
+                usage=utils._GFU_INT_TO_STR[rat.GetUsageOfCol(i)]))
+        rows = []
+        for i in range(rat.GetRowCount()):
+            row = {}
+            for j in range(n_cols):
+                col = columns[j]
+                match col.type:
+                    case 'Integer':
+                        row[col.name] = rat.GetValueAsInt(i, j)
+                    case 'String':
+                        row[col.name] = rat.GetValueAsString(i, j)
+                    case 'Real':
+                        row[col.name] = rat.GetValueAsDouble(i, j)
+                    case 'Boolean':
+                        row[col.name] = rat.GetValueAsBoolean(i, j)
+                    case 'DateTime':
+                        row[col.name] = rat.GetValueAsDateTime(i, j)
+                    case 'WKBGeometry':
+                        row[col.name] = rat.GetValueAsWKBGeometry(i, j)
+                    case _:
+                        row[col.name] = rat.GetValueAsString(i, j)
+            rows.append(row)
+        return cls(table_type=table_type, columns=columns, rows=rows)
+
+    @classmethod
+    def from_gdal_dbf(cls, dbf_path):
+        """Create a RasterAttributeTable from a DBF file."""
+        vector = gdal.OpenEx(dbf_path)
+        layer = vector.GetLayer()
+        columns = []
+        for field in layer.schema:
+            name = field.GetName()
+            if name == 'VALUE':
+                usage = utils._GFU_INT_TO_STR[gdal.GFU_MinMax]
+            elif name == 'COUNT':
+                usage = utils._GFU_INT_TO_STR[gdal.GFU_PixelCount]
+            # I'm not sure how standard any other fields are, so just calling
+            # them all 'Generic' may be good enough.
+            else:
+                usage = utils._GFU_INT_TO_STR[gdal.GFU_Generic]
+            columns.append(
+                RATColumnDefn(
+                    name=name,
+                    type=field.GetTypeName(),
+                    usage=usage))
+        rows = []
+        for feature in layer:
+            row = {}
+            for col in columns:
+                row[col.name] = feature.GetField(col.name)
+            rows.append(row)
+
+        return cls(table_type='Unknown', columns=columns, rows=rows)
+
+
 class BandSchema(Parent):
     """Class for metadata for a raster band."""
 
@@ -210,6 +305,8 @@ class BandSchema(Parent):
     """Unit of measurement for the pixel values."""
     gdal_metadata: dict = {}
     """Metadata key:value pairs stored in the GDAL band object."""
+    raster_attribute_table: RasterAttributeTable | None = None
+    """A representation of a GDAL-readable Raster Attribute Table."""
 
 
 class RasterSchema(Parent):
@@ -875,7 +972,7 @@ class RasterResource(Resource):
         self.data_model.bands[idx] = band
 
     def get_band_description(self, band_number):
-        """Get the attribute metadata for a band.
+        """Get the metadata for a band.
 
         Args:
             band_number (int): a raster band index, starting at 1
@@ -885,3 +982,15 @@ class RasterResource(Resource):
 
         """
         return self.data_model.bands[band_number - 1]
+
+    def get_rat(self, band_number):
+        """Get the raster attribute table for a band, if it exists.
+
+        Args:
+            band_number (int): a raster band index, starting at 1
+
+        Returns:
+            RasterAttributeTable or None if no RAT exists for the band
+
+        """
+        return self.data_model.bands[band_number - 1].raster_attribute_table

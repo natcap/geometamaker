@@ -1,3 +1,4 @@
+from osgeo import gdal
 import yaml
 
 
@@ -28,3 +29,41 @@ def yaml_dump(data):
         allow_unicode=True,
         sort_keys=False,
         Dumper=_SafeDumper)
+
+
+# GDALGetRATFieldUsageName() and GDALGetRATFieldTypeName() were only added to
+# GDAL in 3.12, so we can maintain our own lookups.
+_GFU_INT_TO_STR = {
+    gdal.GFU_Generic: 'Generic',
+    gdal.GFU_PixelCount: 'PixelCount',
+    gdal.GFU_Name: 'Name',
+    gdal.GFU_Min: 'Min',
+    gdal.GFU_Max: 'Max',
+    gdal.GFU_MinMax: 'MinMax',
+    gdal.GFU_Red: 'Red',
+    gdal.GFU_Green: 'Green',
+    gdal.GFU_Blue: 'Blue',
+    gdal.GFU_Alpha: 'Alpha',
+    gdal.GFU_RedMin: 'RedMin',
+    gdal.GFU_GreenMin: 'GreenMin',
+    gdal.GFU_BlueMin: 'BlueMin',
+    gdal.GFU_AlphaMin: 'AlphaMin',
+    gdal.GFU_RedMax: 'RedMax',
+    gdal.GFU_GreenMax: 'GreenMax',
+    gdal.GFU_BlueMax: 'BlueMax',
+    gdal.GFU_AlphaMax: 'AlphaMax',
+}
+
+_GFT_INT_TO_STR = {
+    gdal.GFT_Integer: 'Integer',
+    gdal.GFT_Real: 'Real',
+    gdal.GFT_String: 'String',
+    gdal.GFT_Boolean: 'Boolean',
+    gdal.GFT_DateTime: 'DateTime',
+    gdal.GFT_WKBGeometry: 'WKBGeometry',
+}
+
+_GRTT_INT_TO_STR = {
+    gdal.GRTT_THEMATIC: 'Thematic',
+    gdal.GRTT_ATHEMATIC: 'Athematic'
+}

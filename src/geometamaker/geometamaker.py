@@ -23,6 +23,8 @@ from .config import Config
 
 logging.getLogger('chardet').setLevel(logging.INFO)  # DEBUG is just too noisy
 
+GDAL_VERSION = tuple(int(_) for _ in gdal.__version__.split('.'))
+
 LOGGER = logging.getLogger('geometamaker')
 _NOT_FOR_CLI = 'not_for_cli'
 _LOG_EXTRA_NOT_FOR_CLI = {
@@ -411,10 +413,20 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
     for i in range(info['n_bands']):
         b = i + 1
         band = raster.GetRasterBand(b)
+        rat = None
+        gdal_rat = band.GetDefaultRAT()
+        if gdal_rat:
+            rat = models.RasterAttributeTable.from_gdal(gdal_rat)
+        elif GDAL_VERSION < (3, 11, 0):
+            # GetDefaultRAT did not support DBF prior to 3.11.0
+            dbf_rat = f'{source_dataset_path}.vat.dbf'
+            if dbf_rat in info['file_list']:
+                rat = models.RasterAttributeTable.from_gdal_dbf(dbf_rat)
+
         band_gdal_metadata = band.GetMetadata()
         if compute_stats:
             try:
-                if not 'STATISTICS_VALID_PERCENT' in band_gdal_metadata:
+                if 'STATISTICS_VALID_PERCENT' not in band_gdal_metadata:
                     # Sometimes some stats exist, but not all. If this one doesn't,
                     # it's important enough that we want to force computation.
                     _ = band.ComputeStatistics(0, callback=_gdal_progress_callback)
@@ -435,7 +447,8 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
             gdal_type=gdal.GetDataTypeName(info['datatype']),
             numpy_type=numpy.dtype(info['numpy_type']).name,
             nodata=info['nodata'][i],
-            gdal_metadata=band_gdal_metadata))
+            gdal_metadata=band_gdal_metadata,
+            raster_attribute_table=rat))
         band = None
     raster = None
 
