@@ -950,8 +950,12 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(resource.spatial.crs_units, 'metre')
         self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 2, 2])
 
-    def test_describe_collection_spatial_multiple_crs(self):
-        """Test describe_collection spatial section represents union."""
+    def test_describe_collection_multiple_crs_and_formats(self):
+        """Test describe_collection: multiple file formats and spatial extents.
+
+        Spatial section of the collection should represent the union
+        of the extents of the items.
+        """
         import geometamaker
 
         collection_path = os.path.join(self.workspace_dir, "collection")
@@ -963,11 +967,29 @@ class GeometamakerTests(unittest.TestCase):
         raster2_path = os.path.join(collection_path, 'raster2.tif')
         create_raster(numpy.int16, raster2_path, projection_epsg=4326,
                       origin=(2, 2))
+        csv_path = os.path.join(collection_path, 'table.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
 
         resource = geometamaker.describe_collection(collection_path)
         self.assertEqual(resource.spatial.crs, 'EPSG:4326')
         self.assertEqual(resource.spatial.crs_units, 'degree')
         self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 4, 4])
+
+    def test_describe_collection_raster_dbf_tables(self):
+        """Test describe_collection: when raster has a DBF table."""
+        import geometamaker
+
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
+        shutil.copy(os.path.join(test_data_dir, 'testrat.tif'),
+                    os.path.join(collection_path, 'testrat.tif'))
+        shutil.copy(os.path.join(test_data_dir, 'testrat.tif.vat.dbf'),
+                    os.path.join(collection_path, 'testrat.tif.vat.dbf'))
+        resource = geometamaker.describe_collection(collection_path)
+        self.assertEqual(len(resource.items), 1)
 
     def test_describe_collection_spatial_no_crs(self):
         """Test describe_collection spatial section is None."""

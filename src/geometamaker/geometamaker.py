@@ -171,19 +171,6 @@ def _list_files_with_depth(directory, depth, exclude_regex=None,
     return sorted(file_list)
 
 
-def _group_files_by_root(file_list):
-    """Get set of files (roots) and extensions by filename"""
-    root_set = set()
-    root_ext_map = defaultdict(set)
-    for filepath in file_list:
-        root, ext = os.path.splitext(filepath)
-        # tracking which files share a root name
-        # so we can check if these comprise a shapefile
-        root_ext_map[root].add(ext)
-        root_set.add(root)
-    return root_ext_map, sorted(list(root_set))
-
-
 def _get_collection_size_time_uid(directory):
     """Get size of directory (in bytes), when it was last modified, and uid"""
     total_bytes = 0
@@ -528,49 +515,52 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     file_list = _list_files_with_depth(directory, depth, exclude_regex,
                                        exclude_hidden)
 
-    root_ext_map, root_list = _group_files_by_root(file_list)
-
+    # root_ext_map, root_list = _group_files_by_root(file_list)
     items = []
     collection_crs_set = set()
     item_spatial_list = []
 
-    for root in root_list:
-        extensions = root_ext_map[root]
-        if '.shp' in extensions:
-            # if we're dealing with a shapefile, we do not want to describe any
-            # of these other files with the same root name
-            extensions.difference_update(['.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg'])
-        # Only drop .yml if its sidecar file, i.e. the corresponding data file
-        # (root) exists on disk
-        if '.yml' in extensions and os.path.exists(root):
-            extensions.discard('.yml')
-        for ext in extensions:
-            filepath = os.path.join(directory, f'{root}{ext}')
-            try:
-                item_resource = describe(filepath, **kwargs)
-                if item_resource.spatial is not None:
-                    collection_crs_set.add(item_resource.spatial.crs)
-                    item_spatial_list.append(item_resource.spatial)
+    # These extensions almost always represent sidecar files that should
+    # not be described in isolation. Typically, these are components of a
+    # shapefile, but '.dbf' can also represent a raster attribute table.
+    # Theoretically a DBF can also be a standalone table, but that
+    # is not currently supported by this function.
+    skip_extensions = [
+        '.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg', '.qix', '.xml', '.tfw',
+        '.qlr', '.lyr', '.qpj']
+    for rel_filepath in file_list:
+        abs_filepath = os.path.join(directory, rel_filepath)
+        root, extension = os.path.splitext(abs_filepath)
+        if extension in skip_extensions:
+            continue
+        if extension == '.yml' and os.path.exists(root):
+            # yml is a sidecar of root, do not describe it
+            continue
+        try:
+            item_resource = describe(abs_filepath, **kwargs)
+            if item_resource.spatial is not None:
+                collection_crs_set.add(item_resource.spatial.crs)
+                item_spatial_list.append(item_resource.spatial)
 
-            except ValueError:
-                # if file type isn't supported by geometamaker, e.g. pdf
-                # or if trying to describe a dir
-                item_resource = None
+        except ValueError:
+            # if file type isn't supported by geometamaker, e.g. pdf
+            # or if trying to describe a dir
+            item_resource = None
 
-            if describe_files and item_resource:
-                item_resource.write(backup=backup)
+        if describe_files and item_resource:
+            item_resource.write(backup=backup)
 
-            if ext and os.path.exists(filepath + '.yml'):
-                metadata_yml = f'{root}{ext}' + '.yml'
-            else:
-                metadata_yml = ''
+        if os.path.exists(f'{abs_filepath}.yml'):
+            metadata_yml = f'{rel_filepath}.yml'
+        else:
+            metadata_yml = ''
 
-            collection_item = models.CollectionItemSchema(
-                path=f'{root}{ext}',
-                description=item_resource.description if item_resource else '',
-                metadata=metadata_yml
-            )
-            items.append(collection_item)
+        collection_item = models.CollectionItemSchema(
+            path=rel_filepath,
+            description=item_resource.description if item_resource else '',
+            metadata=metadata_yml
+        )
+        items.append(collection_item)
 
     total_bytes, last_modified, uid = _get_collection_size_time_uid(directory)
 
@@ -694,8 +684,11 @@ def describe(source_dataset_path, compute_stats=False):
     Returns:
         geometamaker.models.Resource: a metadata object
 
-    """
+    Raises:
+        ValueError if the file type of the dataset is not supported.
+        FileNotFoundError if the path does not exist.
 
+    """
     metadata_path = f'{source_dataset_path}.yml'
 
     if os.path.isdir(source_dataset_path):
