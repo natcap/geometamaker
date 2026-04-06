@@ -663,7 +663,8 @@ RESOURCE_MODELS = {
     'archive': models.ArchiveResource,
     'table': models.TableResource,
     'vector': models.VectorResource,
-    'raster': models.RasterResource
+    'raster': models.RasterResource,
+    'collection': models.CollectionResource
 }
 
 
