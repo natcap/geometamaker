@@ -531,7 +531,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     for rel_filepath in file_list:
         abs_filepath = os.path.join(directory, rel_filepath)
         root, extension = os.path.splitext(abs_filepath)
-        if extension in skip_extensions:
+        if extension.lower() in skip_extensions:
             continue
         try:
             item_resource = describe(abs_filepath, **kwargs)

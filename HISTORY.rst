@@ -18,10 +18,10 @@ Unreleased Changes
   key. It can be retrieved by the ``get_rat`` method of a ``RasterResource``
   instance. https://github.com/natcap/geometamaker/issues/25
 * Changed the default path to write a collection's metadata document. The
-  document will now be created within the directory being dsecribed, rather
+  document will now be created within the directory being described, rather
   than as a sibling of the directory.
   https://github.com/natcap/geometamaker/issues/126
-* Added a ``target_filename `` parameter to ``describe_collection`` and
+* Added a ``target_filename`` parameter to ``describe_collection`` and
   the ``-o`` or ``--output`` option to ``geometamaker describe``. These
   parameters are optional and allow users to specify the target filename
   of the YML document that will be created for a collection.
