@@ -1427,13 +1427,16 @@ class CLITests(unittest.TestCase):
         self.assertFalse(os.path.exists(f'{datasource_path}.yml'))
         self.assertFalse(os.path.exists(default_target))
 
+        target_filename = 'README.yml'
         result = runner.invoke(
             cli.cli,
-            ['describe', '--collection-only', self.workspace_dir])
+            ['describe', '--collection-only', self.workspace_dir,
+             '-o', target_filename])
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertFalse(os.path.exists(f'{datasource_path}.yml'))
-        self.assertTrue(os.path.exists(default_target))
+        self.assertTrue(
+            os.path.exists(os.path.join(self.workspace_dir, target_filename)))
 
     def test_cli_validate_valid(self):
         """CLI: test validate emits stdout for valid document."""
