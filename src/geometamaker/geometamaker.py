@@ -478,7 +478,8 @@ def describe_table(source_dataset_path, scheme, **kwargs):
 
 def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                         exclude_regex=None, exclude_hidden=True,
-                        describe_files=False, backup=True, **kwargs):
+                        describe_files=False, backup=True, target_filename=None,
+                        **kwargs):
     """Create a single metadata document to describe a collection of files.
 
     Describe all the files within a directory as members of a "collection".
@@ -515,7 +516,6 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     file_list = _list_files_with_depth(directory, depth, exclude_regex,
                                        exclude_hidden)
 
-    # root_ext_map, root_list = _group_files_by_root(file_list)
     items = []
     collection_crs_set = set()
     item_spatial_list = []
@@ -527,14 +527,11 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     # is not currently supported by this function.
     skip_extensions = [
         '.shx', '.sbn', '.sbx', '.prj', '.dbf', '.cpg', '.qix', '.xml', '.tfw',
-        '.qlr', '.lyr', '.qpj']
+        '.qlr', '.lyr', '.qpj', '.yml']
     for rel_filepath in file_list:
         abs_filepath = os.path.join(directory, rel_filepath)
         root, extension = os.path.splitext(abs_filepath)
         if extension in skip_extensions:
-            continue
-        if extension == '.yml' and os.path.exists(root):
-            # yml is a sidecar of root, do not describe it
             continue
         try:
             item_resource = describe(abs_filepath, **kwargs)
@@ -611,8 +608,10 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     )
 
     # Check if there is existing metadata for the collection
+    if not target_filename:
+        target_filename = f'{os.path.basename(directory)}-metadata.yml'
+    metadata_path = os.path.join(directory, target_filename)
     try:
-        metadata_path = f'{directory}-metadata.yml'
         existing_metadata = models.CollectionResource.load(metadata_path)
 
         # Copy any existing item descriptions from existing yml to new metadata
@@ -648,6 +647,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     # Add profile metadata
     config = Config()
     resource = resource.replace(config.profile)
+    resource.metadata_path = metadata_path
 
     return resource
 
