@@ -38,7 +38,12 @@ def _deep_update_dict(self_dict, other_dict):
 
 
 class Parent(BaseModel):
-    """Parent class on which to configure validation."""
+    """Parent class on which to configure validation.
+
+    Extra attributes are forbidden because we anticipate
+    users editing YML docs manually and this can help catch
+    accidental edits like a typo in an attribute name.
+    """
 
     model_config = ConfigDict(validate_assignment=True,
                               extra='forbid',
