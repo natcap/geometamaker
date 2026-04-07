@@ -364,6 +364,7 @@ def describe_vector(source_dataset_path, scheme, **kwargs):
 
     """
     description = describe_file(source_dataset_path, scheme)
+    description.pop('encoding', None)  # does not make sense for binary data
 
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
@@ -411,6 +412,7 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
     """
     compute_stats = kwargs.get('compute_stats', False)
     description = describe_file(source_dataset_path, scheme)
+    description.pop('encoding', None)  # does not make sense for binary data
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     info = pygeoprocessing.get_raster_info(source_dataset_path)
