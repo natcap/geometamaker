@@ -3,6 +3,13 @@ Release History
 
 Unreleased Changes
 ------------------
+* Fixed a bug where extra attributes returned from frictionless
+  would cause a ValidationError when instantiating a ``Resource``.
+  https://github.com/natcap/geometamaker/issues/128
+* Removed the ``encoding`` value when describing raster or vector
+  datasets as they are generally binary files and the value that was
+  given did not reflect a true encoding even for the attribute table
+  of a GDAL vector. https://github.com/natcap/geometamaker/issues/121
 * Added an optional ``spatial`` attribute for tables, archives, and
   collections. The ``spatial`` attribute for rasters and vectors remains
   required. Spatial information for Collections represents the union of the
