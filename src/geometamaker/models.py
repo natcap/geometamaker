@@ -756,7 +756,7 @@ class BaseResource(BaseMetadata):
         return self.url
 
     def write(self, workspace=None, backup=True):
-        """Write datapackage yaml to disk.
+        """Write metadata yaml to disk.
 
         This creates sidecar files with '.yml'
         appended to the full filename of the data source. For example,
@@ -764,12 +764,15 @@ class BaseResource(BaseMetadata):
         - 'myraster.tif'
         - 'myraster.tif.yml'
 
+        For a ``CollectionResource``, the name of the target YML document can
+        be specified with the ``target_filename`` argument of
+        ``describe_collection``.
+
         Args:
             workspace (str): if ``None``, files write to the same location
                 as the source data. If not ``None``, a path to a local directory
-                to write files. They will still be named to match the source
-                filename. Use this option if the source data is not on the local
-                filesystem.
+                to write the file. Use this option if the source data is not on
+                the local filesystem.
             backup (bool): whether to write a backup of a pre-existing metadata
                 file before ovewriting it in cases where that file is not a valid
                 geometamaker document.

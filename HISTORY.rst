@@ -24,6 +24,18 @@ Unreleased Changes
   table will be included as band metadata under the 'raster_attribute_table'
   key. It can be retrieved by the ``get_rat`` method of a ``RasterResource``
   instance. https://github.com/natcap/geometamaker/issues/25
+* Changed the default path to write a collection's metadata document. The
+  document will now be created within the directory being described, rather
+  than as a sibling of the directory.
+  https://github.com/natcap/geometamaker/issues/126
+* Added a ``target_filename`` parameter to ``describe_collection`` and
+  the ``-o`` or ``--output`` option to ``geometamaker describe``. These
+  parameters are optional and allow users to specify the target filename
+  of the YML document that will be created for a collection.
+  https://github.com/natcap/geometamaker/issues/125
+* Fixed a bug where ``describe_collection`` would improperly try to add
+  metadata to a DBF sidecar file as if it was a standalone dataset.
+  https://github.com/natcap/geometamaker/issues/124
 * The Natural Capital Project changed its name to the Natural Capital Alliance.
   References to the old name and website URL have been updated to reflect
   this change. https://github.com/natcap/geometamaker/issues/115

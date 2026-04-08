@@ -106,8 +106,14 @@ class _URL(click.ParamType):
               help='If FILEPATH is a directory, do not write metadata documents'
                    ' for all files in the directory. Only create a single'
                    ' *-metadata.yml document for the collection')
+@click.option('-o', '--output', 'target_filename',
+              default=None,
+              help='if FILEPATH is a directory, this is the filename of the'
+                   ' target YML document to be created within the directory.'
+                   ' If output is not specified, the filename will be'
+                   ' <directory_name>-metadata.yml.')
 def describe(filepath, depth, exclude, all_files, no_write, stats,
-             collection_only):
+             collection_only, target_filename):
     describing_single = True  # if filepath is a file, or collection_only=True
     if os.path.isdir(filepath):
         resource = geometamaker.describe_collection(
@@ -116,7 +122,8 @@ def describe(filepath, depth, exclude, all_files, no_write, stats,
             exclude_regex=exclude,
             exclude_hidden=(not all_files),
             describe_files=(not collection_only),
-            compute_stats=stats)
+            compute_stats=stats,
+            target_filename=target_filename)
         describing_single = collection_only
     else:
         resource = geometamaker.describe(filepath, compute_stats=stats)

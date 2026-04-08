@@ -963,8 +963,12 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(resource.spatial.crs_units, 'metre')
         self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 2, 2])
 
-    def test_describe_collection_spatial_multiple_crs(self):
-        """Test describe_collection spatial section represents union."""
+    def test_describe_collection_multiple_crs_and_formats(self):
+        """Test describe_collection: multiple file formats and spatial extents.
+
+        Spatial section of the collection should represent the union
+        of the extents of the items.
+        """
         import geometamaker
 
         collection_path = os.path.join(self.workspace_dir, "collection")
@@ -976,11 +980,29 @@ class GeometamakerTests(unittest.TestCase):
         raster2_path = os.path.join(collection_path, 'raster2.tif')
         create_raster(numpy.int16, raster2_path, projection_epsg=4326,
                       origin=(2, 2))
+        csv_path = os.path.join(collection_path, 'table.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
 
         resource = geometamaker.describe_collection(collection_path)
         self.assertEqual(resource.spatial.crs, 'EPSG:4326')
         self.assertEqual(resource.spatial.crs_units, 'degree')
         self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 4, 4])
+
+    def test_describe_collection_raster_dbf_tables(self):
+        """Test describe_collection: when raster has a DBF table."""
+        import geometamaker
+
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
+        shutil.copy(os.path.join(test_data_dir, 'testrat.tif'),
+                    os.path.join(collection_path, 'testrat.tif'))
+        shutil.copy(os.path.join(test_data_dir, 'testrat.tif.vat.dbf'),
+                    os.path.join(collection_path, 'testrat.tif.vat.dbf'))
+        resource = geometamaker.describe_collection(collection_path)
+        self.assertEqual(len(resource.items), 1)
 
     def test_describe_collection_spatial_no_crs(self):
         """Test describe_collection spatial section is None."""
@@ -1027,7 +1049,10 @@ class GeometamakerTests(unittest.TestCase):
         metadata = geometamaker.describe_collection(
             collection_path, depth=1, exclude_regex="exclude_this*")
         metadata.write()
-        self.assertTrue(os.path.exists(collection_path+"-metadata.yml"))
+        default_target = os.path.join(
+            collection_path,
+            f'{os.path.basename(collection_path)}-metadata.yml')
+        self.assertTrue(os.path.exists(default_target))
         # assert that with depth=1, items list only includes csv and
         # subdir and excludes exclude_this.csv
         self.assertEqual(len(metadata.items), 2)
@@ -1035,13 +1060,13 @@ class GeometamakerTests(unittest.TestCase):
         geometamaker.describe_collection(
             collection_path, depth=1, exclude_regex="exclude_this*",
             describe_files=True)
-        self.assertTrue(os.path.exists(csv_path+".yml"))
-        self.assertFalse(os.path.exists(raster_path+".yml"))
-        self.assertFalse(os.path.exists(csv_path_excluded+".yml"))
+        self.assertTrue(os.path.exists(f'{csv_path}.yml'))
+        self.assertFalse(os.path.exists(f'{raster_path}.yml'))
+        self.assertFalse(os.path.exists(f'{csv_path_excluded}.yml'))
 
         geometamaker.describe_collection(collection_path, depth=2,
                                          describe_files=True)
-        self.assertTrue(os.path.exists(raster_path+".yml"))
+        self.assertTrue(os.path.exists(f'{raster_path}.yml'))
 
     def test_describe_collection_existing_yml(self):
         """test `describe_collection` does not overwrite existing attributes"""
@@ -1077,7 +1102,9 @@ class GeometamakerTests(unittest.TestCase):
         os.mkdir(collection_path)
 
         # Setup an incompatible yml file at the expected path
-        target_yml_path = f'{collection_path}-metadata.yml'
+        target_yml_path = os.path.join(
+            collection_path,
+            f'{os.path.basename(collection_path)}-metadata.yml')
         with open(target_yml_path, 'w') as file:
             file.write(yaml.dump({'foo': 'bar'}))
 
@@ -1095,6 +1122,29 @@ class GeometamakerTests(unittest.TestCase):
         self.assertIn(msg1, actualMessages)
         self.assertIn(msg2, actualMessages)
 
+    def test_describe_collection_custom_target(self):
+        """test `describe_collection`: user-specified target filename."""
+        import geometamaker
+
+        # Create collection with 1 item
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        csv_path = os.path.join(collection_path, 'table.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
+
+        target_filename = 'README.yml'
+        resource = geometamaker.describe_collection(
+            collection_path, target_filename=target_filename)
+        resource.write()
+        self.assertTrue(
+            os.path.exists(os.path.join(collection_path, target_filename)))
+
+        resource.write(workspace=self.workspace_dir)
+        self.assertTrue(
+            os.path.exists(os.path.join(self.workspace_dir, target_filename)))
+        
     def test_describe_directory_error(self):
         """Test that `describing` a directory raises useful error"""
         import geometamaker
@@ -1364,7 +1414,10 @@ class CLITests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
-        self.assertTrue(os.path.exists(f'{self.workspace_dir}-metadata.yml'))
+        default_target = os.path.join(
+            self.workspace_dir,
+            f'{os.path.basename(self.workspace_dir)}-metadata.yml')
+        self.assertTrue(os.path.exists(default_target))
 
     def test_cli_describe_directory_collection_options(self):
         """CLI: test describe with a directory with various options."""
@@ -1377,19 +1430,26 @@ class CLITests(unittest.TestCase):
         result = runner.invoke(
             cli.cli,
             ['describe', '--no-write', '--collection-only', self.workspace_dir])
+        
+        default_target = os.path.join(
+            self.workspace_dir,
+            f'{os.path.basename(self.workspace_dir)}-metadata.yml')
         self.assertEqual(result.exit_code, 0)
         # one of many things expected to print to stdout:
         self.assertIn('last_modified', result.output)
         self.assertFalse(os.path.exists(f'{datasource_path}.yml'))
-        self.assertFalse(os.path.exists(f'{self.workspace_dir}-metadata.yml'))
+        self.assertFalse(os.path.exists(default_target))
 
+        target_filename = 'README.yml'
         result = runner.invoke(
             cli.cli,
-            ['describe', '--collection-only', self.workspace_dir])
+            ['describe', '--collection-only', self.workspace_dir,
+             '-o', target_filename])
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.output, '')
         self.assertFalse(os.path.exists(f'{datasource_path}.yml'))
-        self.assertTrue(os.path.exists(f'{self.workspace_dir}-metadata.yml'))
+        self.assertTrue(
+            os.path.exists(os.path.join(self.workspace_dir, target_filename)))
 
     def test_cli_validate_valid(self):
         """CLI: test validate emits stdout for valid document."""

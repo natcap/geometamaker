@@ -83,7 +83,7 @@ or limiting the number of subdirectory levels to traverse using the
 ```python
 import geometamaker
 
-collection_path = 'invest/data/invest-sample-data'
+collection_path = 'data/invest-sample-data'
 metadata = geometamaker.describe_collection(collection_path,
                                             depth=2,
                                             exclude_regex=r'.*\.json$',
@@ -95,8 +95,18 @@ metadata.write()
 ```
 geometamaker describe -d 2 --exclude .*\.json$ data/invest-sample-data
 ```
-These examples will create `invest-sample-data-metadata.yml` as well as
-create individual `.yml` documents for each dataset within the directory.
+These examples will create `data/invest-sample-data/invest-sample-data-metadata.yml` 
+as well as create individual `.yml` documents for each dataset within the directory.
+
+#### Override the default filename of the collection's YML document
+```python
+geometamaker.describe_collection(collection_path, target_filename='README.yml')
+```
+or
+```
+geometamaker describe data/invest-sample-data -o README.yml
+```
+These examples will create `data/invest-sample-data/README.yml`.
 
 ### Validating a metadata document:
 If you have manually edited a `.yml` metadata document,
