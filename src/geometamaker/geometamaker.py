@@ -287,9 +287,16 @@ def describe_file(source_dataset_path, scheme):
         {description["path"]}'.encode('utf-8'))
     description['uid'] = f'sizetimestamp:{hash_func.hexdigest()}'
 
-    # We don't have a use for including these attributes in our metadata:
+    # These are other attributes sometimes returned by frictionless.
+    # We don't have a use for them in our metadata and we do not permit
+    # arbitrary extra attributes in our models.
     description.pop('mediatype', None)
     description.pop('name', None)
+    description.pop('profile', None)
+    description.pop('dialect', None)
+    description.pop('hash', None)
+    description.pop('sources', None)
+    description.pop('licenses', None)
     return description
 
 
@@ -357,6 +364,7 @@ def describe_vector(source_dataset_path, scheme, **kwargs):
 
     """
     description = describe_file(source_dataset_path, scheme)
+    description.pop('encoding', None)  # does not make sense for binary data
 
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
@@ -404,6 +412,7 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
     """
     compute_stats = kwargs.get('compute_stats', False)
     description = describe_file(source_dataset_path, scheme)
+    description.pop('encoding', None)  # does not make sense for binary data
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     info = pygeoprocessing.get_raster_info(source_dataset_path)

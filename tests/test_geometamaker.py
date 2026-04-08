@@ -172,6 +172,19 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(field.units, units)
         self.assertEqual(resource.spatial, spatial)
 
+    def test_describe_csv_semicolon_dialect(self):
+        """Test a CSV that uses semicolon delimiter."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'data.csv')
+        with open(datasource_path, 'w') as file:
+            file.write('a;b;c\n')
+            file.write('1;2;3\n')
+
+        resource = geometamaker.describe(datasource_path)
+        field = resource.get_field_description('a')
+        self.assertEqual(field.type, 'integer')
+
     def test_describe_bad_csv(self):
         """MetadataControl: CSV with extra item in row does not fail."""
         import geometamaker
