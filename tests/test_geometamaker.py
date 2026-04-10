@@ -413,7 +413,12 @@ class GeometamakerTests(unittest.TestCase):
         for i in range(len(values)):
             rat.SetValueAsInt(i, 0, int(values[i]))
             rat.SetValueAsInt(i, 1, int(counts[i]))
-            rat.SetValueAsBoolean(i, 2, True)
+            # Even though this 3rd column is supposed to be the Boolean column
+            # Set as an Int because SetValueAsBoolean is only available after
+            # GDAL 3.12. We still created the column as a GFT_Boolean, so
+            # the real test is that it parses back as Boolean, even if the value
+            # is written as an int.
+            rat.SetValueAsInt(i, 2, 1)
         band.SetDefaultRAT(rat)
         band = raster = None
 
