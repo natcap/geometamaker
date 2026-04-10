@@ -400,13 +400,20 @@ class GeometamakerTests(unittest.TestCase):
         rat = gdal.RasterAttributeTable()
         value_name = 'Value'
         count_name = 'Count'
+        bool_name = 'Bool'
         rat.CreateColumn(value_name, gdal.GFT_Integer, gdal.GFU_MinMax)
         rat.CreateColumn(count_name, gdal.GFT_Integer, gdal.GFU_PixelCount)
+        if geometamaker.geometamaker.GDAL_VERSION < (3, 12, 0):
+            rat.CreateColumn(bool_name, gdal.GFT_Integer, gdal.GFU_Generic)
+        else:
+            rat.CreateColumn(bool_name, gdal.GFT_Boolean, gdal.GFU_Generic)
+
         array = band.ReadAsArray()
         values, counts = numpy.unique(array, return_counts=True)
         for i in range(len(values)):
             rat.SetValueAsInt(i, 0, int(values[i]))
             rat.SetValueAsInt(i, 1, int(counts[i]))
+            rat.SetValueAsBoolean(i, 2, True)
         band.SetDefaultRAT(rat)
         band = raster = None
 
@@ -420,6 +427,13 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(table.columns[1].name, count_name)
         self.assertEqual(table.columns[1].type, 'Integer')
         self.assertEqual(table.columns[1].usage, 'PixelCount')
+        self.assertEqual(table.columns[2].name, bool_name)
+        self.assertEqual(table.columns[2].usage, 'Generic')
+
+        if geometamaker.geometamaker.GDAL_VERSION < (3, 12, 0):
+            self.assertEqual(table.columns[2].type, 'Integer')
+        else:
+            self.assertEqual(table.columns[2].type, 'Boolean')
 
     def test_describe_raster_with_dbf_rat(self):
         """Test raster attribute table can be constructed from vat.dbf."""

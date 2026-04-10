@@ -58,9 +58,9 @@ _GFT_INT_TO_STR = {
     gdal.GFT_Integer: 'Integer',
     gdal.GFT_Real: 'Real',
     gdal.GFT_String: 'String',
-    gdal.GFT_Boolean: 'Boolean',
-    gdal.GFT_DateTime: 'DateTime',
-    gdal.GFT_WKBGeometry: 'WKBGeometry',
+    3: 'Boolean',      # gdal.GFT_Boolean (not available until GDAL 3.12)
+    4: 'DateTime',     # gdal.GFT_DateTime
+    5: 'WKBGeometry',  # gdal.GFT_WKBGeometry
 }
 
 _GRTT_INT_TO_STR = {
