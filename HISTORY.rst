@@ -1,7 +1,7 @@
 Release History
 ===============
 
-Unreleased Changes
+0.3.0 (2026-04-10)
 ------------------
 * Fixed a bug where extra attributes returned from frictionless
   would cause a ValidationError when instantiating a ``Resource``.
