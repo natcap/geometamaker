@@ -19,11 +19,18 @@ defaults:
 jobs:
   Test:
     runs-on: ${{ matrix.os }}
+    name: Test (py${{ matrix.python-version }}, GDAL ${{ matrix.gdal-version }}, ${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        gdal-version: ["3.11", "3.12"]
         os: [ubuntu-latest, windows-latest, macos-latest]
+        exclude:
+          - os: windows-latest
+            gdal-version: "3.11" 
+          - os: macos-latest
+            gdal-version: "3.11"
 
     steps:
       - uses: actions/checkout@v3
@@ -42,6 +49,7 @@ jobs:
                 - conda-forge
           create-args: >-
               python=${{ matrix.python-version }}
+              gdal=${{ matrix.gdal-version }}
               setuptools
               python-build
               pytest
