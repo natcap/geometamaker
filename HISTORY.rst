@@ -1,6 +1,13 @@
 Release History
 ===============
 
+0.3.1 (2026-04-13)
+------------------
+* Version 0.3.0 was unintentionally incompatible with GDAL < 3.12.0. 
+  This bugfix restores compatibility and adds tests against GDAL 3.11
+  and GDAL 3.12. https://github.com/natcap/geometamaker/issues/132
+
+
 0.3.0 (2026-04-10)
 ------------------
 * Fixed a bug where extra attributes returned from frictionless
