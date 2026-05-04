@@ -123,8 +123,12 @@ class GeometamakerTests(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             _ = geometamaker.describe(filepath)
         actual_message = str(cm.exception)
-        expected_message = 'does not appear to be one of'
-        self.assertIn(expected_message, actual_message)
+        expected_message = (
+            f'{filepath} does not appear to be a supported file format.'
+            f' Supported formats are {geometamaker.geometamaker.ARCHIVE_EXTENSIONS},'
+            f' {geometamaker.geometamaker.TABLE_EXTENSIONS}'
+            f' or any format supported by GDAL.')
+        self.assertEqual(expected_message, actual_message)
 
     def test_describe_csv(self):
         """Test setting properties on csv."""
@@ -144,7 +148,7 @@ class GeometamakerTests(unittest.TestCase):
             len(field_names))
         self.assertEqual(resource.get_field_description('Strings').type, 'string')
         self.assertEqual(resource.get_field_description('Ints').type, 'integer')
-        self.assertEqual(resource.get_field_description('Reals').type, 'number')
+        self.assertEqual(resource.get_field_description('Reals').type, 'floating')
         self.assertIsNone(resource.spatial)
 
         title = 'title'
@@ -185,17 +189,32 @@ class GeometamakerTests(unittest.TestCase):
         field = resource.get_field_description('a')
         self.assertEqual(field.type, 'integer')
 
+    def test_describe_tab_delimited_table(self):
+        """Test tab-delimited table."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'data.tsv')
+        with open(datasource_path, 'w') as file:
+            file.write('a\tb\tc\n')
+            file.write('1\t2\t3\n')
+
+        resource = geometamaker.describe(datasource_path)
+        field = resource.get_field_description('a')
+        self.assertEqual(field.type, 'integer')
+
     def test_describe_bad_csv(self):
-        """MetadataControl: CSV with extra item in row does not fail."""
+        """Test a CSV with extra item in row and delimiter within string."""
         import geometamaker
 
         datasource_path = os.path.join(self.workspace_dir, 'data.csv')
         field_names = ['Strings', 'Ints', 'Reals']
-        field_values = ['foo', 1, 0.9, 'extra']
+        row1 = ['foo', 1, 0.9, 'extra']
+        row2 = ['foo,bar', 1, 0.9]
         with open(datasource_path, 'w') as file:
             writer = csv.writer(file)
             writer.writerow(field_names)
-            writer.writerow(field_values)
+            writer.writerow(row1)
+            writer.writerow(row2)
 
         resource = geometamaker.describe(datasource_path)
 
@@ -205,7 +224,7 @@ class GeometamakerTests(unittest.TestCase):
             len(field_names))
         self.assertEqual(resource.get_field_description('Strings').type, 'string')
         self.assertEqual(resource.get_field_description('Ints').type, 'integer')
-        self.assertEqual(resource.get_field_description('Reals').type, 'number')
+        self.assertEqual(resource.get_field_description('Reals').type, 'floating')
 
     def test_describe_vector(self):
         """Test basic vector."""
