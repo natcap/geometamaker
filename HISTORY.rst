@@ -4,7 +4,7 @@ Release History
 Unreleased Changes
 ------------------
 * ``pandas`` replaces ``frictionless`` for reading tabular data. Supported
-  file formats for tables is limited to files with '.csv' or '.tsv' extensions.
+  file formats for tables are limited to files with '.csv' or '.tsv' extensions.
   https://github.com/natcap/geometamaker/issues/130
 
 
