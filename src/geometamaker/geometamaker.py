@@ -215,7 +215,7 @@ def detect_file_type(filepath, scheme):
         ValueError on unsupported file formats.
 
     """
-    extension = os.path.splitext(filepath)[1]
+    extension = os.path.splitext(filepath)[1].lower()
     if extension in ARCHIVE_EXTENSIONS:
         return 'archive'
     # GDAL considers CSV a vector, so check for tables first.
@@ -473,6 +473,8 @@ def describe_table(source_dataset_path, scheme, **kwargs):
     """
     description = describe_file(source_dataset_path, scheme)
     try:
+        # Read enough rows to make a good inference on each column's
+        # datatype.
         dataframe = pandas.read_csv(
             source_dataset_path, nrows=100, **READ_CSV_KWARGS)
     except (UnicodeDecodeError, pandas.errors.ParserError, csv.Error) as error:

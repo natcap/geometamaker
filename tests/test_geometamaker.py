@@ -202,11 +202,11 @@ class GeometamakerTests(unittest.TestCase):
         field = resource.get_field_description('a')
         self.assertEqual(field.type, 'integer')
 
-    def test_describe_bad_csv(self):
+    def test_describe_messy_csv(self):
         """Test a CSV with extra item in row and delimiter within string."""
         import geometamaker
 
-        datasource_path = os.path.join(self.workspace_dir, 'data.csv')
+        datasource_path = os.path.join(self.workspace_dir, 'data.CSV')
         field_names = ['Strings', 'Ints', 'Reals']
         row1 = ['foo', 1, 0.9, 'extra']
         row2 = ['foo,bar', 1, 0.9]
