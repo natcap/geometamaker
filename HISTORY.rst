@@ -1,6 +1,13 @@
 Release History
 ===============
 
+Unreleased Changes
+------------------
+* ``pandas`` replaces ``frictionless`` for reading tabular data. Supported
+  file formats for tables are limited to files with '.csv' or '.tsv' extensions.
+  https://github.com/natcap/geometamaker/issues/130
+
+
 0.3.1 (2026-04-13)
 ------------------
 * Version 0.3.0 was unintentionally incompatible with GDAL < 3.12.0. 

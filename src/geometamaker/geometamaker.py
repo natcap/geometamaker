@@ -1,15 +1,15 @@
+import csv
 import functools
 import hashlib
 import logging
 import os
 import re
 import requests
-from collections import defaultdict
 from datetime import datetime, timezone
 
-import frictionless
 import fsspec
 import numpy
+import pandas
 import pygeoprocessing
 import yaml
 from osgeo import gdal
@@ -39,6 +39,13 @@ PROTOCOLS = [
 ]
 
 DT_FMT = '%Y-%m-%d %H:%M:%S %Z'
+ARCHIVE_EXTENSIONS = ['.zip', '.tar', '.tgz', '.tar.gz']
+TABLE_EXTENSIONS = ['.csv', '.tsv']
+READ_CSV_KWARGS = {
+    'index_col': False,
+    'sep': None,  # let the python engine guess the separator
+    'engine': 'python'
+}
 
 
 def _gdal_progress_callback(complete, message, data):
@@ -198,7 +205,7 @@ def detect_file_type(filepath, scheme):
     """Detect the type of resource contained in the file.
 
     Args:
-        filepath (str): path to a file to be opened by GDAL or frictionless
+        filepath (str): path to a file
         scheme (str): the protocol prefix of the filepath
 
     Returns:
@@ -208,26 +215,21 @@ def detect_file_type(filepath, scheme):
         ValueError on unsupported file formats.
 
     """
+    extension = os.path.splitext(filepath)[1].lower()
+    if extension in ARCHIVE_EXTENSIONS:
+        return 'archive'
+    # GDAL considers CSV a vector, so check for tables first.
+    if extension in TABLE_EXTENSIONS:
+        return 'table'
     # TODO: guard against classifying netCDF, HDF5, etc as GDAL rasters.
     # We'll likely want a different data model for multi-dimensional arrays.
-    # Frictionless supports a wide range of formats. The quickest way to
-    # determine if a file is recognized as a table or archive is to call list.
-    try:
-        info = frictionless.list(filepath)[0]
-    except frictionless.FrictionlessException:
-        raise RuntimeError(f'Cannot detect file type of "{filepath}"')
-    if info.type == 'table':
-        return 'table'
-    # Frictionless doesn't recognize .tgz compression (but does recognize .tar.gz)
-    if info.compression or info.format == "tgz":
-        return 'archive'
-    # GDAL considers CSV a vector, so check against frictionless first.
     try:
         gis_type = pygeoprocessing.get_gis_type(_vsi_path(filepath, scheme))
     except ValueError:
         raise ValueError(
-            f'{filepath} does not appear to be one of '
-            f'(archive, table, raster, vector)')
+            f'{filepath} does not appear to be a supported file format.'
+            f' Supported formats are {ARCHIVE_EXTENSIONS}, {TABLE_EXTENSIONS}'
+            f' or any format supported by GDAL.')
     if gis_type == pygeoprocessing.VECTOR_TYPE:
         return 'vector'
     if gis_type == pygeoprocessing.RASTER_TYPE:
@@ -251,7 +253,10 @@ def describe_file(source_dataset_path, scheme):
         dict
 
     """
-    description = frictionless.describe(source_dataset_path).to_dict()
+    description = {
+        'path': source_dataset_path,
+        'format': os.path.splitext(source_dataset_path)[1].lower().lstrip('.')
+    }
 
     # If we want to support more file protocols in the future, it may
     # make sense to use fsspec to access file info in a protocol-agnostic way.
@@ -274,21 +279,11 @@ def describe_file(source_dataset_path, scheme):
         {description["path"]}'.encode('utf-8'))
     description['uid'] = f'sizetimestamp:{hash_func.hexdigest()}'
 
-    # These are other attributes sometimes returned by frictionless.
-    # We don't have a use for them in our metadata and we do not permit
-    # arbitrary extra attributes in our models.
-    description.pop('mediatype', None)
-    description.pop('name', None)
-    description.pop('profile', None)
-    description.pop('dialect', None)
-    description.pop('hash', None)
-    description.pop('sources', None)
-    description.pop('licenses', None)
     return description
 
 
 def describe_archive(source_dataset_path, scheme, **kwargs):
-    """Describe file properties of a compressed file.
+    """Describe file properties of an archive file.
 
     Args:
         source_dataset_path (str): path to a file.
@@ -319,20 +314,16 @@ def describe_archive(source_dataset_path, scheme, **kwargs):
         return file_list
 
     description = describe_file(source_dataset_path, scheme)
-    # innerpath is from frictionless and not useful because
-    # it does not include all the files contained in the zip
-    description.pop('innerpath', None)
 
-    if description.get("compression") == "zip":
+    if description['format'] == 'zip':
+        description['compression'] = 'zip'
         file_list = _list_zip_contents(source_dataset_path)
-    elif description.get("format") in ["tgz", "tar"]:
+    elif description['format'] in ['tgz', 'tar', 'gz']:
         file_list = _list_tgz_contents(source_dataset_path)
-        # 'compression' attr not auto-added by frictionless.describe for .tgz
-        # (but IS added for .tar.gz)
-        if source_dataset_path.endswith((".tgz")):
-            description["compression"] = "gz"
+        if description['format'] in ['tgz', 'gz']:
+            description['compression'] = 'gz'
     else:
-        raise ValueError(f"Unsupported archive format: {source_dataset_path}")
+        raise ValueError(f'Unsupported archive format: {source_dataset_path}')
 
     description['sources'] = file_list
     return description
@@ -351,7 +342,6 @@ def describe_vector(source_dataset_path, scheme, **kwargs):
 
     """
     description = describe_file(source_dataset_path, scheme)
-    description.pop('encoding', None)  # does not make sense for binary data
 
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
@@ -399,7 +389,6 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
     """
     compute_stats = kwargs.get('compute_stats', False)
     description = describe_file(source_dataset_path, scheme)
-    description.pop('encoding', None)  # does not make sense for binary data
     if 'http' in scheme:
         source_dataset_path = f'/vsicurl/{source_dataset_path}'
     info = pygeoprocessing.get_raster_info(source_dataset_path)
@@ -478,10 +467,25 @@ def describe_table(source_dataset_path, scheme, **kwargs):
     Returns:
         dict
 
+    Raises:
+        ValueError if the file cannot be read as a table.
+
     """
     description = describe_file(source_dataset_path, scheme)
-    description['data_model'] = models.TableSchema(**description['schema'])
-    del description['schema']  # we forbid extra args in our Pydantic models
+    try:
+        # Read enough rows to make a good inference on each column's
+        # datatype.
+        dataframe = pandas.read_csv(
+            source_dataset_path, nrows=100, **READ_CSV_KWARGS)
+    except (UnicodeDecodeError, pandas.errors.ParserError, csv.Error) as error:
+        raise ValueError(
+            f'{source_dataset_path} cannot be read as a table: {error}')
+    field_list = []
+    for field in dataframe.columns:
+        field_type = pandas.api.types.infer_dtype(dataframe[field])
+        field_list.append(
+            models.FieldSchema(name=field, type=field_type))
+    description['data_model'] = models.TableSchema(fields=field_list)
     return description
 
 
@@ -695,7 +699,7 @@ def describe(source_dataset_path, compute_stats=False):
         geometamaker.models.Resource: a metadata object
 
     Raises:
-        ValueError if the file type of the dataset is not supported.
+        ValueError if the file type or protocol of the dataset is not supported.
         FileNotFoundError if the path does not exist.
 
     """

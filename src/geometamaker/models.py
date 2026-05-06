@@ -110,7 +110,11 @@ class FieldSchema(Parent):
     name: str
     """The name used to uniquely identify the field."""
     type: str
-    """Datatype of the content of the field."""
+    """Datatype of the content of the field.
+
+    String label of a type inferred by ``pandas.api.types.infer_dtype``
+
+    """
     description: str = ''
     """A description of the field."""
     title: str = ''
