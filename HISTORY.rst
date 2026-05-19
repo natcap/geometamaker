@@ -1,7 +1,7 @@
 Release History
 ===============
 
-Unreleased Changes
+0.3.2 (2026-05-19)
 ------------------
 * ``pandas`` replaces ``frictionless`` for reading tabular data. Supported
   file formats for tables are limited to files with '.csv' or '.tsv' extensions.
