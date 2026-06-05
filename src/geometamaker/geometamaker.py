@@ -405,7 +405,7 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
         elif GDAL_VERSION < (3, 11, 0):
             # GetDefaultRAT did not support DBF prior to 3.11.0
             dbf_rat = f'{source_dataset_path}.vat.dbf'
-            if dbf_rat in info['file_list']:
+            if os.path.exists(dbf_rat):
                 rat = models.RasterAttributeTable.from_gdal_dbf(dbf_rat)
 
         band_gdal_metadata = band.GetMetadata()

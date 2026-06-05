@@ -461,15 +461,13 @@ class GeometamakerTests(unittest.TestCase):
 
     def test_describe_raster_with_dbf_rat(self):
         """Test raster attribute table can be constructed from vat.dbf."""
-        from geometamaker import models
+        import geometamaker
 
         datasource_path = os.path.join(
-            os.path.dirname(__file__), 'data/testrat.tif.vat.dbf')
+            os.path.dirname(__file__), 'data/testrat.tif')
 
-        # Calling this method directly instead of `describe`
-        # because depending on GDAL version, this method may not be used
-        # and the resulting table would have minor differences.
-        table = models.RasterAttributeTable.from_gdal_dbf(datasource_path)
+        resource = geometamaker.describe(datasource_path)
+        table = resource.get_rat(1)
 
         self.assertEqual(len(table.rows), 2)
         self.assertEqual(len(table.columns), 9)
@@ -477,14 +475,30 @@ class GeometamakerTests(unittest.TestCase):
             [col.name for col in table.columns],
             ["VALUE", "COUNT", "CLASS", "Red", "Green", "Blue", "OtherInt",
              "OtherReal", "OtherStr"])
+        
+        # GDAL does not read a DBF RAT by default, so there are differences
+        # In how we constructed the list of types vs how later versions of
+        # GDAL will do it.
+        expected_types = [
+            "Integer", "Integer", "String", "Integer", "Integer", "Integer",
+            "Integer", "Real", "String"]
+        expected_usages = [
+            'MinMax', 'PixelCount', 'Name', 'Red', 'Green', 'Blue',
+            'Generic', 'Generic', 'Generic']
+        if geometamaker.geometamaker.GDAL_VERSION < (3, 11, 0):
+            expected_types = [
+                "Integer", "Integer", "String", "Real", "Real", "Real",
+                "Integer", "Real", "String"]
+            expected_usages = [
+                "MinMax", "PixelCount", "Generic", "Generic", "Generic", "Generic",
+                "Generic", "Generic", "Generic"]
+
         self.assertEqual(
             [col.type for col in table.columns],
-            ["Integer", "Integer", "String", "Real", "Real", "Real", "Integer",
-             "Real", "String"])
+            expected_types)
         self.assertEqual(
             [col.usage for col in table.columns],
-            ["MinMax", "PixelCount", "Generic", "Generic", "Generic", "Generic", "Generic",
-             "Generic", "Generic"])
+            expected_usages)
 
     def test_describe_vector_with_gdal_metadata(self):
         """Test vector metadata will be included if they already exist."""

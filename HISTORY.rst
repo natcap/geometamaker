@@ -1,6 +1,12 @@
 Release History
 ===============
 
+Unreleased Changes
+------------------
+* Fixed a bug where a raster attribute table stored in a DBF file
+  would be ignored during ``describe`` if using GDAL < 3.11.0.
+  https://github.com/natcap/geometamaker/issues/140
+
 0.3.2 (2026-05-19)
 ------------------
 * ``pandas`` replaces ``frictionless`` for reading tabular data. Supported
