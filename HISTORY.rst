@@ -1,7 +1,7 @@
 Release History
 ===============
 
-Unreleased Changes
+0.3.3 (2026-06-08)
 ------------------
 * Fixed a bug where a raster attribute table stored in a DBF file
   would be ignored during ``describe`` if using GDAL < 3.11.0.
