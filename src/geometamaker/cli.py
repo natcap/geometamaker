@@ -18,7 +18,8 @@ FORMATTER = logging.Formatter(
 HANDLER.setFormatter(FORMATTER)
 LOGGER.addFilter(
     lambda record: not record.__dict__.get(
-        geometamaker.geometamaker._NOT_FOR_CLI, False))
+        'not_for_cli', False))  # 'not_for_cli' defined in geometamker.py;
+                                # ref removed for lazy load
 
 
 # The recommended approach to allowing multiple ParamTypes
