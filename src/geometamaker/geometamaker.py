@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 import fsspec
 import numpy
 import pandas
-import pygeoprocessing
 import yaml
 from osgeo import gdal
 from osgeo import osr
@@ -215,6 +214,7 @@ def detect_file_type(filepath, scheme):
         ValueError on unsupported file formats.
 
     """
+    import pygeoprocessing
     extension = os.path.splitext(filepath)[1].lower()
     if extension in ARCHIVE_EXTENSIONS:
         return 'archive'
@@ -341,6 +341,7 @@ def describe_vector(source_dataset_path, scheme, **kwargs):
         dict
 
     """
+    import pygeoprocessing
     description = describe_file(source_dataset_path, scheme)
 
     if 'http' in scheme:
@@ -387,6 +388,7 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
         dict
 
     """
+    import pygeoprocessing
     compute_stats = kwargs.get('compute_stats', False)
     description = describe_file(source_dataset_path, scheme)
     if 'http' in scheme:
@@ -524,6 +526,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
     Returns:
         Collection metadata
     """
+    import pygeoprocessing
     directory = str(Path(directory).resolve())
 
     file_list = _list_files_with_depth(directory, depth, exclude_regex,
