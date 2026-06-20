@@ -7,20 +7,21 @@ import fsspec
 import numpy
 from pydantic import ValidationError
 
-import geometamaker
-
-LOGGER = logging.getLogger('geometamaker')
-LOGGER.setLevel(logging.DEBUG)
-HANDLER = logging.StreamHandler(sys.stdout)
-FORMATTER = logging.Formatter(
-    fmt='%(asctime)s %(name)-18s %(levelname)-8s %(message)s',
-    datefmt='%m/%d/%Y %H:%M:%S ')
-HANDLER.setFormatter(FORMATTER)
-LOGGER.addFilter(
-    lambda record: not record.__dict__.get(
-        'not_for_cli', False))  # 'not_for_cli' defined in geometamker.py;
-                                # ref removed for lazy load
-
+def configure_cli_logging(verbosity):
+    import geometamaker
+    """configure logging lazily"""
+    log_level = logging.ERROR - (verbosity * 10)
+    logger = logging.getLogger('geometamaker')
+    logger.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(log_level)
+    formatter = logging.Formatter(
+        fmt='%(asctime)s %(name)-18s %(levelname)-8s %(message)s',
+        datefmt='%m/%d/%Y %H:%M:%S ')
+    handler.setFormatter(formatter)
+    logger.addFilter(
+        lambda record: not record.__dict__.get(
+            geometamaker.geometamaker._NOT_FOR_CLI, False))
 
 # The recommended approach to allowing multiple ParamTypes
 # https://github.com/pallets/click/issues/1729
@@ -115,6 +116,7 @@ class _URL(click.ParamType):
                    ' <directory_name>-metadata.yml.')
 def describe(filepath, depth, exclude, all_files, no_write, stats,
              collection_only, target_filename):
+    import geometamaker
     describing_single = True  # if filepath is a file, or collection_only=True
     if os.path.isdir(filepath):
         resource = geometamaker.describe_collection(
@@ -181,6 +183,7 @@ def echo_is_valid(filepath):
                    ' subdirectories up to depth. Defaults to validating'
                    ' all files.')
 def validate(filepath, depth):
+    import geometamaker
     if os.path.isdir(filepath):
         file_list, message_list = geometamaker.validate_dir(
             filepath, depth=depth)
@@ -203,6 +206,7 @@ def validate(filepath, depth):
 
 
 def print_config(ctx, param, value):
+    import geometamaker
     if not value or ctx.resilient_parsing:
         return
     config = geometamaker.Config()
@@ -211,6 +215,7 @@ def print_config(ctx, param, value):
 
 
 def delete_config(ctx, param, value):
+    import geometamaker
     if not value or ctx.resilient_parsing:
         return
     config = geometamaker.Config()
@@ -244,6 +249,7 @@ def delete_config(ctx, param, value):
               help='Delete your configuration file.')
 def config(individual_name, email, organization, position_name,
            license_url, license_title):
+    import geometamaker
     contact = geometamaker.models.ContactSchema()
     contact.individual_name = individual_name
     contact.email = email
@@ -268,10 +274,7 @@ def config(individual_name, email, organization, position_name,
               info-level logging.''')
 @click.version_option(message="%(version)s")
 def cli(verbosity):
-    log_level = logging.ERROR - verbosity*10
-    HANDLER.setLevel(log_level)
-    LOGGER.addHandler(HANDLER)
-
+    configure_cli_logging(verbosity)
 
 cli.add_command(describe)
 cli.add_command(validate)
