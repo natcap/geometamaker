@@ -455,7 +455,7 @@ class BaseMetadata(Parent):
             obj = self.__class__(**updated_dict)
             # Private attributes are not pydantic fields.
             # They were excluded in model_dump so set them again
-            obj._would_overwrite = self._would_overwrite
+            obj.__dict__['_would_overwrite'] = self.__dict__.get('_would_overwrite', False)
             return obj
         raise TypeError(f'{type(other)} is not an instance of BaseMetadata')
 
