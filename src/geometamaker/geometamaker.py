@@ -772,7 +772,7 @@ def describe(source_dataset_path, compute_stats=False):
             f' is invalid or incompatible.')
         LOGGER.warning(
             'A subsequent call to `.write()` will replace this file, but it'
-            ' will be backed up to {metadata_path}.bak.\n'
+            f' will be backed up to {metadata_path}.bak.\n'
             f'Use `.write(backup=False)` to skip the backup.\n',
             extra=_LOG_EXTRA_NOT_FOR_CLI)
         resource._would_overwrite = True
