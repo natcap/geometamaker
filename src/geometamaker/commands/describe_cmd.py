@@ -130,7 +130,7 @@ def describe(filepath, depth, exclude, all_files, no_write, stats,
             abort=True)
     try:
         # Users can abort at the confirm and manage their own backups.
-        resource.write(backup=False)
+        resource.write(backup=True)
     except OSError:
         click.echo(
             f'geometamaker could not write to {resource.metadata_path}\n'
