@@ -8,7 +8,7 @@ from typing import Literal, Union
 
 import fsspec
 import yaml
-from osgeo import gdal
+from osgeo import gdal, osr
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.dataclasses import dataclass
 
@@ -71,6 +71,21 @@ class BoundingBox:
         return list(self)
 
 
+class CoordinateReferenceSystem(Parent):
+    """Class for storing a coordinate reference system."""
+
+    epsg: int | None = None
+    wkt: str = ''
+
+    def export_wkt(self):
+        if self.wkt:
+            return self.wkt
+        elif self.epsg:
+            srs = osr.SpatialReference()
+            srs.ImportFromEPSG(self.epsg)
+            return srs.ExportToWkt()
+
+
 class SpatialSchema(Parent):
     """Class for keeping track of spatial info."""
 
@@ -78,7 +93,7 @@ class SpatialSchema(Parent):
 
     bounding_box: BoundingBox
     """Spatial extent [xmin, ymin, xmax, ymax]."""
-    crs: str
+    crs: CoordinateReferenceSystem
     """Coordinate Reference System."""
     crs_units: str
     """Units of measure for coordinates in the CRS."""

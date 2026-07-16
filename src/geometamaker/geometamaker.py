@@ -110,20 +110,25 @@ def _vsi_path(filepath, scheme):
     return filepath
 
 
-def _wkt_to_epsg_units_string(wkt_string):
-    crs_string = 'unknown'
-    units_string = 'unknown'
-    try:
-        srs = osr.SpatialReference(wkt_string)
-        srs.AutoIdentifyEPSG()
-        crs_string = (
-            f"{srs.GetAttrValue('AUTHORITY', 0)}:"
-            f"{srs.GetAttrValue('AUTHORITY', 1)}")
-        units_string = srs.GetAttrValue('UNIT', 0)
-    except RuntimeError:
-        LOGGER.warning(
-            f'{wkt_string} cannot be interpreted as a coordinate reference system')
-    return crs_string, units_string
+def _srs_to_crs(srs):
+    # crs_string = 'unknown'
+    # units_string = 'unknown'
+    # srs = osr.SpatialReference(wkt_string)
+    if srs is None:
+        return models.CoordinateReferenceSystem(), ''
+    auth = srs.GetAuthorityName(None)
+    if auth == 'EPSG':
+        crs = models.CoordinateReferenceSystem(
+            epsg=srs.GetAuthorityCode(None))
+    else:
+        crs = models.CoordinateReferenceSystem(
+            wkt=srs.ExportToWkt())
+
+    # crs_string = (
+    #     f"{srs.GetAttrValue('AUTHORITY', 0)}:"
+    #     f"{srs.GetAttrValue('AUTHORITY', 1)}")
+    units_string = srs.GetAttrValue('UNIT', 0)
+    return crs, units_string
 
 
 def _epsg_to_wkt_units_string(epsg_code):
@@ -359,15 +364,15 @@ def describe_vector(source_dataset_path, scheme, **kwargs):
     description['data_model'] = models.VectorSchema(
         layers=[layer_schema],
         gdal_metadata=vector.GetMetadata())
+    srs = layer.GetSpatialRef()
     vector = layer = None
 
     info = pygeoprocessing.get_vector_info(source_dataset_path)
     bbox = models.BoundingBox(*info['bounding_box'])
-    epsg_string, units_string = _wkt_to_epsg_units_string(
-        info['projection_wkt'])
+    crs, units_string = _srs_to_crs(srs)
     description['spatial'] = models.SpatialSchema(
         bounding_box=bbox,
-        crs=epsg_string,
+        crs=crs,
         crs_units=units_string)
     description['sources'] = info['file_list']
     return description
@@ -435,7 +440,6 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
             gdal_metadata=band_gdal_metadata,
             raster_attribute_table=rat))
         band = None
-    raster = None
 
     description['data_model'] = models.RasterSchema(
         bands=bands,
@@ -446,13 +450,14 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
     # Some values of raster info are numpy types, which the
     # yaml dumper doesn't know how to represent.
     bbox = models.BoundingBox(*[float(x) for x in info['bounding_box']])
-    epsg_string, units_string = _wkt_to_epsg_units_string(
-        info['projection_wkt'])
+    srs = raster.GetSpatialRef()
+    crs, units_string = _srs_to_crs(srs)
     description['spatial'] = models.SpatialSchema(
         bounding_box=bbox,
-        crs=epsg_string,
+        crs=crs,
         crs_units=units_string)
     description['sources'] = info['file_list']
+    raster = None
     return description
 
 
@@ -549,7 +554,8 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         try:
             item_resource = describe(abs_filepath, **kwargs)
             if item_resource.spatial is not None:
-                collection_crs_set.add(item_resource.spatial.crs)
+                collection_crs_set.add(
+                    item_resource.spatial.crs.epsg or item_resource.spatial.crs.wkt)
                 item_spatial_list.append(item_resource.spatial)
 
         except ValueError:
@@ -586,11 +592,17 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
 
     if len(collection_crs_set) > 1:
         wgs84_bbox_list = []
-        target_projection_wkt, crs_units = _epsg_to_wkt_units_string(4326)
+        target_epsg = 4326
+        target_crs_units = 'degree'
+        target_srs = osr.SpatialReference()
+        target_srs.ImportFromEPSG(target_epsg)
+        target_projection_wkt = target_srs.ExportToWkt()
+        # target_projection_wkt, crs_units = _epsg_to_wkt_units_string(4326)
         try:
             for spatial in item_spatial_list:
-                base_projection_wkt, crs_units = _epsg_to_wkt_units_string(
-                    int(spatial.crs.split(':')[1]))
+                base_projection_wkt = spatial.crs.export_wkt()
+                # base_projection_wkt, crs_units = _epsg_to_wkt_units_string(
+                #     int(spatial.crs.split(':')[1]))
                 bbox = pygeoprocessing.transform_bounding_box(
                     bounding_box=list(spatial.bounding_box),
                     base_projection_wkt=base_projection_wkt,
@@ -600,8 +612,8 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                 wgs84_bbox_list, 'union')
             spatial = models.SpatialSchema(
                 bounding_box=models.BoundingBox(*collection_bbox),
-                crs='EPSG:4326',
-                crs_units=crs_units)
+                crs=models.CoordinateReferenceSystem(epsg=target_epsg),
+                crs_units=target_crs_units)
         except (ValueError, RuntimeError) as error:
             # transform_bounding_box can raise a ValueError
             LOGGER.error(error)

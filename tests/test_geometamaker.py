@@ -165,7 +165,7 @@ class GeometamakerTests(unittest.TestCase):
 
         spatial = geometamaker.models.SpatialSchema(
             bounding_box=geometamaker.models.BoundingBox(0, 0, 2, 2),
-            crs='EPSG:4326',
+            crs=geometamaker.models.CoordinateReferenceSystem(epsg=4326),
             crs_units='degree')
         resource.set_spatial(spatial)
 
@@ -269,8 +269,8 @@ class GeometamakerTests(unittest.TestCase):
         resource = geometamaker.describe(datasource_path)
         self.assertTrue(isinstance(
             resource.spatial, geometamaker.models.SpatialSchema))
-        self.assertRegex(
-            resource.spatial.crs, r'EPSG:[0-9]*')
+        self.assertEqual(
+            resource.spatial.crs.epsg, 4326)
         self.assertEqual(
             resource.spatial.crs_units, 'degree')
 
@@ -320,7 +320,8 @@ class GeometamakerTests(unittest.TestCase):
         create_raster(numpy.int16, datasource_path, projection_epsg=None)
 
         resource = geometamaker.describe(datasource_path)
-        self.assertEqual(resource.spatial.crs, 'unknown')
+        self.assertEqual(resource.spatial.crs.epsg, None)
+        self.assertEqual(resource.spatial.crs.wkt, '')
 
     def test_describe_raster_no_nodata(self):
         """Test for a raster that has no nodata value."""
@@ -1011,7 +1012,7 @@ class GeometamakerTests(unittest.TestCase):
         create_raster(numpy.int16, raster_path, projection_epsg=3857)
 
         resource = geometamaker.describe_collection(collection_path)
-        self.assertEqual(resource.spatial.crs, 'EPSG:3857')
+        self.assertEqual(resource.spatial.crs.epsg, 3857)
         self.assertEqual(resource.spatial.crs_units, 'metre')
         self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 2, 2])
 
@@ -1037,7 +1038,7 @@ class GeometamakerTests(unittest.TestCase):
             file.write('a,b,c')
 
         resource = geometamaker.describe_collection(collection_path)
-        self.assertEqual(resource.spatial.crs, 'EPSG:4326')
+        self.assertEqual(resource.spatial.crs.epsg, 4326)
         self.assertEqual(resource.spatial.crs_units, 'degree')
         self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 4, 4])
 
