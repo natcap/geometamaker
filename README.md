@@ -5,8 +5,8 @@ metadata for geospatial, tabular, and other data formats.
 
 Supported datatypes include:
 * everything supported by GDAL
-* tabular formats supported by `frictionless`
-* compressed formats supported by `frictionless`
+* tabular formats supported by `pandas`
+* compressed archive formats `.zip, .tar, .gz, .tar.gz`
 
 ## Installation
 
