@@ -34,22 +34,19 @@ class MigrationTests(unittest.TestCase):
         shutil.rmtree(self.workspace_dir)
 
     def test_vector_resource_without_layers(self):
-        """This vector pre-dates the use of layers."""
+        """This document pre-dates the use of layers."""
         import geometamaker
 
         yml_path = os.path.join(
             os.path.dirname(__file__), 'data/0.1.2/vector.geojson.yml')
-        vector_path = os.path.join(
-            os.path.dirname(__file__), 'data/0.1.2/vector.geojson')
         with self.assertWarns(FutureWarning):
             _ = geometamaker.models.VectorResource.load(yml_path)
-            # _ = geometamaker.describe(vector_path)
 
     def test_spatial_model_with_crs_string(self):
-        """This vector pre-dates the use of models.CoordinateReferenceSystem."""
+        """This document pre-dates the use of models.CoordinateReferenceSystem."""
         import geometamaker
 
         yml_path = os.path.join(
-            os.path.dirname(__file__), 'data/0.1.2/vector.geojson.yml')
+            os.path.dirname(__file__), 'data/0.3.3/vector.geojson.yml')
         with self.assertWarns(FutureWarning):
             _ = geometamaker.models.VectorResource.load(yml_path)

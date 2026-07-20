@@ -615,6 +615,8 @@ class BaseResource(BaseMetadata):
                     del yaml_dict['data_model']
                     del yaml_dict['n_features']
                     yaml_dict['data_model'] = {'layers': [layer]}
+
+                # Migrate metadata that pre-dates CoordinateReferenceSystem
                 if e['type'] == 'model_type' and e['loc'] == ('spatial', 'crs'):
                     warnings.warn(
                         "'spatial.crs' must be a valid dictionary or instance of "
@@ -630,6 +632,8 @@ class BaseResource(BaseMetadata):
                             crs = CoordinateReferenceSystem()
                         yaml_dict['spatial']['crs'] = crs
                     else:
+                        # This will be overwritten during describe, but needs
+                        # to be initialized to construct the instance.
                         yaml_dict['spatial']['crs'] = CoordinateReferenceSystem()
                     del yaml_dict['spatial']['crs_units']
 
