@@ -1209,6 +1209,20 @@ class GeometamakerTests(unittest.TestCase):
                "`geometamaker.describe_collection` instead.")
         self.assertIn(msg, str(cm.exception))
 
+    def test_load_yml_document(self):
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'data.csv')
+        with open(datasource_path, 'w') as file:
+            file.write('a,b,c\n')
+            file.write('1,2,3\n')
+
+        resource = geometamaker.describe(datasource_path)
+        resource.write()
+
+        loaded_resource = geometamaker.load(f'{datasource_path}.yml')
+        self.assertEqual(resource.type, loaded_resource.type)
+
 
 class ValidationTests(unittest.TestCase):
     """Tests for geometamaker type validation."""

@@ -19,6 +19,19 @@ from . import utils
 LOGGER = logging.getLogger('geometamaker')
 
 
+def _load(yaml_path):
+    """Open, read, and load a YAML document as a dictionary."""
+    with fsspec.open(yaml_path, 'r') as file:
+        yaml_string = file.read()
+    yaml_dict = yaml.safe_load(yaml_string)
+    if not yaml_dict or ('metadata_version' not in yaml_dict
+                         and 'geometamaker_version' not in yaml_dict):
+        message = (f'{yaml_path} exists but is not compatible with '
+                   f'geometamaker.')
+        raise ValueError(message)
+    return yaml_dict
+
+
 def _deep_update_dict(self_dict, other_dict):
     """Update values in self_dict.
 
@@ -38,6 +51,20 @@ def _deep_update_dict(self_dict, other_dict):
 
 
 def _migrate_schemas(yaml_dict, validation_error):
+    """Update an invalid metadata resource to the latest data models.
+
+    If constructing a resource from an existing metadata document
+    raises validation errors, it is possible the document was created
+    by an older version of geometamaker. This function looks for
+    specific validation errors indicative of this and migrates
+    info from the old models to the current ones.
+
+    Args:
+        yaml_dict (dict): dictionary loaded from a YAML document
+        validation_error (ValidationError): Pydantic validation errors
+            from trying to instantiate a resource from the ``yaml_dict``.
+
+    """
     if yaml_dict['geometamaker_version'] == geometamaker.__version__:
         raise validation_error
     for e in validation_error.errors():
@@ -81,7 +108,6 @@ def _migrate_schemas(yaml_dict, validation_error):
             del yaml_dict['spatial']['crs_units']
 
     return yaml_dict
-    # raise validation_error
 
 
 class Parent(BaseModel):
@@ -622,6 +648,11 @@ class BaseResource(BaseMetadata):
 
         Args:
             filepath (str): path to yaml file
+            migrate_schema (bool): if loading the metadata document
+                raises a Pydantic ValidationError, it could be because
+                it was created with older versions of data models. Use
+                `True` to attempt to update the metadata to the current
+                data models.
 
         Returns:
             instance of the class
@@ -632,14 +663,7 @@ class BaseResource(BaseMetadata):
                 geometamaker.
 
         """
-        with fsspec.open(filepath, 'r') as file:
-            yaml_string = file.read()
-        yaml_dict = yaml.safe_load(yaml_string)
-        if not yaml_dict or ('metadata_version' not in yaml_dict
-                             and 'geometamaker_version' not in yaml_dict):
-            message = (f'{filepath} exists but is not compatible with '
-                       f'geometamaker.')
-            raise ValueError(message)
+        yaml_dict = _load(filepath)
 
         try:
             return cls(**yaml_dict)
@@ -647,7 +671,7 @@ class BaseResource(BaseMetadata):
             if migrate_schema:
                 updated_dict = _migrate_schemas(yaml_dict, validation_error)
                 return cls(**updated_dict)
-            raise validation_error
+            raise
 
     def set_title(self, title):
         """Add a title for the dataset.
