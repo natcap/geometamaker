@@ -37,6 +37,53 @@ def _deep_update_dict(self_dict, other_dict):
     return self_dict
 
 
+def _migrate_schemas(yaml_dict, validation_error):
+    if yaml_dict['geometamaker_version'] == geometamaker.__version__:
+        raise validation_error
+    for e in validation_error.errors():
+        # Migrate vector metadata that pre-dates 'layers'
+        if e['type'] == 'missing' and e['loc'] == ('data_model', 'layers'):
+            warnings.warn(
+                "A vector 'data_model' must include 'layers'. "
+                "In the future, the absence of a 'layers' attribute "
+                "will raise a ValidationError",
+                category=FutureWarning)
+            # In the context of `describe`, these layer attributes will
+            # be updated on the resource after this document is loaded.
+            layer = {
+                'name': '',
+                'table': yaml_dict['data_model'],
+                'n_features': yaml_dict['n_features']
+            }
+            del yaml_dict['data_model']
+            del yaml_dict['n_features']
+            yaml_dict['data_model'] = {'layers': [layer]}
+
+        # Migrate metadata that pre-dates CoordinateReferenceSystem
+        if e['type'] == 'model_type' and e['loc'] == ('spatial', 'crs'):
+            warnings.warn(
+                "'spatial.crs' must be a valid dictionary or instance of "
+                "CoordinateReferenceSystem. "
+                "In the future, this will raise a ValidationError",
+                category=FutureWarning)
+            if yaml_dict['type'] == 'table':
+                try:
+                    crs = CoordinateReferenceSystem(
+                        epsg=yaml_dict['spatial']['crs'].split(':')[-1],
+                        units=yaml_dict['spatial']['crs_units'])
+                except IndexError:
+                    crs = CoordinateReferenceSystem()
+                yaml_dict['spatial']['crs'] = crs
+            else:
+                # This will be overwritten during describe, but needs
+                # to be initialized to construct the instance.
+                yaml_dict['spatial']['crs'] = CoordinateReferenceSystem()
+            del yaml_dict['spatial']['crs_units']
+
+    return yaml_dict
+    # raise validation_error
+
+
 class Parent(BaseModel):
     """Parent class on which to configure validation.
 
@@ -570,7 +617,7 @@ class BaseResource(BaseMetadata):
     """An object for describing spatial properties of the resource."""
 
     @classmethod
-    def load(cls, filepath):
+    def load(cls, filepath, migrate_schema=False):
         """Load metadata document from a yaml file.
 
         Args:
@@ -597,48 +644,10 @@ class BaseResource(BaseMetadata):
         try:
             return cls(**yaml_dict)
         except ValidationError as validation_error:
-            for e in validation_error.errors():
-                # Migrate vector metadata that pre-dates 'layers'
-                if e['type'] == 'missing' and e['loc'] == ('data_model', 'layers'):
-                    warnings.warn(
-                        "A vector 'data_model' must include 'layers'. "
-                        "In the future, the absence of a 'layers' attribute "
-                        "will raise a ValidationError",
-                        category=FutureWarning)
-                    # In the context of `describe`, these layer attributes will
-                    # be updated on the resource after this document is loaded.
-                    layer = {
-                        'name': '',
-                        'table': yaml_dict['data_model'],
-                        'n_features': yaml_dict['n_features']
-                    }
-                    del yaml_dict['data_model']
-                    del yaml_dict['n_features']
-                    yaml_dict['data_model'] = {'layers': [layer]}
-
-                # Migrate metadata that pre-dates CoordinateReferenceSystem
-                if e['type'] == 'model_type' and e['loc'] == ('spatial', 'crs'):
-                    warnings.warn(
-                        "'spatial.crs' must be a valid dictionary or instance of "
-                        "CoordinateReferenceSystem. "
-                        "In the future, this will raise a ValidationError",
-                        category=FutureWarning)
-                    if yaml_dict['type'] == 'table':
-                        try:
-                            crs = CoordinateReferenceSystem(
-                                epsg=yaml_dict['spatial']['crs'].split(':')[-1],
-                                units=yaml_dict['spatial']['crs_units'])
-                        except IndexError:
-                            crs = CoordinateReferenceSystem()
-                        yaml_dict['spatial']['crs'] = crs
-                    else:
-                        # This will be overwritten during describe, but needs
-                        # to be initialized to construct the instance.
-                        yaml_dict['spatial']['crs'] = CoordinateReferenceSystem()
-                    del yaml_dict['spatial']['crs_units']
-
-            return cls(**yaml_dict)
-            # raise validation_error
+            if migrate_schema:
+                updated_dict = _migrate_schemas(yaml_dict, validation_error)
+                return cls(**updated_dict)
+            raise validation_error
 
     def set_title(self, title):
         """Add a title for the dataset.

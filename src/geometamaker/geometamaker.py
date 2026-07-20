@@ -635,7 +635,8 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         target_filename = f'{os.path.basename(directory)}-metadata.yml'
     metadata_path = os.path.join(directory, target_filename)
     try:
-        existing_metadata = models.CollectionResource.load(metadata_path)
+        existing_metadata = models.CollectionResource.load(
+            metadata_path, migrate_schema=True)
 
         # Copy any existing item descriptions from existing yml to new metadata
         # Note that descriptions in individual resources' ymls will take
@@ -744,7 +745,8 @@ def describe(source_dataset_path, compute_stats=False):
         # should inherit values from the existing resource.
         # After that, take all non-empty values from the new resource
         # and update the existing resource.
-        existing_resource = RESOURCE_MODELS[resource_type].load(metadata_path)
+        existing_resource = RESOURCE_MODELS[resource_type].load(
+            metadata_path, migrate_schema=True)
         if resource_type == 'raster':
             for band in resource.data_model.bands:
                 try:
