@@ -76,6 +76,8 @@ class CoordinateReferenceSystem(Parent):
 
     epsg: int | None = None
     wkt: str = ''
+    units: str = ''
+    """Units of measure for coordinates in the CRS."""
 
     def export_wkt(self):
         if self.wkt:
@@ -95,8 +97,6 @@ class SpatialSchema(Parent):
     """Spatial extent [xmin, ymin, xmax, ymax]."""
     crs: CoordinateReferenceSystem
     """Coordinate Reference System."""
-    crs_units: str
-    """Units of measure for coordinates in the CRS."""
 
 
 class ContactSchema(Parent):
@@ -615,8 +615,26 @@ class BaseResource(BaseMetadata):
                     del yaml_dict['data_model']
                     del yaml_dict['n_features']
                     yaml_dict['data_model'] = {'layers': [layer]}
-                    return cls(**yaml_dict)
-            raise validation_error
+                if e['type'] == 'model_type' and e['loc'] == ('spatial', 'crs'):
+                    warnings.warn(
+                        "'spatial.crs' must be a valid dictionary or instance of "
+                        "CoordinateReferenceSystem. "
+                        "In the future, this will raise a ValidationError",
+                        category=FutureWarning)
+                    if yaml_dict['type'] == 'table':
+                        try:
+                            crs = CoordinateReferenceSystem(
+                                epsg=yaml_dict['spatial']['crs'].split(':')[-1],
+                                units=yaml_dict['spatial']['crs_units'])
+                        except IndexError:
+                            crs = CoordinateReferenceSystem()
+                        yaml_dict['spatial']['crs'] = crs
+                    else:
+                        yaml_dict['spatial']['crs'] = CoordinateReferenceSystem()
+                    del yaml_dict['spatial']['crs_units']
+
+            return cls(**yaml_dict)
+            # raise validation_error
 
     def set_title(self, title):
         """Add a title for the dataset.

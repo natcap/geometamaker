@@ -115,7 +115,7 @@ def _srs_to_crs(srs):
     # units_string = 'unknown'
     # srs = osr.SpatialReference(wkt_string)
     if srs is None:
-        return models.CoordinateReferenceSystem(), ''
+        return models.CoordinateReferenceSystem()
     auth = srs.GetAuthorityName(None)
     if auth == 'EPSG':
         crs = models.CoordinateReferenceSystem(
@@ -128,21 +128,22 @@ def _srs_to_crs(srs):
     #     f"{srs.GetAttrValue('AUTHORITY', 0)}:"
     #     f"{srs.GetAttrValue('AUTHORITY', 1)}")
     units_string = srs.GetAttrValue('UNIT', 0)
-    return crs, units_string
+    crs.units = units_string
+    return crs
 
 
-def _epsg_to_wkt_units_string(epsg_code):
-    wkt_string = 'unknown'
-    units_string = 'unknown'
-    try:
-        srs = osr.SpatialReference()
-        srs.ImportFromEPSG(epsg_code)
-        wkt_string = srs.ExportToWkt()
-        units_string = srs.GetAttrValue('UNIT', 0)
-    except RuntimeError:
-        LOGGER.warning(
-            f'EPSG: {epsg_code} cannot be interpreted as a coordinate reference system')
-    return wkt_string, units_string
+# def _epsg_to_wkt_units_string(epsg_code):
+#     wkt_string = 'unknown'
+#     units_string = 'unknown'
+#     try:
+#         srs = osr.SpatialReference()
+#         srs.ImportFromEPSG(epsg_code)
+#         wkt_string = srs.ExportToWkt()
+#         units_string = srs.GetAttrValue('UNIT', 0)
+#     except RuntimeError:
+#         LOGGER.warning(
+#             f'EPSG: {epsg_code} cannot be interpreted as a coordinate reference system')
+#     return wkt_string, units_string
 
 
 def _list_files_with_depth(directory, depth, exclude_regex=None,
@@ -369,11 +370,10 @@ def describe_vector(source_dataset_path, scheme, **kwargs):
 
     info = pygeoprocessing.get_vector_info(source_dataset_path)
     bbox = models.BoundingBox(*info['bounding_box'])
-    crs, units_string = _srs_to_crs(srs)
+    crs = _srs_to_crs(srs)
     description['spatial'] = models.SpatialSchema(
         bounding_box=bbox,
-        crs=crs,
-        crs_units=units_string)
+        crs=crs)
     description['sources'] = info['file_list']
     return description
 
@@ -451,11 +451,10 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
     # yaml dumper doesn't know how to represent.
     bbox = models.BoundingBox(*[float(x) for x in info['bounding_box']])
     srs = raster.GetSpatialRef()
-    crs, units_string = _srs_to_crs(srs)
+    crs = _srs_to_crs(srs)
     description['spatial'] = models.SpatialSchema(
         bounding_box=bbox,
-        crs=crs,
-        crs_units=units_string)
+        crs=crs)
     description['sources'] = info['file_list']
     raster = None
     return description
@@ -587,8 +586,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
             'union')
         spatial = models.SpatialSchema(
             bounding_box=models.BoundingBox(*collection_bbox),
-            crs=item_spatial_list[0].crs,
-            crs_units=item_spatial_list[0].crs_units)
+            crs=item_spatial_list[0].crs)
 
     if len(collection_crs_set) > 1:
         wgs84_bbox_list = []
@@ -612,8 +610,8 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                 wgs84_bbox_list, 'union')
             spatial = models.SpatialSchema(
                 bounding_box=models.BoundingBox(*collection_bbox),
-                crs=models.CoordinateReferenceSystem(epsg=target_epsg),
-                crs_units=target_crs_units)
+                crs=models.CoordinateReferenceSystem(
+                    epsg=target_epsg, units=target_crs_units))
         except (ValueError, RuntimeError) as error:
             # transform_bounding_box can raise a ValueError
             LOGGER.error(error)
@@ -772,6 +770,11 @@ def describe(source_dataset_path, compute_stats=False):
                         title=efield.title,
                         description=efield.description,
                         units=efield.units)
+        if resource_type == 'table':
+            # For tables, spatial properties are always human-defined.
+            # So always carry over values from the pre-existing document.
+            # TODO: what about the 0.4 CRS migration
+            resource.spatial = existing_resource.spatial
         resource = existing_resource.replace(resource)
 
     except (ValueError, ValidationError) as error:

@@ -165,8 +165,8 @@ class GeometamakerTests(unittest.TestCase):
 
         spatial = geometamaker.models.SpatialSchema(
             bounding_box=geometamaker.models.BoundingBox(0, 0, 2, 2),
-            crs=geometamaker.models.CoordinateReferenceSystem(epsg=4326),
-            crs_units='degree')
+            crs=geometamaker.models.CoordinateReferenceSystem(
+                epsg=4326, units='degree'))
         resource.set_spatial(spatial)
 
         field = [field for field in resource.data_model.fields
@@ -272,7 +272,7 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(
             resource.spatial.crs.epsg, 4326)
         self.assertEqual(
-            resource.spatial.crs_units, 'degree')
+            resource.spatial.crs.units, 'degree')
 
         resource.write()
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
@@ -1013,7 +1013,7 @@ class GeometamakerTests(unittest.TestCase):
 
         resource = geometamaker.describe_collection(collection_path)
         self.assertEqual(resource.spatial.crs.epsg, 3857)
-        self.assertEqual(resource.spatial.crs_units, 'metre')
+        self.assertEqual(resource.spatial.crs.units, 'metre')
         self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 2, 2])
 
     def test_describe_collection_multiple_crs_and_formats(self):
@@ -1039,7 +1039,7 @@ class GeometamakerTests(unittest.TestCase):
 
         resource = geometamaker.describe_collection(collection_path)
         self.assertEqual(resource.spatial.crs.epsg, 4326)
-        self.assertEqual(resource.spatial.crs_units, 'degree')
+        self.assertEqual(resource.spatial.crs.units, 'degree')
         self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 4, 4])
 
     def test_describe_collection_raster_dbf_tables(self):
