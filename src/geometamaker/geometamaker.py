@@ -19,6 +19,7 @@ from pydantic import ValidationError
 import tarfile
 
 from . import models
+from . import utils
 from .config import Config
 
 logging.getLogger('chardet').setLevel(logging.INFO)  # DEBUG is just too noisy
@@ -804,7 +805,7 @@ def validate(filepath):
         ValueError if the YAML document is not a geometamaker metadata doc.
 
     """
-    yaml_dict = models._load(filepath)
+    yaml_dict = utils._load(filepath)
     try:
         RESOURCE_MODELS[yaml_dict['type']](**yaml_dict)
     except ValidationError as error:
@@ -858,7 +859,7 @@ def load(yaml_path):
         ValidationError if the YAML document cannot be loaded.
 
     """
-    yaml_dict = models._load(yaml_path)
+    yaml_dict = utils._load(yaml_path)
     try:
         return RESOURCE_MODELS[yaml_dict['type']](**yaml_dict)
     except ValidationError:

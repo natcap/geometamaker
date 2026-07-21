@@ -20,19 +20,6 @@ from . import utils
 LOGGER = logging.getLogger('geometamaker')
 
 
-def _load(yaml_path):
-    """Open, read, and load a YAML document as a dictionary."""
-    with fsspec.open(yaml_path, 'r') as file:
-        yaml_string = file.read()
-    yaml_dict = yaml.safe_load(yaml_string)
-    if not yaml_dict or ('metadata_version' not in yaml_dict
-                         and 'geometamaker_version' not in yaml_dict):
-        message = (f'{yaml_path} exists but is not compatible with '
-                   f'geometamaker.')
-        raise ValueError(message)
-    return yaml_dict
-
-
 def _deep_update_dict(self_dict, other_dict):
     """Update values in self_dict.
 
@@ -666,7 +653,7 @@ class BaseResource(BaseMetadata):
                 geometamaker.
 
         """
-        yaml_dict = _load(filepath)
+        yaml_dict = utils._load(filepath)
 
         try:
             return cls(**yaml_dict)

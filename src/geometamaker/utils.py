@@ -1,3 +1,4 @@
+import fsspec
 from osgeo import gdal
 import yaml
 
@@ -29,6 +30,19 @@ def yaml_dump(data):
         allow_unicode=True,
         sort_keys=False,
         Dumper=_SafeDumper)
+
+
+def _load(yaml_path):
+    """Open, read, and load a YAML document as a dictionary."""
+    with fsspec.open(yaml_path, 'r') as file:
+        yaml_string = file.read()
+    yaml_dict = yaml.safe_load(yaml_string)
+    if not yaml_dict or ('metadata_version' not in yaml_dict
+                         and 'geometamaker_version' not in yaml_dict):
+        message = (f'{yaml_path} exists but is not compatible with '
+                   f'geometamaker.')
+        raise ValueError(message)
+    return yaml_dict
 
 
 # GDALGetRATFieldUsageName() and GDALGetRATFieldTypeName() were only added to
