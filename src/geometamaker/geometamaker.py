@@ -764,7 +764,6 @@ def describe(source_dataset_path, compute_stats=False):
         if resource_type == 'table':
             # For tables, spatial properties are always human-defined.
             # So always carry over values from the pre-existing document.
-            # TODO: what about the 0.4 CRS migration
             resource.spatial = existing_resource.spatial
         resource = existing_resource.replace(resource)
 

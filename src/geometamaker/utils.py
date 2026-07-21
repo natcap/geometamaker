@@ -34,7 +34,7 @@ def yaml_dump(data):
 
 def _load(yaml_path):
     """Open, read, and load a YAML document as a dictionary."""
-    with fsspec.open(yaml_path, 'r') as file:
+    with fsspec.open(yaml_path, 'r', encoding='utf-8') as file:
         yaml_string = file.read()
     yaml_dict = yaml.safe_load(yaml_string)
     if not yaml_dict or ('metadata_version' not in yaml_dict
