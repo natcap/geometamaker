@@ -863,9 +863,9 @@ def load(yaml_path):
         return RESOURCE_MODELS[yaml_dict['type']](**yaml_dict)
     except ValidationError:
         LOGGER.error(
-            f'Could not create {str(RESOURCE_MODELS[yaml_dict['type']])}'
+            f'Could not create {str(RESOURCE_MODELS[yaml_dict["type"]])}'
             f' from {yaml_path} due to validation errors.'
             f' If {yaml_path} was created by an older version of'
-            f' GeoMetaMaker, try calling geometamaker.describe({yaml_dict['path']})'
+            f' GeoMetaMaker, try calling geometamaker.describe({yaml_dict["path"]})'
             f' to migrate the schema of the metadata document.')
         raise
