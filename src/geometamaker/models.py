@@ -10,6 +10,7 @@ import fsspec
 import yaml
 from osgeo import gdal, osr
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import model_validator
 from pydantic.dataclasses import dataclass
 
 import geometamaker
@@ -93,18 +94,14 @@ def _migrate_schemas(yaml_dict, validation_error):
                 "CoordinateReferenceSystem. "
                 "In the future, this will raise a ValidationError",
                 category=FutureWarning)
-            if yaml_dict['type'] == 'table':
-                try:
-                    crs = CoordinateReferenceSystem(
-                        epsg=yaml_dict['spatial']['crs'].split(':')[-1],
-                        units=yaml_dict['spatial']['crs_units'])
-                except IndexError:
-                    crs = CoordinateReferenceSystem()
-                yaml_dict['spatial']['crs'] = crs
-            else:
-                # This will be overwritten during describe, but needs
-                # to be initialized to construct the instance.
-                yaml_dict['spatial']['crs'] = CoordinateReferenceSystem()
+            try:
+                crs = CoordinateReferenceSystem(
+                    epsg=yaml_dict['spatial']['crs'].split(':')[-1],
+                    units=yaml_dict['spatial']['crs_units'])
+            except (IndexError, KeyError):
+                LOGGER.warning('Could not migrate the CRS schema', exc_info=True)
+                crs = CoordinateReferenceSystem()
+            yaml_dict['spatial']['crs'] = crs
             del yaml_dict['spatial']['crs_units']
 
     return yaml_dict
@@ -152,6 +149,12 @@ class CoordinateReferenceSystem(Parent):
     units: str = ''
     """Units of measure for coordinates in the CRS."""
 
+    @model_validator(mode='after')
+    def check_passwords_match(self):
+        if not (self.epsg or self.wkt):
+            raise ValueError('One of epsg or wkt must have a valid value')
+        return self
+
     def export_wkt(self):
         if self.wkt:
             return self.wkt
@@ -168,7 +171,7 @@ class SpatialSchema(Parent):
 
     bounding_box: BoundingBox
     """Spatial extent [xmin, ymin, xmax, ymax]."""
-    crs: CoordinateReferenceSystem
+    crs: CoordinateReferenceSystem | None
     """Coordinate Reference System."""
 
 

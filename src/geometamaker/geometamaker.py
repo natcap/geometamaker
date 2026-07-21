@@ -111,11 +111,18 @@ def _vsi_path(filepath, scheme):
 
 
 def _srs_to_crs(srs):
-    # crs_string = 'unknown'
-    # units_string = 'unknown'
-    # srs = osr.SpatialReference(wkt_string)
+    """Construct a CoordinateReferenceSystem from an osr.SpatialReference object.
+
+    Args:
+        srs (osgeo.osr.SpatialReference)
+
+    Returns:
+        ``geometamaker.models.CoordinateReferenceSystem`` or None if srs is None
+
+    """
     if srs is None:
-        return models.CoordinateReferenceSystem()
+        return None
+
     auth = srs.GetAuthorityName(None)
     if auth == 'EPSG':
         crs = models.CoordinateReferenceSystem(
@@ -124,26 +131,8 @@ def _srs_to_crs(srs):
         crs = models.CoordinateReferenceSystem(
             wkt=srs.ExportToWkt())
 
-    # crs_string = (
-    #     f"{srs.GetAttrValue('AUTHORITY', 0)}:"
-    #     f"{srs.GetAttrValue('AUTHORITY', 1)}")
-    units_string = srs.GetAttrValue('UNIT', 0)
-    crs.units = units_string
+    crs.units = srs.GetAttrValue('UNIT', 0)
     return crs
-
-
-# def _epsg_to_wkt_units_string(epsg_code):
-#     wkt_string = 'unknown'
-#     units_string = 'unknown'
-#     try:
-#         srs = osr.SpatialReference()
-#         srs.ImportFromEPSG(epsg_code)
-#         wkt_string = srs.ExportToWkt()
-#         units_string = srs.GetAttrValue('UNIT', 0)
-#     except RuntimeError:
-#         LOGGER.warning(
-#             f'EPSG: {epsg_code} cannot be interpreted as a coordinate reference system')
-#     return wkt_string, units_string
 
 
 def _list_files_with_depth(directory, depth, exclude_regex=None,
@@ -534,7 +523,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                                        exclude_hidden)
 
     items = []
-    collection_crs_set = set()
+    collection_crs_set = set()  # track if the CRS of all items are identical
     item_spatial_list = []
 
     # These extensions almost always represent sidecar files that should
@@ -552,7 +541,9 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
             continue
         try:
             item_resource = describe(abs_filepath, **kwargs)
-            if item_resource.spatial is not None:
+            # Technically possible to have spatial.bounding_box
+            # but spatial.crs is None.
+            if item_resource.spatial and item_resource.spatial.crs:
                 collection_crs_set.add(
                     item_resource.spatial.crs.epsg or item_resource.spatial.crs.wkt)
                 item_spatial_list.append(item_resource.spatial)
@@ -586,7 +577,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
             'union')
         spatial = models.SpatialSchema(
             bounding_box=models.BoundingBox(*collection_bbox),
-            crs=item_spatial_list[0].crs)
+            crs=item_spatial_list[0].crs)  # all items have the same crs
 
     if len(collection_crs_set) > 1:
         wgs84_bbox_list = []
@@ -595,12 +586,9 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         target_srs = osr.SpatialReference()
         target_srs.ImportFromEPSG(target_epsg)
         target_projection_wkt = target_srs.ExportToWkt()
-        # target_projection_wkt, crs_units = _epsg_to_wkt_units_string(4326)
         try:
             for spatial in item_spatial_list:
                 base_projection_wkt = spatial.crs.export_wkt()
-                # base_projection_wkt, crs_units = _epsg_to_wkt_units_string(
-                #     int(spatial.crs.split(':')[1]))
                 bbox = pygeoprocessing.transform_bounding_box(
                     bounding_box=list(spatial.bounding_box),
                     base_projection_wkt=base_projection_wkt,
