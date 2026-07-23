@@ -143,7 +143,7 @@ class CoordinateReferenceSystem(Parent):
     """Units of measure for coordinates in the CRS."""
 
     @model_validator(mode='after')
-    def check_passwords_match(self):
+    def check_epsg_or_wkt(self):
         if not (self.epsg or self.wkt):
             raise ValueError('One of epsg or wkt must have a valid value')
         return self

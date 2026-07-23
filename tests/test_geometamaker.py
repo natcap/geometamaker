@@ -1268,6 +1268,15 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             _ = geometamaker.models.Resource(foo=0)
 
+    def test_CRS_raises_ValidationError(self):
+        """Test the custom model validator."""
+        import geometamaker
+
+        # Even though all attributes have default values,
+        # we validate that either epsg or wkt has a value.
+        with self.assertRaises(ValidationError):
+            geometamaker.models.CoordinateReferenceSystem()
+
 
 class ConfigurationTests(unittest.TestCase):
     """Tests for geometamaker configuration."""
