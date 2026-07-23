@@ -633,39 +633,6 @@ class BaseResource(BaseMetadata):
     spatial: SpatialSchema | None = None
     """An object for describing spatial properties of the resource."""
 
-    # @classmethod
-    # def load(cls, filepath, migrate_schema=False):
-    #     """Load metadata document from a yaml file.
-
-    #     Args:
-    #         filepath (str): path to yaml file
-    #         migrate_schema (bool): if loading the metadata document
-    #             raises a Pydantic ValidationError, it could be because
-    #             it was created with older versions of data models. Use
-    #             `True` to attempt to update the metadata to the current
-    #             data models. Only use `True` if calling this method from
-    #             the context of ``geometamaker.describe`` because the schema
-    #             migration may leave 
-
-    #     Returns:
-    #         instance of the class
-
-    #     Raises:
-    #         FileNotFoundError if filepath does not exist
-    #         ValueError if the metadata is found to be incompatible with
-    #             geometamaker.
-
-    #     """
-    #     yaml_dict = utils.yaml_load(filepath)
-
-    #     try:
-    #         return cls(**yaml_dict)
-    #     except ValidationError as validation_error:
-    #         if migrate_schema:
-    #             updated_dict = _migrate_schema(yaml_dict, validation_error)
-    #             return cls(**updated_dict)
-    #         raise
-
     def set_title(self, title):
         """Add a title for the dataset.
 
