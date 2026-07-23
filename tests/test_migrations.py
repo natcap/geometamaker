@@ -37,18 +37,24 @@ class MigrationTests(unittest.TestCase):
         """This document pre-dates the use of layers."""
         import geometamaker
 
-        yml_path = os.path.join(
-            os.path.dirname(__file__), 'data/0.1.2/vector.geojson.yml')
+        vector_path = os.path.join(
+            os.path.dirname(__file__), 'data/0.1.2/vector.geojson')
+        yml_path = f'{vector_path}.yml'
+        with self.assertRaises(ValueError):
+            geometamaker.load(yml_path)
         with self.assertWarns(FutureWarning):
-            _ = geometamaker.models.VectorResource.load(
-                yml_path, migrate_schema=True)
+            resource = geometamaker.describe(vector_path)
+            self.assertEqual(len(resource.data_model.layers), 1)
 
     def test_spatial_model_with_crs_string(self):
         """This document pre-dates the use of models.CoordinateReferenceSystem."""
         import geometamaker
 
-        yml_path = os.path.join(
-            os.path.dirname(__file__), 'data/0.3.3/vector.geojson.yml')
+        vector_path = os.path.join(
+            os.path.dirname(__file__), 'data/0.3.3/vector.geojson')
+        yml_path = f'{vector_path}.yml'
+        with self.assertRaises(ValueError):
+            geometamaker.load(yml_path)
         with self.assertWarns(FutureWarning):
-            _ = geometamaker.models.VectorResource.load(
-                yml_path, migrate_schema=True)
+            resource = geometamaker.describe(vector_path)
+            self.assertTrue(resource.spatial.crs)

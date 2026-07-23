@@ -624,8 +624,15 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         target_filename = f'{os.path.basename(directory)}-metadata.yml'
     metadata_path = os.path.join(directory, target_filename)
     try:
-        existing_metadata = models.CollectionResource.load(
-            metadata_path, migrate_schema=True)
+        # existing_metadata = models.CollectionResource.load(
+        #     metadata_path, migrate_schema=True)
+
+        yaml_dict = utils.yaml_load(metadata_path)
+        try:
+            existing_metadata = models.CollectionResource(**yaml_dict)
+        except ValidationError as validation_error:
+            updated_dict = models._migrate_schema(yaml_dict, validation_error)
+            existing_metadata = models.CollectionResource(**updated_dict)
 
         # Copy any existing item descriptions from existing yml to new metadata
         # Note that descriptions in individual resources' ymls will take
@@ -726,7 +733,8 @@ def describe(source_dataset_path, compute_stats=False):
     description = DESCRIBE_FUNCS[resource_type](
         source_dataset_path, protocol, compute_stats=compute_stats)
     description['type'] = resource_type
-    resource = RESOURCE_MODELS[resource_type](**description)
+    resource_cls = RESOURCE_MODELS[resource_type]
+    resource = resource_cls(**description)
 
     # Load existing metadata file
     try:
@@ -734,8 +742,12 @@ def describe(source_dataset_path, compute_stats=False):
         # should inherit values from the existing resource.
         # After that, take all non-empty values from the new resource
         # and update the existing resource.
-        existing_resource = RESOURCE_MODELS[resource_type].load(
-            metadata_path, migrate_schema=True)
+        yaml_dict = utils.yaml_load(metadata_path)
+        try:
+            existing_resource = resource_cls(**yaml_dict)
+        except ValidationError as validation_error:
+            updated_dict = models._migrate_schema(yaml_dict, validation_error)
+            existing_resource = resource_cls(**updated_dict)
         if resource_type == 'raster':
             for band in resource.data_model.bands:
                 try:
@@ -773,8 +785,8 @@ def describe(source_dataset_path, compute_stats=False):
             f'Ignoring an existing YAML document: {metadata_path} because it'
             f' is invalid or incompatible.')
         LOGGER.warning(
-            'A subsequent call to `.write()` will replace this file, but it'
-            ' will be backed up to {metadata_path}.bak.\n'
+            f'A subsequent call to `.write()` will replace this file, but it'
+            f' will be backed up to {metadata_path}.bak.\n'
             f'Use `.write(backup=False)` to skip the backup.\n',
             extra=_LOG_EXTRA_NOT_FOR_CLI)
         resource._would_overwrite = True
@@ -804,7 +816,7 @@ def validate(filepath):
         ValueError if the YAML document is not a geometamaker metadata doc.
 
     """
-    yaml_dict = utils._load(filepath)
+    yaml_dict = utils.yaml_load(filepath)
     try:
         RESOURCE_MODELS[yaml_dict['type']](**yaml_dict)
     except ValidationError as error:
@@ -858,14 +870,15 @@ def load(yaml_path):
         ValidationError if the YAML document cannot be loaded.
 
     """
-    yaml_dict = utils._load(yaml_path)
+    yaml_dict = utils.yaml_load(yaml_path)
+    resource_cls = RESOURCE_MODELS[yaml_dict['type']]
     try:
-        return RESOURCE_MODELS[yaml_dict['type']](**yaml_dict)
+        return resource_cls(**yaml_dict)
     except ValidationError:
         LOGGER.error(
             f'Could not create {str(RESOURCE_MODELS[yaml_dict["type"]])}'
             f' from {yaml_path} due to validation errors.'
             f' If {yaml_path} was created by an older version of'
-            f' GeoMetaMaker, try calling geometamaker.describe({yaml_dict["path"]})'
+            f' GeoMetaMaker, try calling geometamaker.describe({yaml_dict['path']})'
             f' to migrate the schema of the metadata document.')
         raise

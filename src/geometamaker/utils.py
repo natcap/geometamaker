@@ -32,7 +32,7 @@ def yaml_dump(data):
         Dumper=_SafeDumper)
 
 
-def _load(yaml_path):
+def yaml_load(yaml_path):
     """Open, read, and load a YAML document as a dictionary."""
     with fsspec.open(yaml_path, 'r', encoding='utf-8') as file:
         yaml_string = file.read()
