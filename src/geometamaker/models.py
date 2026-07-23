@@ -133,7 +133,12 @@ class CoordinateReferenceSystem(Parent):
     """Class for storing a coordinate reference system."""
 
     epsg: int | None = None
+    """The unique EPSG identifier for a coordinate reference system."""
     wkt: str = ''
+    """The Well-Known-Text representation of a coordinate reference system.
+
+    This attribute is only used when the CRS represented by an EPSG code.
+    """
     units: str = ''
     """Units of measure for coordinates in the CRS."""
 
@@ -144,6 +149,7 @@ class CoordinateReferenceSystem(Parent):
         return self
 
     def export_wkt(self):
+        """Export the Well-Known-Text string representation of the CRS."""
         if self.wkt:
             return self.wkt
         elif self.epsg:

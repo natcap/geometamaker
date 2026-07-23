@@ -624,9 +624,6 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         target_filename = f'{os.path.basename(directory)}-metadata.yml'
     metadata_path = os.path.join(directory, target_filename)
     try:
-        # existing_metadata = models.CollectionResource.load(
-        #     metadata_path, migrate_schema=True)
-
         yaml_dict = utils.yaml_load(metadata_path)
         try:
             existing_metadata = models.CollectionResource(**yaml_dict)
