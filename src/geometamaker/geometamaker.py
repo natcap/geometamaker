@@ -19,6 +19,7 @@ from pydantic import ValidationError
 import tarfile
 
 from . import models
+from . import utils
 from .config import Config
 
 logging.getLogger('chardet').setLevel(logging.INFO)  # DEBUG is just too noisy
@@ -110,34 +111,29 @@ def _vsi_path(filepath, scheme):
     return filepath
 
 
-def _wkt_to_epsg_units_string(wkt_string):
-    crs_string = 'unknown'
-    units_string = 'unknown'
-    try:
-        srs = osr.SpatialReference(wkt_string)
-        srs.AutoIdentifyEPSG()
-        crs_string = (
-            f"{srs.GetAttrValue('AUTHORITY', 0)}:"
-            f"{srs.GetAttrValue('AUTHORITY', 1)}")
-        units_string = srs.GetAttrValue('UNIT', 0)
-    except RuntimeError:
-        LOGGER.warning(
-            f'{wkt_string} cannot be interpreted as a coordinate reference system')
-    return crs_string, units_string
+def _srs_to_crs(srs):
+    """Construct a CoordinateReferenceSystem from an osr.SpatialReference object.
 
+    Args:
+        srs (osgeo.osr.SpatialReference)
 
-def _epsg_to_wkt_units_string(epsg_code):
-    wkt_string = 'unknown'
-    units_string = 'unknown'
-    try:
-        srs = osr.SpatialReference()
-        srs.ImportFromEPSG(epsg_code)
-        wkt_string = srs.ExportToWkt()
-        units_string = srs.GetAttrValue('UNIT', 0)
-    except RuntimeError:
-        LOGGER.warning(
-            f'EPSG: {epsg_code} cannot be interpreted as a coordinate reference system')
-    return wkt_string, units_string
+    Returns:
+        ``geometamaker.models.CoordinateReferenceSystem`` or None if srs is None
+
+    """
+    if srs is None:
+        return None
+
+    auth = srs.GetAuthorityName(None)
+    if auth == 'EPSG':
+        crs = models.CoordinateReferenceSystem(
+            epsg=srs.GetAuthorityCode(None))
+    else:
+        crs = models.CoordinateReferenceSystem(
+            wkt=srs.ExportToWkt())
+
+    crs.units = srs.GetAttrValue('UNIT', 0)
+    return crs
 
 
 def _list_files_with_depth(directory, depth, exclude_regex=None,
@@ -359,16 +355,15 @@ def describe_vector(source_dataset_path, scheme, **kwargs):
     description['data_model'] = models.VectorSchema(
         layers=[layer_schema],
         gdal_metadata=vector.GetMetadata())
+    srs = layer.GetSpatialRef()
     vector = layer = None
 
     info = pygeoprocessing.get_vector_info(source_dataset_path)
     bbox = models.BoundingBox(*info['bounding_box'])
-    epsg_string, units_string = _wkt_to_epsg_units_string(
-        info['projection_wkt'])
+    crs = _srs_to_crs(srs)
     description['spatial'] = models.SpatialSchema(
         bounding_box=bbox,
-        crs=epsg_string,
-        crs_units=units_string)
+        crs=crs)
     description['sources'] = info['file_list']
     return description
 
@@ -435,7 +430,6 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
             gdal_metadata=band_gdal_metadata,
             raster_attribute_table=rat))
         band = None
-    raster = None
 
     description['data_model'] = models.RasterSchema(
         bands=bands,
@@ -446,13 +440,13 @@ def describe_raster(source_dataset_path, scheme, **kwargs):
     # Some values of raster info are numpy types, which the
     # yaml dumper doesn't know how to represent.
     bbox = models.BoundingBox(*[float(x) for x in info['bounding_box']])
-    epsg_string, units_string = _wkt_to_epsg_units_string(
-        info['projection_wkt'])
+    srs = raster.GetSpatialRef()
+    crs = _srs_to_crs(srs)
     description['spatial'] = models.SpatialSchema(
         bounding_box=bbox,
-        crs=epsg_string,
-        crs_units=units_string)
+        crs=crs)
     description['sources'] = info['file_list']
+    raster = None
     return description
 
 
@@ -530,7 +524,7 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                                        exclude_hidden)
 
     items = []
-    collection_crs_set = set()
+    collection_crs_set = set()  # track if the CRS of all items are identical
     item_spatial_list = []
 
     # These extensions almost always represent sidecar files that should
@@ -548,8 +542,11 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
             continue
         try:
             item_resource = describe(abs_filepath, **kwargs)
-            if item_resource.spatial is not None:
-                collection_crs_set.add(item_resource.spatial.crs)
+            # Technically possible to have spatial.bounding_box
+            # but spatial.crs is None.
+            if item_resource.spatial and item_resource.spatial.crs:
+                collection_crs_set.add(
+                    item_resource.spatial.crs.epsg or item_resource.spatial.crs.wkt)
                 item_spatial_list.append(item_resource.spatial)
 
         except ValueError:
@@ -581,16 +578,18 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
             'union')
         spatial = models.SpatialSchema(
             bounding_box=models.BoundingBox(*collection_bbox),
-            crs=item_spatial_list[0].crs,
-            crs_units=item_spatial_list[0].crs_units)
+            crs=item_spatial_list[0].crs)  # all items have the same crs
 
     if len(collection_crs_set) > 1:
         wgs84_bbox_list = []
-        target_projection_wkt, crs_units = _epsg_to_wkt_units_string(4326)
+        target_epsg = 4326
+        target_crs_units = 'degree'
+        target_srs = osr.SpatialReference()
+        target_srs.ImportFromEPSG(target_epsg)
+        target_projection_wkt = target_srs.ExportToWkt()
         try:
             for spatial in item_spatial_list:
-                base_projection_wkt, crs_units = _epsg_to_wkt_units_string(
-                    int(spatial.crs.split(':')[1]))
+                base_projection_wkt = spatial.crs.export_wkt()
                 bbox = pygeoprocessing.transform_bounding_box(
                     bounding_box=list(spatial.bounding_box),
                     base_projection_wkt=base_projection_wkt,
@@ -600,8 +599,8 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
                 wgs84_bbox_list, 'union')
             spatial = models.SpatialSchema(
                 bounding_box=models.BoundingBox(*collection_bbox),
-                crs='EPSG:4326',
-                crs_units=crs_units)
+                crs=models.CoordinateReferenceSystem(
+                    epsg=target_epsg, units=target_crs_units))
         except (ValueError, RuntimeError) as error:
             # transform_bounding_box can raise a ValueError
             LOGGER.error(error)
@@ -625,7 +624,12 @@ def describe_collection(directory, depth=numpy.iinfo(numpy.int16).max,
         target_filename = f'{os.path.basename(directory)}-metadata.yml'
     metadata_path = os.path.join(directory, target_filename)
     try:
-        existing_metadata = models.CollectionResource.load(metadata_path)
+        yaml_dict = utils.yaml_load(metadata_path)
+        try:
+            existing_metadata = models.CollectionResource(**yaml_dict)
+        except ValidationError as validation_error:
+            updated_dict = models._migrate_schema(yaml_dict, validation_error)
+            existing_metadata = models.CollectionResource(**updated_dict)
 
         # Copy any existing item descriptions from existing yml to new metadata
         # Note that descriptions in individual resources' ymls will take
@@ -726,7 +730,8 @@ def describe(source_dataset_path, compute_stats=False):
     description = DESCRIBE_FUNCS[resource_type](
         source_dataset_path, protocol, compute_stats=compute_stats)
     description['type'] = resource_type
-    resource = RESOURCE_MODELS[resource_type](**description)
+    resource_cls = RESOURCE_MODELS[resource_type]
+    resource = resource_cls(**description)
 
     # Load existing metadata file
     try:
@@ -734,7 +739,12 @@ def describe(source_dataset_path, compute_stats=False):
         # should inherit values from the existing resource.
         # After that, take all non-empty values from the new resource
         # and update the existing resource.
-        existing_resource = RESOURCE_MODELS[resource_type].load(metadata_path)
+        yaml_dict = utils.yaml_load(metadata_path)
+        try:
+            existing_resource = resource_cls(**yaml_dict)
+        except ValidationError as validation_error:
+            updated_dict = models._migrate_schema(yaml_dict, validation_error)
+            existing_resource = resource_cls(**updated_dict)
         if resource_type == 'raster':
             for band in resource.data_model.bands:
                 try:
@@ -760,6 +770,10 @@ def describe(source_dataset_path, compute_stats=False):
                         title=efield.title,
                         description=efield.description,
                         units=efield.units)
+        if resource_type == 'table':
+            # For tables, spatial properties are always human-defined.
+            # So always carry over values from the pre-existing document.
+            resource.spatial = existing_resource.spatial
         resource = existing_resource.replace(resource)
 
     except (ValueError, ValidationError) as error:
@@ -768,8 +782,8 @@ def describe(source_dataset_path, compute_stats=False):
             f'Ignoring an existing YAML document: {metadata_path} because it'
             f' is invalid or incompatible.')
         LOGGER.warning(
-            'A subsequent call to `.write()` will replace this file, but it'
-            ' will be backed up to {metadata_path}.bak.\n'
+            f'A subsequent call to `.write()` will replace this file, but it'
+            f' will be backed up to {metadata_path}.bak.\n'
             f'Use `.write(backup=False)` to skip the backup.\n',
             extra=_LOG_EXTRA_NOT_FOR_CLI)
         resource._would_overwrite = True
@@ -799,15 +813,7 @@ def validate(filepath):
         ValueError if the YAML document is not a geometamaker metadata doc.
 
     """
-    with fsspec.open(filepath, 'r') as file:
-        yaml_string = file.read()
-        yaml_dict = yaml.safe_load(yaml_string)
-        if not yaml_dict or ('metadata_version' not in yaml_dict
-                             and 'geometamaker_version' not in yaml_dict):
-            message = (f'{filepath} exists but is not compatible with '
-                       f'geometamaker.')
-            raise ValueError(message)
-
+    yaml_dict = utils.yaml_load(filepath)
     try:
         RESOURCE_MODELS[yaml_dict['type']](**yaml_dict)
     except ValidationError as error:
@@ -846,3 +852,30 @@ def validate_dir(directory, depth=numpy.iinfo(numpy.int16).max):
             messages.append(msg)
 
     return (yaml_files, messages)
+
+
+def load(yaml_path):
+    """Load a metadata resource from a YAML document.
+
+    Args:
+        yaml_path (string): path to a YAML file generated by geometamaker
+
+    Returns:
+        instance of BaseResource
+
+    Raises:
+        ValidationError if the YAML document cannot be loaded.
+
+    """
+    yaml_dict = utils.yaml_load(yaml_path)
+    resource_cls = RESOURCE_MODELS[yaml_dict['type']]
+    try:
+        return resource_cls(**yaml_dict)
+    except ValidationError:
+        LOGGER.error(
+            f'Could not create {str(RESOURCE_MODELS[yaml_dict["type"]])}'
+            f' from {yaml_path} due to validation errors.'
+            f' If {yaml_path} was created by an older version of'
+            f' GeoMetaMaker, try calling geometamaker.describe({yaml_dict["path"]})'
+            f' to migrate the schema of the metadata document.')
+        raise

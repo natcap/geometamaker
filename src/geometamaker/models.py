@@ -8,8 +8,9 @@ from typing import Literal, Union
 
 import fsspec
 import yaml
-from osgeo import gdal
+from osgeo import gdal, osr
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import model_validator
 from pydantic.dataclasses import dataclass
 
 import geometamaker
@@ -35,6 +36,63 @@ def _deep_update_dict(self_dict, other_dict):
                 if v is not None and (v or isinstance(v, numbers.Number)):
                     self_dict[k] = v
     return self_dict
+
+
+def _migrate_schema(yaml_dict, validation_error):
+    """Update an invalid metadata resource to the latest data models.
+
+    If constructing a resource from an existing metadata document
+    raises validation errors, it is possible the document was created
+    by an older version of geometamaker. This function looks for
+    specific validation errors indicative of this and migrates
+    data from the old models to the current ones.
+
+    Args:
+        yaml_dict (dict): dictionary loaded from a YAML document
+        validation_error (ValidationError): Pydantic validation errors
+            from trying to instantiate a resource from the ``yaml_dict``.
+
+    """
+    if yaml_dict['geometamaker_version'] == geometamaker.__version__:
+        # Migration does not make sense if the version of the doc is current.
+        raise validation_error
+    for e in validation_error.errors():
+        # Migrate vector metadata that pre-dates 'layers'
+        if e['type'] == 'missing' and e['loc'] == ('data_model', 'layers'):
+            warnings.warn(
+                "A vector 'data_model' must include 'layers'. "
+                "In the future, the absence of a 'layers' attribute "
+                "will raise a ValidationError",
+                category=FutureWarning)
+            # In the context of `describe`, these layer attributes will
+            # be updated on the resource after this document is loaded.
+            layer = {
+                'name': '',
+                'table': yaml_dict['data_model'],
+                'n_features': yaml_dict['n_features']
+            }
+            del yaml_dict['data_model']
+            del yaml_dict['n_features']
+            yaml_dict['data_model'] = {'layers': [layer]}
+
+        # Migrate metadata that pre-dates CoordinateReferenceSystem
+        if e['type'] == 'model_type' and e['loc'] == ('spatial', 'crs'):
+            warnings.warn(
+                "'spatial.crs' must be a valid dictionary or instance of "
+                "CoordinateReferenceSystem. "
+                "In the future, this will raise a ValidationError",
+                category=FutureWarning)
+            try:
+                crs = CoordinateReferenceSystem(
+                    epsg=yaml_dict['spatial']['crs'].split(':')[-1],
+                    units=yaml_dict['spatial']['crs_units'])
+            except (IndexError, KeyError):
+                LOGGER.warning('Could not migrate the CRS schema', exc_info=True)
+                crs = CoordinateReferenceSystem()
+            yaml_dict['spatial']['crs'] = crs
+            del yaml_dict['spatial']['crs_units']
+
+    return yaml_dict
 
 
 class Parent(BaseModel):
@@ -71,6 +129,35 @@ class BoundingBox:
         return list(self)
 
 
+class CoordinateReferenceSystem(Parent):
+    """Class for storing a coordinate reference system."""
+
+    epsg: int | None = None
+    """The unique EPSG identifier for a coordinate reference system."""
+    wkt: str = ''
+    """The Well-Known-Text representation of a coordinate reference system.
+
+    This attribute is only used when the CRS represented by an EPSG code.
+    """
+    units: str = ''
+    """Units of measure for coordinates in the CRS."""
+
+    @model_validator(mode='after')
+    def check_epsg_or_wkt(self):
+        if not (self.epsg or self.wkt):
+            raise ValueError('One of epsg or wkt must have a valid value')
+        return self
+
+    def export_wkt(self):
+        """Export the Well-Known-Text string representation of the CRS."""
+        if self.wkt:
+            return self.wkt
+        elif self.epsg:
+            srs = osr.SpatialReference()
+            srs.ImportFromEPSG(self.epsg)
+            return srs.ExportToWkt()
+
+
 class SpatialSchema(Parent):
     """Class for keeping track of spatial info."""
 
@@ -78,10 +165,8 @@ class SpatialSchema(Parent):
 
     bounding_box: BoundingBox
     """Spatial extent [xmin, ymin, xmax, ymax]."""
-    crs: str
+    crs: CoordinateReferenceSystem | None
     """Coordinate Reference System."""
-    crs_units: str
-    """Units of measure for coordinates in the CRS."""
 
 
 class ContactSchema(Parent):
@@ -553,55 +638,6 @@ class BaseResource(BaseMetadata):
     """A URL where the resource is available."""
     spatial: SpatialSchema | None = None
     """An object for describing spatial properties of the resource."""
-
-    @classmethod
-    def load(cls, filepath):
-        """Load metadata document from a yaml file.
-
-        Args:
-            filepath (str): path to yaml file
-
-        Returns:
-            instance of the class
-
-        Raises:
-            FileNotFoundError if filepath does not exist
-            ValueError if the metadata is found to be incompatible with
-                geometamaker.
-
-        """
-        with fsspec.open(filepath, 'r') as file:
-            yaml_string = file.read()
-        yaml_dict = yaml.safe_load(yaml_string)
-        if not yaml_dict or ('metadata_version' not in yaml_dict
-                             and 'geometamaker_version' not in yaml_dict):
-            message = (f'{filepath} exists but is not compatible with '
-                       f'geometamaker.')
-            raise ValueError(message)
-
-        try:
-            return cls(**yaml_dict)
-        except ValidationError as validation_error:
-            for e in validation_error.errors():
-                # Migrate vector metadata that pre-dates 'layers'
-                if e['type'] == 'missing' and e['loc'] == ('data_model', 'layers'):
-                    warnings.warn(
-                        "A vector 'data_model' must include 'layers'. "
-                        "In the future, the absence of a 'layers' attribute "
-                        "will raise a ValidationError",
-                        category=FutureWarning)
-                    # In the context of `describe`, these layer attributes will
-                    # be updated on the resource after this document is loaded.
-                    layer = {
-                        'name': '',
-                        'table': yaml_dict['data_model'],
-                        'n_features': yaml_dict['n_features']
-                    }
-                    del yaml_dict['data_model']
-                    del yaml_dict['n_features']
-                    yaml_dict['data_model'] = {'layers': [layer]}
-                    return cls(**yaml_dict)
-            raise validation_error
 
     def set_title(self, title):
         """Add a title for the dataset.

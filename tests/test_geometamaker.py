@@ -165,8 +165,8 @@ class GeometamakerTests(unittest.TestCase):
 
         spatial = geometamaker.models.SpatialSchema(
             bounding_box=geometamaker.models.BoundingBox(0, 0, 2, 2),
-            crs='EPSG:4326',
-            crs_units='degree')
+            crs=geometamaker.models.CoordinateReferenceSystem(
+                epsg=4326, units='degree'))
         resource.set_spatial(spatial)
 
         field = [field for field in resource.data_model.fields
@@ -269,10 +269,10 @@ class GeometamakerTests(unittest.TestCase):
         resource = geometamaker.describe(datasource_path)
         self.assertTrue(isinstance(
             resource.spatial, geometamaker.models.SpatialSchema))
-        self.assertRegex(
-            resource.spatial.crs, r'EPSG:[0-9]*')
         self.assertEqual(
-            resource.spatial.crs_units, 'degree')
+            resource.spatial.crs.epsg, 4326)
+        self.assertEqual(
+            resource.spatial.crs.units, 'degree')
 
         resource.write()
         self.assertTrue(os.path.exists(f'{datasource_path}.yml'))
@@ -320,7 +320,8 @@ class GeometamakerTests(unittest.TestCase):
         create_raster(numpy.int16, datasource_path, projection_epsg=None)
 
         resource = geometamaker.describe(datasource_path)
-        self.assertEqual(resource.spatial.crs, 'unknown')
+        self.assertEqual(resource.spatial.crs, None)
+        self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 2, 2])
 
     def test_describe_raster_no_nodata(self):
         """Test for a raster that has no nodata value."""
@@ -1011,15 +1012,15 @@ class GeometamakerTests(unittest.TestCase):
         create_raster(numpy.int16, raster_path, projection_epsg=3857)
 
         resource = geometamaker.describe_collection(collection_path)
-        self.assertEqual(resource.spatial.crs, 'EPSG:3857')
-        self.assertEqual(resource.spatial.crs_units, 'metre')
+        self.assertEqual(resource.spatial.crs.epsg, 3857)
+        self.assertEqual(resource.spatial.crs.units, 'metre')
         self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 2, 2])
 
     def test_describe_collection_multiple_crs_and_formats(self):
         """Test describe_collection: multiple file formats and spatial extents.
 
         Spatial section of the collection should represent the union
-        of the extents of the items.
+        of the extents of the items with a well-defined CRS and bounding box.
         """
         import geometamaker
 
@@ -1032,14 +1033,35 @@ class GeometamakerTests(unittest.TestCase):
         raster2_path = os.path.join(collection_path, 'raster2.tif')
         create_raster(numpy.int16, raster2_path, projection_epsg=4326,
                       origin=(2, 2))
+
+        # This one will have a bounding_box but no CRS info.
+        raster3_path = os.path.join(collection_path, 'raster3.tif')
+        create_raster(numpy.int16, raster3_path, projection_epsg=None,
+                      origin=(2, 2))
+
+        # This one has no bounding box or CRS
         csv_path = os.path.join(collection_path, 'table.csv')
         with open(csv_path, 'w') as file:
             file.write('a,b,c')
 
         resource = geometamaker.describe_collection(collection_path)
-        self.assertEqual(resource.spatial.crs, 'EPSG:4326')
-        self.assertEqual(resource.spatial.crs_units, 'degree')
+        self.assertEqual(resource.spatial.crs.epsg, 4326)
+        self.assertEqual(resource.spatial.crs.units, 'degree')
         self.assertEqual(resource.spatial.bounding_box.to_list(), [0, 0, 4, 4])
+
+    def test_describe_collection_spatial_no_crs(self):
+        """Test describe_collection spatial section is None."""
+        import geometamaker
+
+        collection_path = os.path.join(self.workspace_dir, "collection")
+        os.mkdir(collection_path)
+
+        csv_path = os.path.join(collection_path, 'table.csv')
+        with open(csv_path, 'w') as file:
+            file.write('a,b,c')
+
+        resource = geometamaker.describe_collection(collection_path)
+        self.assertIsNone(resource.spatial)
 
     def test_describe_collection_raster_dbf_tables(self):
         """Test describe_collection: when raster has a DBF table."""
@@ -1055,20 +1077,6 @@ class GeometamakerTests(unittest.TestCase):
                     os.path.join(collection_path, 'testrat.tif.vat.dbf'))
         resource = geometamaker.describe_collection(collection_path)
         self.assertEqual(len(resource.items), 1)
-
-    def test_describe_collection_spatial_no_crs(self):
-        """Test describe_collection spatial section is None."""
-        import geometamaker
-
-        collection_path = os.path.join(self.workspace_dir, "collection")
-        os.mkdir(collection_path)
-
-        csv_path = os.path.join(collection_path, 'table.csv')
-        with open(csv_path, 'w') as file:
-            file.write('a,b,c')
-
-        resource = geometamaker.describe_collection(collection_path)
-        self.assertIsNone(resource.spatial)
 
     def test_describe_collection_with_depth(self):
         """Test describe_collection with depth and exclude_regex parameters"""
@@ -1208,6 +1216,20 @@ class GeometamakerTests(unittest.TestCase):
                "`geometamaker.describe_collection` instead.")
         self.assertIn(msg, str(cm.exception))
 
+    def test_load_yml_document(self):
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'data.csv')
+        with open(datasource_path, 'w') as file:
+            file.write('a,b,c\n')
+            file.write('1,2,3\n')
+
+        resource = geometamaker.describe(datasource_path)
+        resource.write()
+
+        loaded_resource = geometamaker.load(f'{datasource_path}.yml')
+        self.assertEqual(resource.type, loaded_resource.type)
+
 
 class ValidationTests(unittest.TestCase):
     """Tests for geometamaker type validation."""
@@ -1245,6 +1267,15 @@ class ValidationTests(unittest.TestCase):
 
         with self.assertRaises(ValidationError):
             _ = geometamaker.models.Resource(foo=0)
+
+    def test_CRS_raises_ValidationError(self):
+        """Test the custom model validator."""
+        import geometamaker
+
+        # Even though all attributes have default values,
+        # we validate that either epsg or wkt has a value.
+        with self.assertRaises(ValidationError):
+            geometamaker.models.CoordinateReferenceSystem()
 
 
 class ConfigurationTests(unittest.TestCase):
