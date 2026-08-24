@@ -4,7 +4,7 @@ import logging
 import numbers
 import os
 import warnings
-from typing import Literal, Union
+from typing import Literal, Set, Union
 
 import fsspec
 import yaml
@@ -449,13 +449,15 @@ class VectorSchema(Parent):
 class Keyword(Parent):
     """Class for a Keyword."""
 
+    model_config = ConfigDict(frozen=True)
+
     name: str
     """The value of the keyword."""
     vocabulary: str = ''
     """A reference to a controlled vocabulary where the keyword is defined."""
     url: str = ''
     """The canonical URL for the keyword."""
-    aliases: list[str] = Field(default_factory=list)
+    aliases: tuple[str, ...] = ()
     """Alternate labels for the keyword that can be used instead of the name."""
 
 
@@ -729,7 +731,13 @@ class BaseResource(BaseMetadata):
             keywords (list): sequence of strings
 
         """
-        self.keywords = keywords
+        # Guard against duplicate keywords.
+        # A common pattern is to first get_keywords, then
+        # append new keywords, then set_keywords. This preserves
+        # words already in the metadata, but could add duplicates
+        # such as when invest writes metadata multiple times for
+        # the same file and appends keywords from the spec each time.
+        self.keywords = list(set(keywords))
 
     def get_keywords(self, include_aliases=False):
         """Get the keyword strings describing the dataset.

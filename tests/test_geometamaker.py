@@ -170,18 +170,20 @@ class ResourceAttributeTests(unittest.TestCase):
 
         resource = geometamaker.models.Resource()
         keyword = geometamaker.models.Keyword(
-            name='hazelnut',
-            vocabulary='snacks',
-            url='www.snacks.com/1234',
-            aliases=['filbert'])
-        resource.set_keywords(['foo', 'bar', keyword])
+            name='LAND USE/LAND COVER',
+            vocabulary='https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords',
+            url='https://cmr.earthdata.nasa.gov/kms/concept/e5815f58-8232-4c7f-b50d-ea71d73891a9',
+            aliases=['LAND USE LAND COVER'])
 
-        self.assertEqual(
+        # Add some duplicates and expect they get removed
+        resource.set_keywords(['foo', 'foo', 'bar', keyword, keyword])
+
+        self.assertCountEqual(
             resource.get_keywords(),
-            ['foo', 'bar', 'hazelnut'])
-        self.assertEqual(
+            ['foo', 'bar', 'LAND USE/LAND COVER'])
+        self.assertCountEqual(
             resource.get_keywords(include_aliases=True),
-            ['foo', 'bar', 'hazelnut', 'filbert'])
+            ['foo', 'bar', 'LAND USE/LAND COVER', 'LAND USE LAND COVER'])
 
     def test_set_and_get_placenames(self):
         """Test set and get placenames."""
