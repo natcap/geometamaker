@@ -551,7 +551,7 @@ class BaseMetadata(Parent):
         """
         if isinstance(other, BaseMetadata):
             updated_dict = _deep_update_dict(
-                self.model_dump(), other.model_dump())
+                self.model_dump(mode='json'), other.model_dump(mode='json'))
             obj = self.__class__(**updated_dict)
             # Private attributes are not pydantic fields.
             # They were excluded in model_dump so set them again
@@ -592,7 +592,7 @@ class Profile(BaseMetadata):
 
         """
         with open(target_path, 'w', encoding='utf-8') as file:
-            file.write(utils.yaml_dump(self.model_dump()))
+            file.write(utils.yaml_dump(self.model_dump(mode='json')))
 
 
 class BaseResource(BaseMetadata):
@@ -639,8 +639,8 @@ class BaseResource(BaseMetadata):
     """A digital object identifier for the resource."""
     edition: str = ''
     """A string representing the edition, or version, of the resource."""
-    keywords: list[Keyword | str] = Field(default_factory=list)
-    """A list of keywords that describe the subject-matter of the resource."""
+    keywords: Set[Keyword | str] = Field(default_factory=set)
+    """A set of keywords that describe the subject-matter of the resource."""
     lineage: str = ''
     """A text description of how the resource was created."""
     placenames: list[str] = Field(default_factory=list)
@@ -737,7 +737,7 @@ class BaseResource(BaseMetadata):
         # words already in the metadata, but could add duplicates
         # such as when invest writes metadata multiple times for
         # the same file and appends keywords from the spec each time.
-        self.keywords = list(set(keywords))
+        self.keywords = keywords
 
     def get_keywords(self, include_aliases=False):
         """Get the keyword strings describing the dataset.
@@ -868,7 +868,9 @@ class BaseResource(BaseMetadata):
             file.write(utils.yaml_dump(self._dump_for_write()))
 
     def _dump_for_write(self):
-        return self.model_dump(exclude={'metadata_path'})
+        return self.model_dump(
+            mode='json',  # 'python' cannot serialize sets containing models
+            exclude={'metadata_path'})
 
 
 class Resource(BaseResource):

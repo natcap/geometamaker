@@ -163,7 +163,7 @@ class ResourceAttributeTests(unittest.TestCase):
         resource.set_edition(version)
         self.assertEqual(resource.get_edition(), version)
 
-    def test_set_keywords(self):
+    def test_set_and_get_keywords(self):
         """Test set and get keywords."""
 
         import geometamaker
@@ -175,15 +175,16 @@ class ResourceAttributeTests(unittest.TestCase):
             url='https://cmr.earthdata.nasa.gov/kms/concept/e5815f58-8232-4c7f-b50d-ea71d73891a9',
             aliases=['LAND USE LAND COVER'])
 
-        # Add some duplicates and expect they get removed
-        resource.set_keywords(['foo', 'foo', 'bar', keyword, keyword])
+        resource.set_keywords(['foo', 'bar', keyword])
+        # Add some duplicates and expect they were excluded
+        resource.keywords.update(['foo', 'bar', keyword, 'baz'])
 
         self.assertCountEqual(
             resource.get_keywords(),
-            ['foo', 'bar', 'LAND USE/LAND COVER'])
+            ['foo', 'bar', 'LAND USE/LAND COVER', 'baz'])
         self.assertCountEqual(
             resource.get_keywords(include_aliases=True),
-            ['foo', 'bar', 'LAND USE/LAND COVER', 'LAND USE LAND COVER'])
+            ['foo', 'bar', 'LAND USE/LAND COVER', 'LAND USE LAND COVER', 'baz'])
 
     def test_set_and_get_placenames(self):
         """Test set and get placenames."""
@@ -267,6 +268,19 @@ class ResourceAttributeTests(unittest.TestCase):
         resource = geometamaker.models.Resource()
         resource.set_url(url)
         self.assertEqual(resource.get_url(), url)
+
+    def test_serializability_of_sets(self):
+        import geometamaker
+
+        resource = geometamaker.models.Resource()
+        keyword = geometamaker.models.Keyword(
+            name='LAND USE/LAND COVER',
+            vocabulary='https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords',
+            url='https://cmr.earthdata.nasa.gov/kms/concept/e5815f58-8232-4c7f-b50d-ea71d73891a9',
+            aliases=['LAND USE LAND COVER'])
+
+        resource.set_keywords(['foo', 'bar', keyword])
+        resource_dict = resource._dump_for_write()
 
 
 class GeometamakerTests(unittest.TestCase):
@@ -936,7 +950,7 @@ class GeometamakerTests(unittest.TestCase):
             yaml_string = file.read()
         yaml_dict = yaml.safe_load(yaml_string)
         yaml_dict['foo'] = 'bar'
-        yaml_dict['keywords'] = 'not a list'
+        yaml_dict['keywords'] = 'not a sequence'
         with open(resource.metadata_path, 'w') as file:
             file.write(utils.yaml_dump(yaml_dict))
 
@@ -947,7 +961,7 @@ class GeometamakerTests(unittest.TestCase):
         self.assertIn('foo', msg_dict)
         self.assertIn('Extra inputs are not permitted', msg_dict['foo'])
         self.assertIn('keywords', msg_dict)
-        self.assertIn('Input should be a valid list', msg_dict['keywords'])
+        self.assertIn('Input should be a valid set', msg_dict['keywords'])
 
     def test_describe_validate_dir(self):
         """Test describe and validate functions that walk directory tree."""
