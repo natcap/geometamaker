@@ -1,6 +1,22 @@
 Release History
 ===============
 
+Unreleased Changes
+------------------
+* Updated the data model for keywords. The ``keyword`` attribute
+  can contain strings, as it could previously, or instances of
+  ``geometamaker.models.Keyword``.
+  https://github.com/natcap/geometamaker/issues/119
+* Updated the data model for storing coordinate reference systems.
+  A ``crs`` attribute is now an instance of
+  ``geometamaker.models.CoordinateReferenceSystem``.
+  https://github.com/natcap/geometamaker/issues/88
+* Added ``geometamaker.load`` which can read a metadata YML file and
+  instantiate a resource of the appropriate type. This is faster than
+  calling ``geometamaker.describe`` on the original dataset, but ``load``
+  will not keep the metadata in sync with properties of the dataset while
+  ``describe`` will. https://github.com/natcap/geometamaker/issues/111
+
 0.3.3 (2026-06-08)
 ------------------
 * Fixed a bug where a raster attribute table stored in a DBF file
