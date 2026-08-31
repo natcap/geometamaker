@@ -47,13 +47,15 @@ jobs:
               pip
               gdal=${{ matrix.gdal-version }}
               setuptools
+              setuptools_scm
               python-build
               pytest
+              wheel
           environment-name: pyenv
 
       - name: Build and Install
         run: |
-            python -m build --wheel
+            python -m build --wheel --no-isolation
             python -m pip install $(find dist -name "*.whl")
 
       - name: Test with pytest
