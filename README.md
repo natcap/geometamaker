@@ -57,7 +57,7 @@ raster_resource.write()
 
 #### CSV or other pandas-readable table
 ```python
-import geometamker
+import geometamaker
 
 data_path = 'data/table.csv'
 table_resource = geometamaker.describe(data_path)
@@ -182,7 +182,7 @@ to all datasets they describe. Profiles can include `contact` information
 and/or `license` information.
 
 A profile can be saved to a configuration file so that it will be re-used
-everytime you use `geometamaker`.
+every time you use `geometamaker`.
 
 #### Python
 ```python
