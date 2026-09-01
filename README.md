@@ -84,7 +84,7 @@ vector_resource.set_keywords(['watersheds', 'drainages', 'hydrology'])
 
 # Keywords can also be instances of `models.Keyword`
 watershed_keyword = geometamaker.models.Keyword(
-    name='WATERSHED BOUDNARIES',
+    name='WATERSHED BOUNDARIES',
     vocabulary='https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords',
     url='https://cmr.earthdata.nasa.gov/kms/concept/b98123fc-6a87-4396-8e1a-ae7406e76ff6')
 
