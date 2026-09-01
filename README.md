@@ -1,4 +1,4 @@
-## Introduction
+# Introduction
 
 GeoMetaMaker is a Python library for creating human and machine-readable
 metadata for geospatial, tabular, and other data formats.
@@ -8,24 +8,24 @@ Supported datatypes include:
 * tabular formats supported by `pandas`
 * compressed archive formats `.zip, .tar, .gz, .tar.gz`
 
-## Installation
+# Installation
 
 `mamba install -c conda-forge geometamaker`
 
-## Basic Usage
+# Basic Usage
 
 This library comes with a command-line interface (CLI) called `geometamaker`.
 Many of the examples below show how to use the Python interface, and then
 how to do the same thing, if possible, using the CLI.
 
-### Creating & adding metadata to file:
+## Creating & adding metadata to file:
 Metadata is written to a sidecar `.yml` file. For example,
 * `data/dem.tif`
 * `data/dem.tif.yml`
 
-#### Python
+### Python
 
-##### A GDAL Vector
+#### A GDAL Vector
 ```python
 import geometamaker
 
@@ -42,7 +42,7 @@ vector_resource.set_field_description(
 vector_resource.write()
 ```
 
-##### A GDAL Raster
+#### A GDAL Raster
 ```python
 import geometamaker
 
@@ -55,7 +55,7 @@ raster_resource.set_band_description(
 raster_resource.write()
 ```
 
-##### CSV or other pandas-readable table
+#### CSV or other pandas-readable table
 ```python
 import geometamker
 
@@ -71,7 +71,7 @@ table_resource.set_spatial(raster_resource.spatial)
 table_resource.write()
 ```
 
-##### Adding Keywords
+#### Adding Keywords
 ```python
 import geometamaker
 
@@ -95,7 +95,7 @@ vector_resource.keywords.update(watershed_keyword)
 For a complete list of methods and attributes:
 https://geometamaker.readthedocs.io/en/latest/index.html
 
-#### CLI
+### CLI
 ```
 geometamaker describe data/watershed_gura.shp
 ```
@@ -105,13 +105,13 @@ user-input. If you create a metadata document with the CLI, you may wish
 to add these values manually by editing the 
 `watershed_gura.shp.yml` file in a text editor.
 
-### Creating metadata for a collection of files:
+## Creating metadata for a collection of files:
 Users can create a single metadata document to describe a directory of 
 files, with the option of excluding some files using a regular expression,
 or limiting the number of subdirectory levels to traverse using the
 `depth` or `-d` flag.
 
-#### Python
+### Python
 ```python
 import geometamaker
 
@@ -123,14 +123,14 @@ metadata = geometamaker.describe_collection(collection_path,
 metadata.write()
 ```
 
-#### CLI
+### CLI
 ```
 geometamaker describe -d 2 --exclude .*\.json$ data/invest-sample-data
 ```
 These examples will create `data/invest-sample-data/invest-sample-data-metadata.yml` 
 as well as create individual `.yml` documents for each dataset within the directory.
 
-#### Override the default filename of the collection's YML document
+### Override the default filename of the collection's YML document
 ```python
 geometamaker.describe_collection(collection_path, target_filename='README.yml')
 ```
@@ -140,11 +140,11 @@ geometamaker describe data/invest-sample-data -o README.yml
 ```
 These examples will create `data/invest-sample-data/README.yml`.
 
-### Validating a metadata document:
+## Validating a metadata document:
 If you have manually edited a `.yml` metadata document,
 it is a good idea to validate it for correct syntax, properties, and types.
 
-##### Python
+#### Python
 ```python
 import geometamaker
 
@@ -153,14 +153,14 @@ error = geometamaker.validate(document_path)
 print(error)
 ```
 
-##### CLI
+#### CLI
 ```
 geometamaker validate data/watershed_gura.shp.yml
 ```
 
-### Validating all metadata documents in a directory:
+## Validating all metadata documents in a directory:
 
-##### Python
+#### Python
 ```python
 import geometamaker
 
@@ -170,12 +170,12 @@ for filepath, msg in zip(yaml_files, messages):
     print(f'{filepath}: {msg}')
 ```
 
-##### CLI
+#### CLI
 ```
 geometamaker validate data
 ```
 
-### Configuring default values for metadata properties:
+## Configuring default values for metadata properties:
 
 Users can create a "profile" that will apply some common properties
 to all datasets they describe. Profiles can include `contact` information
@@ -184,7 +184,7 @@ and/or `license` information.
 A profile can be saved to a configuration file so that it will be re-used
 everytime you use `geometamaker`.
 
-##### Python
+#### Python
 ```python
 import geometamaker
 from geometamaker import models
@@ -207,7 +207,7 @@ config.save(profile)
 resource = geometamaker.describe('data/watershed_gura.shp')
 ```
 
-##### CLI
+#### CLI
 ```
 geometamaker config
 ```
