@@ -731,12 +731,6 @@ class BaseResource(BaseMetadata):
             keywords (list): sequence of strings
 
         """
-        # Guard against duplicate keywords.
-        # A common pattern is to first get_keywords, then
-        # append new keywords, then set_keywords. This preserves
-        # words already in the metadata, but could add duplicates
-        # such as when invest writes metadata multiple times for
-        # the same file and appends keywords from the spec each time.
         self.keywords = keywords
 
     def get_keywords(self, include_aliases=False):

@@ -19,27 +19,33 @@ Many of the examples below show how to use the Python interface, and then
 how to do the same thing, if possible, using the CLI.
 
 ### Creating & adding metadata to file:
+Metadata is written to a sidecar `.yml` file. For example,
+* `data/dem.tif`
+* `data/dem.tif.yml`
 
-##### Python
+#### Python
 
+##### A GDAL Vector
 ```python
 import geometamaker
 
-# For a vector:
 data_path = 'data/watershed_gura.shp'
 vector_resource = geometamaker.describe(data_path)
 
 vector_resource.set_title('My Dataset')
 vector_resource.set_description('all about my dataset')
-vector_resource.set_keywords(['hydrology', 'watersheds'])
 
 vector_resource.set_field_description(
     'field_name',  # the name of an actual field in the vector's table
     description='something about the field',
     units='mm')
 vector_resource.write()
+```
 
-# For a raster:
+##### A GDAL Raster
+```python
+import geometamaker
+
 data_path = 'data/dem.tif'
 raster_resource = geometamaker.describe(data_path)
 raster_resource.set_band_description(
@@ -47,8 +53,12 @@ raster_resource.set_band_description(
     description='something about the band',
     units='mm')
 raster_resource.write()
+```
 
-# For a CSV:
+##### CSV or other pandas-readable table
+```python
+import geometamker
+
 data_path = 'data/table.csv'
 table_resource = geometamaker.describe(data_path)
 table_resource.set_field_description(
@@ -60,10 +70,32 @@ table_resource.set_field_description(
 table_resource.set_spatial(raster_resource.spatial)
 table_resource.write()
 ```
+
+##### Adding Keywords
+```python
+import geometamaker
+
+data_path = 'data/watershed_gura.shp'
+vector_resource = geometamaker.describe(data_path)
+
+# Keywords can be simple strings. `set_keywords` will replace any
+# existing keywords with this list.
+vector_resource.set_keywords(['watersheds', 'drainages', 'hydrology'])
+
+# Keywords can also be instances of `models.Keyword`
+watershed_keyword = geometamaker.models.Keyword(
+    name='WATERSHED BOUDNARIES',
+    vocabulary='https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords',
+    url='https://cmr.earthdata.nasa.gov/kms/concept/b98123fc-6a87-4396-8e1a-ae7406e76ff6')
+
+# The `keywords` attribute is a `set`, so it has an `update` method
+vector_resource.keywords.update(watershed_keyword)
+```
+
 For a complete list of methods and attributes:
 https://geometamaker.readthedocs.io/en/latest/index.html
 
-##### CLI
+#### CLI
 ```
 geometamaker describe data/watershed_gura.shp
 ```
