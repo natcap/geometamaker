@@ -1,4 +1,4 @@
-## Introduction
+# Introduction
 
 GeoMetaMaker is a Python library for creating human and machine-readable
 metadata for geospatial, tabular, and other data formats.
@@ -8,38 +8,44 @@ Supported datatypes include:
 * tabular formats supported by `pandas`
 * compressed archive formats `.zip, .tar, .gz, .tar.gz`
 
-## Installation
+# Installation
 
 `mamba install -c conda-forge geometamaker`
 
-## Basic Usage
+# Basic Usage
 
 This library comes with a command-line interface (CLI) called `geometamaker`.
 Many of the examples below show how to use the Python interface, and then
 how to do the same thing, if possible, using the CLI.
 
-### Creating & adding metadata to file:
+## Creating & adding metadata to file:
+Metadata is written to a sidecar `.yml` file. For example,
+* `data/dem.tif`
+* `data/dem.tif.yml`
 
-##### Python
+### Python
 
+#### A GDAL Vector
 ```python
 import geometamaker
 
-# For a vector:
 data_path = 'data/watershed_gura.shp'
 vector_resource = geometamaker.describe(data_path)
 
 vector_resource.set_title('My Dataset')
 vector_resource.set_description('all about my dataset')
-vector_resource.set_keywords(['hydrology', 'watersheds'])
 
 vector_resource.set_field_description(
     'field_name',  # the name of an actual field in the vector's table
     description='something about the field',
     units='mm')
 vector_resource.write()
+```
 
-# For a raster:
+#### A GDAL Raster
+```python
+import geometamaker
+
 data_path = 'data/dem.tif'
 raster_resource = geometamaker.describe(data_path)
 raster_resource.set_band_description(
@@ -47,8 +53,12 @@ raster_resource.set_band_description(
     description='something about the band',
     units='mm')
 raster_resource.write()
+```
 
-# For a CSV:
+#### CSV or other pandas-readable table
+```python
+import geometamaker
+
 data_path = 'data/table.csv'
 table_resource = geometamaker.describe(data_path)
 table_resource.set_field_description(
@@ -60,10 +70,32 @@ table_resource.set_field_description(
 table_resource.set_spatial(raster_resource.spatial)
 table_resource.write()
 ```
+
+#### Adding Keywords
+```python
+import geometamaker
+
+data_path = 'data/watershed_gura.shp'
+vector_resource = geometamaker.describe(data_path)
+
+# Keywords can be simple strings. `set_keywords` will replace any
+# existing keywords with this list.
+vector_resource.set_keywords(['watersheds', 'drainages', 'hydrology'])
+
+# Keywords can also be instances of `models.Keyword`
+watershed_keyword = geometamaker.models.Keyword(
+    name='WATERSHED BOUNDARIES',
+    vocabulary='https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords',
+    url='https://cmr.earthdata.nasa.gov/kms/concept/b98123fc-6a87-4396-8e1a-ae7406e76ff6')
+
+# The `keywords` attribute is a `set`, so it has an `update` method
+vector_resource.keywords.update(watershed_keyword)
+```
+
 For a complete list of methods and attributes:
 https://geometamaker.readthedocs.io/en/latest/index.html
 
-##### CLI
+### CLI
 ```
 geometamaker describe data/watershed_gura.shp
 ```
@@ -73,13 +105,13 @@ user-input. If you create a metadata document with the CLI, you may wish
 to add these values manually by editing the 
 `watershed_gura.shp.yml` file in a text editor.
 
-### Creating metadata for a collection of files:
+## Creating metadata for a collection of files:
 Users can create a single metadata document to describe a directory of 
 files, with the option of excluding some files using a regular expression,
 or limiting the number of subdirectory levels to traverse using the
 `depth` or `-d` flag.
 
-#### Python
+### Python
 ```python
 import geometamaker
 
@@ -91,14 +123,14 @@ metadata = geometamaker.describe_collection(collection_path,
 metadata.write()
 ```
 
-#### CLI
+### CLI
 ```
 geometamaker describe -d 2 --exclude .*\.json$ data/invest-sample-data
 ```
 These examples will create `data/invest-sample-data/invest-sample-data-metadata.yml` 
 as well as create individual `.yml` documents for each dataset within the directory.
 
-#### Override the default filename of the collection's YML document
+### Override the default filename of the collection's YML document
 ```python
 geometamaker.describe_collection(collection_path, target_filename='README.yml')
 ```
@@ -108,11 +140,11 @@ geometamaker describe data/invest-sample-data -o README.yml
 ```
 These examples will create `data/invest-sample-data/README.yml`.
 
-### Validating a metadata document:
+## Validating a metadata document:
 If you have manually edited a `.yml` metadata document,
 it is a good idea to validate it for correct syntax, properties, and types.
 
-##### Python
+#### Python
 ```python
 import geometamaker
 
@@ -121,14 +153,14 @@ error = geometamaker.validate(document_path)
 print(error)
 ```
 
-##### CLI
+#### CLI
 ```
 geometamaker validate data/watershed_gura.shp.yml
 ```
 
-### Validating all metadata documents in a directory:
+## Validating all metadata documents in a directory:
 
-##### Python
+#### Python
 ```python
 import geometamaker
 
@@ -138,21 +170,21 @@ for filepath, msg in zip(yaml_files, messages):
     print(f'{filepath}: {msg}')
 ```
 
-##### CLI
+#### CLI
 ```
 geometamaker validate data
 ```
 
-### Configuring default values for metadata properties:
+## Configuring default values for metadata properties:
 
 Users can create a "profile" that will apply some common properties
 to all datasets they describe. Profiles can include `contact` information
 and/or `license` information.
 
 A profile can be saved to a configuration file so that it will be re-used
-everytime you use `geometamaker`.
+every time you use `geometamaker`.
 
-##### Python
+#### Python
 ```python
 import geometamaker
 from geometamaker import models
@@ -175,7 +207,7 @@ config.save(profile)
 resource = geometamaker.describe('data/watershed_gura.shp')
 ```
 
-##### CLI
+#### CLI
 ```
 geometamaker config
 ```

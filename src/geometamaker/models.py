@@ -4,12 +4,12 @@ import logging
 import numbers
 import os
 import warnings
-from typing import Literal, Union
+from typing import Literal, Set, Union
 
 import fsspec
 import yaml
 from osgeo import gdal, osr
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic import model_validator
 from pydantic.dataclasses import dataclass
 
@@ -58,7 +58,7 @@ def _migrate_schema(yaml_dict, validation_error):
         raise validation_error
     for e in validation_error.errors():
         # Migrate vector metadata that pre-dates 'layers'
-        if e['type'] == 'missing' and e['loc'] == ('data_model', 'layers'):
+        if e['loc'] == ('data_model', 'layers') and e['type'] == 'missing':
             warnings.warn(
                 "A vector 'data_model' must include 'layers'. "
                 "In the future, the absence of a 'layers' attribute "
@@ -76,7 +76,7 @@ def _migrate_schema(yaml_dict, validation_error):
             yaml_dict['data_model'] = {'layers': [layer]}
 
         # Migrate metadata that pre-dates CoordinateReferenceSystem
-        if e['type'] == 'model_type' and e['loc'] == ('spatial', 'crs'):
+        if e['loc'] == ('spatial', 'crs') and e['type'] == 'model_type':
             warnings.warn(
                 "'spatial.crs' must be a valid dictionary or instance of "
                 "CoordinateReferenceSystem. "
@@ -446,6 +446,21 @@ class VectorSchema(Parent):
     """Metadata key:value pairs stored in the GDAL vector object."""
 
 
+class Keyword(Parent):
+    """Class for a Keyword."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    """The value of the keyword."""
+    vocabulary: str = ''
+    """A reference to a controlled vocabulary where the keyword is defined."""
+    url: str = ''
+    """The canonical URL for the keyword."""
+    aliases: tuple[str, ...] = ()
+    """Alternate labels for the keyword that can be used instead of the name."""
+
+
 class BaseMetadata(Parent):
     """A class for the things shared by Resource and Profile."""
 
@@ -536,7 +551,7 @@ class BaseMetadata(Parent):
         """
         if isinstance(other, BaseMetadata):
             updated_dict = _deep_update_dict(
-                self.model_dump(), other.model_dump())
+                self.model_dump(mode='json'), other.model_dump(mode='json'))
             obj = self.__class__(**updated_dict)
             # Private attributes are not pydantic fields.
             # They were excluded in model_dump so set them again
@@ -577,7 +592,7 @@ class Profile(BaseMetadata):
 
         """
         with open(target_path, 'w', encoding='utf-8') as file:
-            file.write(utils.yaml_dump(self.model_dump()))
+            file.write(utils.yaml_dump(self.model_dump(mode='json')))
 
 
 class BaseResource(BaseMetadata):
@@ -624,8 +639,8 @@ class BaseResource(BaseMetadata):
     """A digital object identifier for the resource."""
     edition: str = ''
     """A string representing the edition, or version, of the resource."""
-    keywords: list[str] = Field(default_factory=list)
-    """A list of keywords that describe the subject-matter of the resource."""
+    keywords: Set[Keyword | str] = Field(default_factory=set)
+    """A set of keywords that describe the subject-matter of the resource."""
     lineage: str = ''
     """A text description of how the resource was created."""
     placenames: list[str] = Field(default_factory=list)
@@ -718,14 +733,27 @@ class BaseResource(BaseMetadata):
         """
         self.keywords = keywords
 
-    def get_keywords(self):
-        """Get the keywords describing the dataset.
+    def get_keywords(self, include_aliases=False):
+        """Get the keyword strings describing the dataset.
+
+        Args:
+            include_aliases (boolean): if true include keyword aliases in the
+                returned list
 
         Returns:
             list
 
         """
-        return self.keywords
+        keywords = []
+        if self.keywords:
+            for keyword in self.keywords:
+                if isinstance(keyword, Keyword):
+                    keywords.append(keyword.name)
+                    if include_aliases:
+                        keywords.extend(keyword.aliases)
+                elif isinstance(keyword, str):
+                    keywords.append(keyword)
+        return keywords
 
     def set_lineage(self, statement):
         """Set the lineage statement for the dataset.
@@ -834,7 +862,9 @@ class BaseResource(BaseMetadata):
             file.write(utils.yaml_dump(self._dump_for_write()))
 
     def _dump_for_write(self):
-        return self.model_dump(exclude={'metadata_path'})
+        return self.model_dump(
+            mode='json',  # 'python' cannot serialize sets containing models
+            exclude={'metadata_path'})
 
 
 class Resource(BaseResource):

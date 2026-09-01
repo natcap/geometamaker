@@ -89,8 +89,202 @@ def create_raster(
     raster = None
 
 
+class ResourceAttributeTests(unittest.TestCase):
+    """Tests for attributes shared by all resource types."""
+
+    def setUp(self):
+        self.workspace_dir = tempfile.mkdtemp(
+            suffix='\U0001f60e')  # ensure unicode support
+        self.patcher = patch('geometamaker.config.platformdirs.user_config_dir')
+        self.mock_user_config_dir = self.patcher.start()
+        self.mock_user_config_dir.return_value = self.workspace_dir
+
+    def tearDown(self):
+        self.patcher.stop()
+        shutil.rmtree(self.workspace_dir)
+
+    def test_set_description(self):
+        """Test set and get a description for a resource."""
+
+        import geometamaker
+
+        description = 'foo bar'
+        resource = geometamaker.models.Resource()
+        resource.set_description(description)
+        self.assertEqual(resource.get_description(), description)
+
+    def test_set_citation(self):
+        """Test set and get a citation for resource."""
+
+        import geometamaker
+
+        citation = 'foo bar'
+        resource = geometamaker.models.Resource()
+        resource.set_citation(citation)
+        self.assertEqual(resource.get_citation(), citation)
+
+    def test_set_contact(self):
+        """Test set and get a contact section for a resource."""
+
+        import geometamaker
+
+        org = 'natcap'
+        name = 'nat'
+        position = 'boss'
+        email = 'abc@def'
+
+        resource = geometamaker.models.Resource()
+        resource.set_contact(
+            organization=org, individual_name=name,
+            position_name=position, email=email)
+        contact = resource.get_contact()
+        self.assertEqual(contact.organization, org)
+        self.assertEqual(contact.individual_name, name)
+        self.assertEqual(contact.position_name, position)
+        self.assertEqual(contact.email, email)
+
+    def test_set_doi(self):
+        """Test set and get a doi."""
+
+        import geometamaker
+
+        doi = '10.foo/bar'
+        resource = geometamaker.models.Resource()
+        resource.set_doi(doi)
+        self.assertEqual(resource.get_doi(), doi)
+
+    def test_set_get_edition(self):
+        """Test set and get dataset edition."""
+
+        import geometamaker
+
+        resource = geometamaker.models.Resource()
+        version = '3.14'
+        resource.set_edition(version)
+        self.assertEqual(resource.get_edition(), version)
+
+    def test_set_and_get_keywords(self):
+        """Test set and get keywords."""
+
+        import geometamaker
+
+        resource = geometamaker.models.Resource()
+        keyword = geometamaker.models.Keyword(
+            name='LAND USE/LAND COVER',
+            vocabulary='https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords',
+            url='https://cmr.earthdata.nasa.gov/kms/concept/e5815f58-8232-4c7f-b50d-ea71d73891a9',
+            aliases=['LAND USE LAND COVER'])
+
+        resource.set_keywords(['foo', 'bar', keyword])
+        # Add some duplicates and expect they were excluded
+        resource.keywords.update(['foo', 'bar', keyword, 'baz'])
+
+        self.assertCountEqual(
+            resource.get_keywords(),
+            ['foo', 'bar', 'LAND USE/LAND COVER', 'baz'])
+        self.assertCountEqual(
+            resource.get_keywords(include_aliases=True),
+            ['foo', 'bar', 'LAND USE/LAND COVER', 'LAND USE LAND COVER', 'baz'])
+
+    def test_set_and_get_placenames(self):
+        """Test set and get placenames."""
+
+        import geometamaker
+
+        resource = geometamaker.models.Resource()
+        resource.set_placenames(['Alaska', 'North Pacific'])
+
+        self.assertEqual(
+            resource.get_placenames(),
+            ['Alaska', 'North Pacific'])
+
+    def test_set_and_get_license(self):
+        """Test set and get license for resource."""
+        import geometamaker
+
+        resource = geometamaker.models.Resource()
+        title = 'CC-BY-4.0'
+        path = 'https://creativecommons.org/licenses/by/4.0/'
+
+        resource.set_license(title=title)
+
+        self.assertEqual(
+            resource.get_license().__dict__, {'title': title, 'path': ''})
+
+        resource.set_license(path=path)
+        self.assertEqual(
+            resource.get_license().__dict__, {'title': '', 'path': path})
+
+        resource.set_license(title=title, path=path)
+        self.assertEqual(
+            resource.get_license().__dict__, {'title': title, 'path': path})
+
+        resource.set_license()
+        self.assertEqual(
+            resource.get_license().__dict__, {'title': '', 'path': ''})
+
+    def test_set_and_get_lineage(self):
+        """Test set and get lineage of a resource."""
+        import geometamaker
+
+        resource = geometamaker.models.Resource()
+        statement = 'a lineage statment\n is long and has\n many lines.'
+
+        resource.set_lineage(statement)
+        self.assertEqual(resource.get_lineage(), statement)
+
+    def test_lineage_roundtrip(self):
+        """Test writing and loading yaml with block indicator."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
+        numpy_type = numpy.int16
+        create_raster(numpy_type, datasource_path)
+
+        resource = geometamaker.describe(datasource_path)
+
+        statement = 'a lineage statment\n is long and has\n many lines.'
+        resource.set_lineage(statement)
+        resource.write()
+
+        new_resource = geometamaker.describe(datasource_path)
+        self.assertEqual(new_resource.get_lineage(), statement)
+
+    def test_set_and_get_purpose(self):
+        """Test set and get purpose of resource."""
+        import geometamaker
+
+        resource = geometamaker.models.Resource()
+        purpose = 'foo'
+        resource.set_purpose(purpose)
+        self.assertEqual(resource.get_purpose(), purpose)
+
+    def test_set_url(self):
+        """Test set and get a url."""
+
+        import geometamaker
+
+        url = 'http://foo/bar'
+        resource = geometamaker.models.Resource()
+        resource.set_url(url)
+        self.assertEqual(resource.get_url(), url)
+
+    def test_serializability_of_sets(self):
+        import geometamaker
+
+        resource = geometamaker.models.Resource()
+        keyword = geometamaker.models.Keyword(
+            name='LAND USE/LAND COVER',
+            vocabulary='https://gcmd.earthdata.nasa.gov/kms/concepts/concept_scheme/sciencekeywords',
+            url='https://cmr.earthdata.nasa.gov/kms/concept/e5815f58-8232-4c7f-b50d-ea71d73891a9',
+            aliases=['LAND USE LAND COVER'])
+
+        resource.set_keywords(['foo', 'bar', keyword])
+        resource_dict = resource._dump_for_write()
+
+
 class GeometamakerTests(unittest.TestCase):
-    """Tests for geometamaker."""
+    """Tests for geometamaker.geometamaker."""
 
     def setUp(self):
         """Override setUp function to create temp workspace directory."""
@@ -566,161 +760,6 @@ class GeometamakerTests(unittest.TestCase):
                                             os.path.basename(vector_path)])
         self.assertEqual(resource.compression, "gz")
 
-    def test_set_description(self):
-        """Test set and get a description for a resource."""
-
-        import geometamaker
-
-        description = 'foo bar'
-        resource = geometamaker.models.Resource()
-        resource.set_description(description)
-        self.assertEqual(resource.get_description(), description)
-
-    def test_set_citation(self):
-        """Test set and get a citation for resource."""
-
-        import geometamaker
-
-        citation = 'foo bar'
-        resource = geometamaker.models.Resource()
-        resource.set_citation(citation)
-        self.assertEqual(resource.get_citation(), citation)
-
-    def test_set_contact(self):
-        """Test set and get a contact section for a resource."""
-
-        import geometamaker
-
-        org = 'natcap'
-        name = 'nat'
-        position = 'boss'
-        email = 'abc@def'
-
-        resource = geometamaker.models.Resource()
-        resource.set_contact(
-            organization=org, individual_name=name,
-            position_name=position, email=email)
-        contact = resource.get_contact()
-        self.assertEqual(contact.organization, org)
-        self.assertEqual(contact.individual_name, name)
-        self.assertEqual(contact.position_name, position)
-        self.assertEqual(contact.email, email)
-
-    def test_set_doi(self):
-        """Test set and get a doi."""
-
-        import geometamaker
-
-        doi = '10.foo/bar'
-        resource = geometamaker.models.Resource()
-        resource.set_doi(doi)
-        self.assertEqual(resource.get_doi(), doi)
-
-    def test_set_get_edition(self):
-        """Test set and get dataset edition."""
-
-        import geometamaker
-
-        resource = geometamaker.models.Resource()
-        version = '3.14'
-        resource.set_edition(version)
-        self.assertEqual(resource.get_edition(), version)
-
-    def test_set_keywords(self):
-        """Test set and get keywords."""
-
-        import geometamaker
-
-        resource = geometamaker.models.Resource()
-        resource.set_keywords(['foo', 'bar'])
-
-        self.assertEqual(
-            resource.get_keywords(),
-            ['foo', 'bar'])
-
-    def test_set_and_get_placenames(self):
-        """Test set and get placenames."""
-
-        import geometamaker
-
-        resource = geometamaker.models.Resource()
-        resource.set_placenames(['Alaska', 'North Pacific'])
-
-        self.assertEqual(
-            resource.get_placenames(),
-            ['Alaska', 'North Pacific'])
-
-    def test_set_and_get_license(self):
-        """Test set and get license for resource."""
-        import geometamaker
-
-        resource = geometamaker.models.Resource()
-        title = 'CC-BY-4.0'
-        path = 'https://creativecommons.org/licenses/by/4.0/'
-
-        resource.set_license(title=title)
-
-        self.assertEqual(
-            resource.get_license().__dict__, {'title': title, 'path': ''})
-
-        resource.set_license(path=path)
-        self.assertEqual(
-            resource.get_license().__dict__, {'title': '', 'path': path})
-
-        resource.set_license(title=title, path=path)
-        self.assertEqual(
-            resource.get_license().__dict__, {'title': title, 'path': path})
-
-        resource.set_license()
-        self.assertEqual(
-            resource.get_license().__dict__, {'title': '', 'path': ''})
-
-    def test_set_and_get_lineage(self):
-        """Test set and get lineage of a resource."""
-        import geometamaker
-
-        resource = geometamaker.models.Resource()
-        statement = 'a lineage statment\n is long and has\n many lines.'
-
-        resource.set_lineage(statement)
-        self.assertEqual(resource.get_lineage(), statement)
-
-    def test_lineage_roundtrip(self):
-        """Test writing and loading yaml with block indicator."""
-        import geometamaker
-
-        datasource_path = os.path.join(self.workspace_dir, 'raster.tif')
-        numpy_type = numpy.int16
-        create_raster(numpy_type, datasource_path)
-
-        resource = geometamaker.describe(datasource_path)
-
-        statement = 'a lineage statment\n is long and has\n many lines.'
-        resource.set_lineage(statement)
-        resource.write()
-
-        new_resource = geometamaker.describe(datasource_path)
-        self.assertEqual(new_resource.get_lineage(), statement)
-
-    def test_set_and_get_purpose(self):
-        """Test set and get purpose of resource."""
-        import geometamaker
-
-        resource = geometamaker.models.Resource()
-        purpose = 'foo'
-        resource.set_purpose(purpose)
-        self.assertEqual(resource.get_purpose(), purpose)
-
-    def test_set_url(self):
-        """Test set and get a url."""
-
-        import geometamaker
-
-        url = 'http://foo/bar'
-        resource = geometamaker.models.Resource()
-        resource.set_url(url)
-        self.assertEqual(resource.get_url(), url)
-
     def test_preexisting_metadata_document(self):
         """Test reading and ammending an existing Metadata document."""
         import geometamaker
@@ -911,7 +950,7 @@ class GeometamakerTests(unittest.TestCase):
             yaml_string = file.read()
         yaml_dict = yaml.safe_load(yaml_string)
         yaml_dict['foo'] = 'bar'
-        yaml_dict['keywords'] = 'not a list'
+        yaml_dict['keywords'] = 'not a sequence'
         with open(resource.metadata_path, 'w') as file:
             file.write(utils.yaml_dump(yaml_dict))
 
@@ -922,7 +961,7 @@ class GeometamakerTests(unittest.TestCase):
         self.assertIn('foo', msg_dict)
         self.assertIn('Extra inputs are not permitted', msg_dict['foo'])
         self.assertIn('keywords', msg_dict)
-        self.assertIn('Input should be a valid list', msg_dict['keywords'])
+        self.assertIn('Input should be a valid set', msg_dict['keywords'])
 
     def test_describe_validate_dir(self):
         """Test describe and validate functions that walk directory tree."""
