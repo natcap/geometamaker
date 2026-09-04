@@ -16,6 +16,9 @@ Unreleased Changes
   calling ``geometamaker.describe`` on the original dataset, but ``load``
   will not keep the metadata in sync with properties of the dataset while
   ``describe`` will. https://github.com/natcap/geometamaker/issues/111
+* Fixed a bug where describing a CSV that was encoded with a UTF-8
+  byte-order-mark would raise a KeyError when accessing the first field.
+  https://github.com/natcap/geometamaker/issues/143
 
 0.3.3 (2026-06-08)
 ------------------
@@ -29,13 +32,11 @@ Unreleased Changes
   file formats for tables are limited to files with '.csv' or '.tsv' extensions.
   https://github.com/natcap/geometamaker/issues/130
 
-
 0.3.1 (2026-04-13)
 ------------------
 * Version 0.3.0 was unintentionally incompatible with GDAL < 3.12.0. 
   This bugfix restores compatibility and adds tests against GDAL 3.11
   and GDAL 3.12. https://github.com/natcap/geometamaker/issues/132
-
 
 0.3.0 (2026-04-10)
 ------------------
