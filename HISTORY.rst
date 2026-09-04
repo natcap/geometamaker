@@ -1,7 +1,7 @@
 Release History
 ===============
 
-Unreleased Changes
+0.4.0 (2026-09-04)
 ------------------
 * Updated the data model for keywords. The ``keyword`` attribute
   can contain strings, as it could previously, or instances of
