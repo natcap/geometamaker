@@ -45,7 +45,8 @@ TABLE_EXTENSIONS = ['.csv', '.tsv']
 READ_CSV_KWARGS = {
     'index_col': False,
     'sep': None,  # let the python engine guess the separator
-    'engine': 'python'
+    'engine': 'python',
+    'encoding': 'utf-8-sig'  # handles UTF-8 with or without BOM.
 }
 
 

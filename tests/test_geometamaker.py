@@ -420,6 +420,27 @@ class GeometamakerTests(unittest.TestCase):
         self.assertEqual(resource.get_field_description('Ints').type, 'integer')
         self.assertEqual(resource.get_field_description('Reals').type, 'floating')
 
+    def test_describe_csv_with_bom(self):
+        """Test describe and accessing field for CSV with a BOM."""
+        import geometamaker
+
+        datasource_path = os.path.join(self.workspace_dir, 'data.csv')
+        field_names = ['FieldA', 'FieldB']
+        row1 = ['foo', 1]
+
+        # This encoding adds a BOM.
+        # The test confirms describe decodes it and it does not interfere with
+        # accessing the first field by name.
+        with open(datasource_path, 'w', encoding='utf-8-sig') as file:
+            writer = csv.writer(file)
+            writer.writerow(field_names)
+            writer.writerow(row1)
+
+        resource = geometamaker.describe(datasource_path)
+        resource.set_field_description('FieldA', description='A description')
+        desc = resource.get_field_description('FieldA')
+        self.assertEqual(desc.description, 'A description')
+
     def test_describe_vector(self):
         """Test basic vector."""
         import geometamaker
