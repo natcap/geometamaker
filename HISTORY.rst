@@ -1,6 +1,12 @@
 Release History
 ===============
 
+Unreleased Changes
+------------------
+* Enabled the ``geometamaker`` CLI when the package itself is invoked
+  from the command-line: ``python -m geometamaker <args>``.
+  https://github.com/natcap/geometamaker/issues/152
+
 0.4.0 (2026-09-04)
 ------------------
 * Updated the data model for keywords. The ``keyword`` attribute
